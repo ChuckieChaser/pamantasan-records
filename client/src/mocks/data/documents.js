@@ -4,10 +4,10 @@ import { DEPARTMENT_CCS_ID } from './departments';
 import { ADMINISTRATOR_ID, DIRECTOR_ID, MEMBER_ID } from './users';
 
 // --- Global Constants ---
-export const DOCUMENT_1_ID = 'doc11111-1111-1111-1111-111111111111';
-export const DOCUMENT_2_ID = 'doc22222-2222-2222-2222-222222222222';
-export const DOCUMENT_3_ID = 'doc33333-3333-3333-3333-333333333333';
-export const DOCUMENT_REQUEST_1_ID = 'req11111-1111-1111-1111-111111111111';
+export const DOCUMENT_1_ID = 'd0c11111-1111-4111-8111-111111111111';
+export const DOCUMENT_2_ID = 'd0c22222-2222-4222-8222-222222222222';
+export const DOCUMENT_3_ID = 'd0c33333-3333-4333-8333-333333333333';
+export const DOCUMENT_REQUEST_1_ID = '4e911111-1111-4111-8111-111111111111';
 
 const NOW = new Date().toISOString();
 
@@ -56,7 +56,7 @@ const rawDocuments = [
 
 const rawDocumentVersions = [
     {
-        id: 'ver11111-1111-1111-1111-111111111111',
+        id: '7e511111-1111-4111-8111-111111111111',
         document_id: DOCUMENT_1_ID,
         uploader_id: ADMINISTRATOR_ID,
         rejecter_id: null,
@@ -71,7 +71,7 @@ const rawDocumentVersions = [
         rejected_at: null,
     },
     {
-        id: 'ver22222-2222-2222-2222-222222222222',
+        id: '7e522222-2222-4222-8222-222222222222',
         document_id: DOCUMENT_2_ID,
         uploader_id: ADMINISTRATOR_ID,
         rejecter_id: null,
@@ -86,7 +86,7 @@ const rawDocumentVersions = [
         rejected_at: null,
     },
     {
-        id: 'ver33333-3333-3333-3333-333333333333',
+        id: '7e533333-3333-4333-8333-333333333333',
         document_id: DOCUMENT_3_ID,
         uploader_id: ADMINISTRATOR_ID,
         rejecter_id: null,
@@ -116,14 +116,14 @@ const rawDocumentRequests = [
 
 const rawDocumentRequestMessages = [
     {
-        id: 'msg11111-1111-1111-1111-111111111111',
+        id: '11151111-1111-4111-8111-111111111111',
         document_request_id: DOCUMENT_REQUEST_1_ID,
         user_id: MEMBER_ID,
         message: 'Can I get the 2025 midterms for reference?',
         created_at: NOW,
     },
     {
-        id: 'msg22222-2222-2222-2222-222222222222',
+        id: '11152222-2222-4222-8222-222222222222',
         document_request_id: DOCUMENT_REQUEST_1_ID,
         user_id: ADMINISTRATOR_ID,
         message: 'Sure, I have attached them to this ticket.',
@@ -133,7 +133,7 @@ const rawDocumentRequestMessages = [
 
 const rawDocumentShares = [
     {
-        id: 'sha11111-1111-1111-1111-111111111111',
+        id: '54a11111-1111-4111-8111-111111111111',
         document_id: DOCUMENT_1_ID,
         sharer_id: DIRECTOR_ID,
         recipient_id: null,
@@ -142,7 +142,7 @@ const rawDocumentShares = [
         created_at: NOW,
     },
     {
-        id: 'sha22222-2222-2222-2222-222222222222',
+        id: '54a22222-2222-4222-8222-222222222222',
         document_id: DOCUMENT_2_ID,
         sharer_id: DIRECTOR_ID,
         recipient_id: MEMBER_ID,
@@ -151,7 +151,7 @@ const rawDocumentShares = [
         created_at: NOW,
     },
     {
-        id: 'sha33333-3333-3333-3333-333333333333',
+        id: '54a33333-3333-4333-8333-333333333333',
         document_id: DOCUMENT_3_ID,
         sharer_id: ADMINISTRATOR_ID,
         recipient_id: MEMBER_ID,

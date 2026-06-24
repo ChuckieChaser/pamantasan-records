@@ -1,4 +1,4 @@
-import { documentsData, documentVersionsData, documentRequestsData, documentRequestMessagesData, documentSharesData } from '../data/documents';
+import { documentsData, documentVersionsData, documentRequestsData, documentRequestMessagesData, documentSharesData } from '../data';
 
 const DELAY_MS = 500;
 

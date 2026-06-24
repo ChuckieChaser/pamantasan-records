@@ -1,4 +1,4 @@
-import { auditLogsData } from '../data/audit_logs';
+import { auditLogsData } from '../data';
 
 const DELAY_MS = 500;
 

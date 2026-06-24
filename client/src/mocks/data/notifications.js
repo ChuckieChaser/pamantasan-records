@@ -5,9 +5,9 @@ import { DOCUMENT_1_ID } from './documents';
 import { COORDINATOR_REQUEST_1_ID } from './coordinators';
 
 // --- Global Constants ---
-export const NOTIFICATION_1_ID = 'not11111-1111-1111-1111-111111111111';
-export const NOTIFICATION_2_ID = 'not22222-2222-2222-2222-222222222222';
-export const NOTIFICATION_3_ID = 'not33333-3333-3333-3333-333333333333';
+export const NOTIFICATION_1_ID = '11071111-1111-4111-8111-111111111111';
+export const NOTIFICATION_2_ID = '11072222-2222-4222-8222-222222222222';
+export const NOTIFICATION_3_ID = '11073333-3333-4333-8333-333333333333';
 
 const NOW = new Date().toISOString();
 const TEN_MINUTES_AGO = new Date(Date.now() - 600000).toISOString();

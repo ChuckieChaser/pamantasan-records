@@ -1,4 +1,4 @@
-import { departmentsData } from '../data/departments';
+import { departmentsData } from '../data';
 
 const DELAY_MS = 500;
 

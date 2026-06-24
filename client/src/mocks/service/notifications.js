@@ -1,4 +1,4 @@
-import { notificationsData } from '../data/notifications';
+import { notificationsData } from '../data';
 
 const DELAY_MS = 500;
 

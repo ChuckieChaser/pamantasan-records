@@ -1,9 +1,9 @@
 import { DepartmentsSchema } from '../../schemas';
 
 // --- Global Constants ---
-export const DEPARTMENT_OUR_ID = 'd1111111-1111-1111-1111-111111111111';
-export const DEPARTMENT_HRO_ID = 'd5555555-5555-5555-5555-555555555555';
-export const DEPARTMENT_CCS_ID = 'd2222222-2222-2222-2222-222222222222';
+export const DEPARTMENT_OUR_ID = 'd1111111-1111-4111-8111-111111111111';
+export const DEPARTMENT_HRO_ID = 'd5555555-5555-4555-8555-555555555555';
+export const DEPARTMENT_CCS_ID = 'd2222222-2222-4222-8222-222222222222';
 
 // --- Raw Data ---
 const rawDepartments = [

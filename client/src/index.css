@@ -4,7 +4,6 @@
 @import 'tailwindcss';
 
 @theme {
-    /* Color Palette */
     --color-background: var(--color-zinc-50);
     --color-surface: var(--color-white);
     --color-surface-hover: var(--color-zinc-100);
@@ -22,7 +21,12 @@
     --color-error-bg: var(--color-red-50);
     --color-error-text: var(--color-red-700);
 
-    @variant dark {
+    --font-heading: 'Fraunces', serif;
+    --font-body: 'Urbanist', sans-serif;
+}
+
+@layer base {
+    .dark {
         --color-background: var(--color-zinc-950);
         --color-surface: var(--color-zinc-900);
         --color-surface-hover: var(--color-zinc-800);
@@ -41,12 +45,6 @@
         --color-error-text: var(--color-red-400);
     }
 
-    /* Typography */
-    --font-heading: 'Fraunces', serif;
-    --font-body: 'Urbanist', sans-serif;
-}
-
-@layer base {
     html {
         scroll-behavior: smooth;
         scrollbar-gutter: stable;

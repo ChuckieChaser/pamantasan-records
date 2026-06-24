@@ -4,9 +4,9 @@ import { DEPARTMENT_CCS_ID } from './departments';
 import { COORDINATOR_ID, ADMINISTRATOR_ID } from './users';
 
 // --- Global Constants ---
-export const COORDINATOR_REQUEST_1_ID = 'crq11111-1111-1111-1111-111111111111';
-export const COORDINATOR_REQUEST_2_ID = 'crq22222-2222-2222-2222-222222222222';
-export const COORDINATOR_REQUEST_3_ID = 'crq33333-3333-3333-3333-333333333333';
+export const COORDINATOR_REQUEST_1_ID = 'c0011111-1111-4111-8111-111111111111';
+export const COORDINATOR_REQUEST_2_ID = 'c0022222-2222-4222-8222-222222222222';
+export const COORDINATOR_REQUEST_3_ID = 'c0033333-3333-4333-8333-333333333333';
 
 const NOW = new Date().toISOString();
 
@@ -55,7 +55,7 @@ const rawCoordinatorRequests = [
         reviewer_id: ADMINISTRATOR_ID,
         action: COORDINATOR_REQUESTS_ACTION.USER_SUSPEND,
         data: {
-            user_id: 'u6666666-6666-6666-6666-666666666666',
+            user_id: '66666666-6666-4666-8666-666666666666',
             reason: 'Violation of IT security protocol regarding shared passwords.',
         },
         status: COORDINATOR_REQUESTS_STATUS.REJECTED,

@@ -1,4 +1,4 @@
-import { coordinatorRequestsData } from '../data/coordinators';
+import { coordinatorRequestsData } from '../data';
 
 const DELAY_MS = 500;
 

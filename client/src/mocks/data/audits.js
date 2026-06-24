@@ -5,9 +5,9 @@ import { DOCUMENT_1_ID, DOCUMENT_REQUEST_1_ID } from './documents';
 import { COORDINATOR_REQUEST_2_ID } from './coordinators';
 
 // --- Global Constants ---
-export const AUDIT_LOG_1_ID = 'aud11111-1111-1111-1111-111111111111';
-export const AUDIT_LOG_2_ID = 'aud22222-2222-2222-2222-222222222222';
-export const AUDIT_LOG_3_ID = 'aud33333-3333-3333-3333-333333333333';
+export const AUDIT_LOG_1_ID = 'a0d11111-1111-4111-8111-111111111111';
+export const AUDIT_LOG_2_ID = 'a0d22222-2222-4222-8222-222222222222';
+export const AUDIT_LOG_3_ID = 'a0d33333-3333-4333-8333-333333333333';
 
 const NOW = new Date().toISOString();
 

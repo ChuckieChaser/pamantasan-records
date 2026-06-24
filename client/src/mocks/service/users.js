@@ -1,4 +1,4 @@
-import { usersData, userCredentialsData, userSettingsData, userSessionsData } from '../data/users';
+import { usersData, userCredentialsData, userSettingsData, userSessionsData } from '../data';
 
 const DELAY_MS = 500;
 

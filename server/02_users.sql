@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS users (
 
     role system_users_role NOT NULL,
     email VARCHAR(255) NOT NULL,
+    avatar_path TEXT NULL,
     first_name VARCHAR(100) NOT NULL,
     middle_name VARCHAR(100) NULL,
     last_name VARCHAR(100) NOT NULL,

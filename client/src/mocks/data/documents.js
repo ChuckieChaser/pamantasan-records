@@ -162,8 +162,8 @@ const rawDocumentShares = [
 ];
 
 // --- Strict Validation ---
-export const documentsData = rawDocuments.map((document) => DocumentsSchema.parse(document));
-export const documentVersionsData = rawDocumentVersions.map((documentVersion) => DocumentVersionsSchema.parse(documentVersion));
-export const documentRequestsData = rawDocumentRequests.map((documentRequest) => DocumentRequestsSchema.parse(documentRequest));
-export const documentRequestMessagesData = rawDocumentRequestMessages.map((documentRequestMessage) => DocumentRequestMessagesSchema.parse(documentRequestMessage));
-export const documentSharesData = rawDocumentShares.map((documentShare) => DocumentSharesSchema.parse(documentShare));
+export const documentsData = rawDocuments.map((d) => DocumentsSchema.parse(d));
+export const documentVersionsData = rawDocumentVersions.map((dv) => DocumentVersionsSchema.parse(dv));
+export const documentRequestsData = rawDocumentRequests.map((dr) => DocumentRequestsSchema.parse(dr));
+export const documentRequestMessagesData = rawDocumentRequestMessages.map((drm) => DocumentRequestMessagesSchema.parse(drm));
+export const documentSharesData = rawDocumentShares.map((ds) => DocumentSharesSchema.parse(ds));

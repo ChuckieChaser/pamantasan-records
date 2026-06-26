@@ -25,11 +25,12 @@ const rawCoordinatorRequests = [
             first_name: 'Ana',
             middle_name: null,
             last_name: 'Dizon',
+            avatar_path: null,
         },
         status: COORDINATOR_REQUESTS_STATUS.PENDING,
         rejection_reason: null,
         created_at: NOW,
-        resolved_at: null,
+        updated_at: NOW,
     },
     {
         id: COORDINATOR_REQUEST_2_ID,
@@ -47,7 +48,7 @@ const rawCoordinatorRequests = [
         status: COORDINATOR_REQUESTS_STATUS.APPROVED,
         rejection_reason: null,
         created_at: new Date(Date.now() - 86400000).toISOString(),
-        resolved_at: NOW,
+        updated_at: NOW,
     },
     {
         id: COORDINATOR_REQUEST_3_ID,
@@ -55,15 +56,15 @@ const rawCoordinatorRequests = [
         reviewer_id: ADMINISTRATOR_ID,
         action: COORDINATOR_REQUESTS_ACTION.USER_SUSPEND,
         data: {
-            user_id: '66666666-6666-4666-8666-666666666666',
+            user_id: '55555555-5555-4555-8555-555555555555',
             reason: 'Violation of IT security protocol regarding shared passwords.',
         },
         status: COORDINATOR_REQUESTS_STATUS.REJECTED,
-        rejection_reason: 'Insufficient evidence provided for suspension. Please conduct a formal review first.',
+        rejection_reason: 'Insufficient evidence provided for suspension. Please conduct a formal review first before escalating.',
         created_at: new Date(Date.now() - 172800000).toISOString(),
-        resolved_at: NOW,
+        updated_at: NOW,
     },
 ];
 
 // --- Strict Validation ---
-export const coordinatorRequestsData = rawCoordinatorRequests.map((coordinatorRequest) => CoordinatorRequestsSchema.parse(coordinatorRequest));
+export const coordinatorRequestsData = rawCoordinatorRequests.map((cr) => CoordinatorRequestsSchema.parse(cr));

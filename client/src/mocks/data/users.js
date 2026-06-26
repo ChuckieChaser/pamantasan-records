@@ -19,11 +19,11 @@ const rawUsers = [
         department_id: DEPARTMENT_OUR_ID,
         role: USERS_ROLE.ADMINISTRATOR,
         email: 'admin.sys@university.edu.ph',
+        avatar_path: null,
         first_name: 'System',
         middle_name: null,
         last_name: 'Administrator',
         status: USERS_STATUS.VERIFIED,
-        is_suspended: false,
         created_at: NOW,
         updated_at: NOW,
     },
@@ -33,11 +33,11 @@ const rawUsers = [
         department_id: DEPARTMENT_HRO_ID,
         role: USERS_ROLE.COORDINATOR,
         email: 'hr.coordinator@university.edu.ph',
+        avatar_path: '/storage/avatars/15-10234.jpg',
         first_name: 'Elena',
         middle_name: 'Reyes',
         last_name: 'Bautista',
         status: USERS_STATUS.VERIFIED,
-        is_suspended: false,
         created_at: NOW,
         updated_at: NOW,
     },
@@ -47,11 +47,11 @@ const rawUsers = [
         department_id: DEPARTMENT_CCS_ID,
         role: USERS_ROLE.DIRECTOR,
         email: 'dean.ccs@university.edu.ph',
+        avatar_path: null,
         first_name: 'Roberto',
         middle_name: 'Tan',
         last_name: 'Villanueva',
         status: USERS_STATUS.VERIFIED,
-        is_suspended: false,
         created_at: NOW,
         updated_at: NOW,
     },
@@ -61,11 +61,11 @@ const rawUsers = [
         department_id: DEPARTMENT_CCS_ID,
         role: USERS_ROLE.OFFICER,
         email: 'secretary.ccs@university.edu.ph',
+        avatar_path: null,
         first_name: 'Maria',
         middle_name: 'Santos',
         last_name: 'Dela Cruz',
         status: USERS_STATUS.VERIFIED,
-        is_suspended: false,
         created_at: NOW,
         updated_at: NOW,
     },
@@ -75,11 +75,11 @@ const rawUsers = [
         department_id: DEPARTMENT_CCS_ID,
         role: USERS_ROLE.MEMBER,
         email: 'faculty.ccs@university.edu.ph',
+        avatar_path: null,
         first_name: 'Juan',
         middle_name: null,
         last_name: 'Perez',
         status: USERS_STATUS.VERIFIED,
-        is_suspended: false,
         created_at: NOW,
         updated_at: NOW,
     },
@@ -170,16 +170,16 @@ const rawUserSessions = [
     {
         id: '5e551111-1111-4111-8111-111111111111',
         user_id: ADMINISTRATOR_ID,
-        token_hash: 'abc123xyz',
+        token_hash: 'abc123xyz_secure_token',
         ip_address: '192.168.1.1',
-        user_agent: 'Mozilla/5.0',
-        expires_at: new Date(Date.now() + 86400000).toISOString(),
+        user_agent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
+        expired_at: new Date(Date.now() + 86400000).toISOString(),
         created_at: NOW,
     },
 ];
 
 // --- Strict Validation ---
-export const usersData = rawUsers.map((user) => UsersSchema.parse(user));
-export const userCredentialsData = rawUserCredentials.map((userCredential) => UserCredentialsSchema.parse(userCredential));
-export const userSettingsData = rawUserSettings.map((userSetting) => UserSettingsSchema.parse(userSetting));
-export const userSessionsData = rawUserSessions.map((userSession) => UserSessionsSchema.parse(userSession));
+export const usersData = rawUsers.map((u) => UsersSchema.parse(u));
+export const userCredentialsData = rawUserCredentials.map((uc) => UserCredentialsSchema.parse(uc));
+export const userSettingsData = rawUserSettings.map((us) => UserSettingsSchema.parse(us));
+export const userSessionsData = rawUserSessions.map((us) => UserSessionsSchema.parse(us));

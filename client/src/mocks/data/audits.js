@@ -21,11 +21,12 @@ const rawAuditLogs = [
         action: AUDIT_LOGS_ACTION.CREATED,
         data: {
             ip_address: '192.168.1.50',
-            user_agent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+            user_agent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
             changes: {
                 name: 'CS101 Syllabus 2026',
                 status: 'PENDING_OFFICER',
             },
+            system_note: 'Initial document record created by Administrator override.',
         },
         created_at: new Date(Date.now() - 2500000).toISOString(),
     },
@@ -39,7 +40,8 @@ const rawAuditLogs = [
             ip_address: '10.0.0.15',
             user_agent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
             payload: {
-                subject: 'Requesting access to previous year exams',
+                subject: 'Requesting access to previous year midterm exams for reference',
+                status: 'OPEN',
             },
         },
         created_at: new Date(Date.now() - 1200000).toISOString(),
@@ -52,13 +54,15 @@ const rawAuditLogs = [
         action: AUDIT_LOGS_ACTION.UPDATED,
         data: {
             ip_address: '192.168.1.50',
-            user_agent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+            user_agent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
             changes: {
                 status: {
                     previous: 'PENDING',
                     current: 'APPROVED',
                 },
+                reviewer_id: ADMINISTRATOR_ID,
             },
+            system_note: 'Maker-Checker approval sequence initiated. Payload transferred to core tables.',
         },
         created_at: NOW,
     },

@@ -24,6 +24,7 @@ const rawNotifications = [
         is_read: false,
         is_emailed: false,
         created_at: TEN_MINUTES_AGO,
+        updated_at: TEN_MINUTES_AGO,
     },
     {
         id: NOTIFICATION_2_ID,
@@ -35,6 +36,7 @@ const rawNotifications = [
         is_read: false,
         is_emailed: false,
         created_at: NOW,
+        updated_at: NOW,
     },
     {
         id: NOTIFICATION_3_ID,
@@ -46,8 +48,9 @@ const rawNotifications = [
         is_read: true,
         is_emailed: true,
         created_at: TEN_MINUTES_AGO,
+        updated_at: NOW,
     },
 ];
 
 // --- Strict Validation ---
-export const notificationsData = rawNotifications.map((notification) => NotificationsSchema.parse(notification));
+export const notificationsData = rawNotifications.map((n) => NotificationsSchema.parse(n));

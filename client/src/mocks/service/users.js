@@ -21,6 +21,14 @@ export const mockUsersService = {
             }, DELAY_MS);
         });
     },
+    getByUniversityId: async (universityId) => {
+        return new Promise((resolve, reject) => {
+            setTimeout(() => {
+                const user = usersData.find((u) => u.university_id === universityId);
+                user ? resolve({ ...user }) : reject(new Error('User not found'));
+            }, DELAY_MS);
+        });
+    },
     getByDepartmentId: async (departmentId) => {
         return new Promise((resolve) => {
             setTimeout(() => {

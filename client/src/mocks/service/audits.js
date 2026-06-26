@@ -2,8 +2,8 @@ import { auditLogsData } from '../data';
 
 const DELAY_MS = 500;
 
-// --- Audit Logs Service ---
 export const mockAuditLogsService = {
+    // --- Reads ---
     getAll: async () => {
         return new Promise((resolve) => {
             setTimeout(() => {
@@ -23,7 +23,7 @@ export const mockAuditLogsService = {
     getByActorId: async (actorId) => {
         return new Promise((resolve) => {
             setTimeout(() => {
-                const auditLogs = auditLogsData.filter((auditLog) => auditLog.actor_id === actorId);
+                const auditLogs = auditLogsData.filter((al) => al.actor_id === actorId);
                 resolve(auditLogs);
             }, DELAY_MS);
         });
@@ -31,7 +31,7 @@ export const mockAuditLogsService = {
     getByEntityType: async (entityType) => {
         return new Promise((resolve) => {
             setTimeout(() => {
-                const auditLogs = auditLogsData.filter((auditLog) => auditLog.entity_type === entityType);
+                const auditLogs = auditLogsData.filter((al) => al.entity_type === entityType);
                 resolve(auditLogs);
             }, DELAY_MS);
         });
@@ -39,8 +39,24 @@ export const mockAuditLogsService = {
     getByEntityId: async (entityId) => {
         return new Promise((resolve) => {
             setTimeout(() => {
-                const auditLogs = auditLogsData.filter((auditLog) => auditLog.entity_id === entityId);
+                const auditLogs = auditLogsData.filter((al) => al.entity_id === entityId);
                 resolve(auditLogs);
+            }, DELAY_MS);
+        });
+    },
+
+    // --- Actions ---
+    create: async (data) => {
+        return new Promise((resolve) => {
+            setTimeout(() => {
+                const auditLog = {
+                    id: crypto.randomUUID(),
+                    ...data,
+                    created_at: new Date().toISOString(),
+                };
+
+                auditLogsData.push(auditLog);
+                resolve(auditLog);
             }, DELAY_MS);
         });
     },

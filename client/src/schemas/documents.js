@@ -2,8 +2,8 @@ import { z } from 'zod';
 import { DOCUMENTS_STATUS, DOCUMENT_REQUESTS_STATUS } from '../constants';
 
 // --- Domains ---
-export const DocumentsStatusSchema = z.enum(Object.values(DOCUMENTS_STATUS));
-export const DocumentRequestsStatusSchema = z.enum(Object.values(DOCUMENT_REQUESTS_STATUS));
+export const DocumentsStatusSchema = z.enum(Object.keys(DOCUMENTS_STATUS));
+export const DocumentRequestsStatusSchema = z.enum(Object.keys(DOCUMENT_REQUESTS_STATUS));
 
 // --- Tables ---
 export const DocumentsSchema = z.object({
@@ -20,7 +20,6 @@ export const DocumentsSchema = z.object({
 
     created_at: z.string().datetime().nullable().optional(),
     updated_at: z.string().datetime().nullable().optional(),
-    deleted_at: z.string().datetime().nullable().optional(),
 });
 
 export const DocumentVersionsSchema = z.object({
@@ -77,7 +76,11 @@ export const DocumentSharesSchema = z
         created_at: z.string().datetime().nullable().optional(),
     })
     .refine(
-        (data) =>
-            (data.department_id !== null && data.document_request_id === null) || (data.department_id === null && data.document_request_id !== null),
+        (data) => {
+            const hasDepartmentId = data.department_id != null;
+            const hasDocumentRequestId = data.document_request_id != null;
+
+            return (hasDepartmentId && !hasDocumentRequestId) || (!hasDepartmentId && hasDocumentRequestId);
+        },
         { message: 'A document share must route to EITHER a department OR a document request ticket, not both.' }
     );

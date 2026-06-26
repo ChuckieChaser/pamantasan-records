@@ -2,8 +2,8 @@ import { z } from 'zod';
 import { NOTIFICATIONS_ENTITY_TYPE, NOTIFICATIONS_ACTION } from '../constants';
 
 // --- Domains ---
-export const NotificationsEntityTypeSchema = z.enum(Object.values(NOTIFICATIONS_ENTITY_TYPE));
-export const NotificationsActionSchema = z.enum(Object.values(NOTIFICATIONS_ACTION));
+export const NotificationsEntityTypeSchema = z.enum(Object.keys(NOTIFICATIONS_ENTITY_TYPE));
+export const NotificationsActionSchema = z.enum(Object.keys(NOTIFICATIONS_ACTION));
 
 // --- Tables ---
 export const NotificationsSchema = z.object({
@@ -19,4 +19,5 @@ export const NotificationsSchema = z.object({
     is_emailed: z.boolean(),
 
     created_at: z.string().datetime().nullable().optional(),
+    updated_at: z.string().datetime().nullable().optional(),
 });

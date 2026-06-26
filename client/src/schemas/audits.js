@@ -2,8 +2,8 @@ import { z } from 'zod';
 import { AUDIT_LOGS_ENTITY_TYPE, AUDIT_LOGS_ACTION } from '../constants';
 
 // --- Domains ---
-export const AuditLogsEntityTypeSchema = z.enum(Object.values(AUDIT_LOGS_ENTITY_TYPE));
-export const AuditLogsActionSchema = z.enum(Object.values(AUDIT_LOGS_ACTION));
+export const AuditLogsEntityTypeSchema = z.enum(Object.keys(AUDIT_LOGS_ENTITY_TYPE));
+export const AuditLogsActionSchema = z.enum(Object.keys(AUDIT_LOGS_ACTION));
 
 // --- Tables ---
 export const AuditLogsSchema = z.object({

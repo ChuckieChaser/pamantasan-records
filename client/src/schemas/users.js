@@ -2,10 +2,10 @@ import { z } from 'zod';
 import { USERS_ROLE, USERS_STATUS, USER_SETTINGS_THEME, USER_SETTINGS_NOTIFICATION } from '../constants';
 
 // --- Domains ---
-export const UsersRoleSchema = z.enum(Object.values(USERS_ROLE));
-export const UsersStatusSchema = z.enum(Object.values(USERS_STATUS));
-export const UserSettingsThemeSchema = z.enum(Object.values(USER_SETTINGS_THEME));
-export const UserSettingsNotificationSchema = z.enum(Object.values(USER_SETTINGS_NOTIFICATION));
+export const UsersRoleSchema = z.enum(Object.keys(USERS_ROLE));
+export const UsersStatusSchema = z.enum(Object.keys(USERS_STATUS));
+export const UserSettingsThemeSchema = z.enum(Object.keys(USER_SETTINGS_THEME));
+export const UserSettingsNotificationSchema = z.enum(Object.keys(USER_SETTINGS_NOTIFICATION));
 
 // --- Regex Constraints ---
 export const UniversityIdSchema = z.string().regex(/^[0-9]{2}-[0-9]{5}$/, 'Invalid University ID format. Must be YY-NNNNN.');
@@ -19,15 +19,14 @@ export const UsersSchema = z.object({
     id: z.string().uuid(),
     university_id: UniversityIdSchema,
     department_id: z.string().uuid(),
-    role: UsersRoleSchema,
 
+    role: UsersRoleSchema,
     email: EmailSchema,
+    avatar_path: z.string().nullable().optional(),
     first_name: z.string().min(1),
     middle_name: z.string().nullable().optional(),
     last_name: z.string().min(1),
-
     status: UsersStatusSchema,
-    is_suspended: z.boolean(),
 
     created_at: z.string().datetime().nullable().optional(),
     updated_at: z.string().datetime().nullable().optional(),
@@ -62,6 +61,6 @@ export const UserSessionsSchema = z.object({
     ip_address: z.string().nullable().optional(),
     user_agent: z.string().nullable().optional(),
 
-    expires_at: z.string().datetime(),
+    expired_at: z.string().datetime().nullable().optional(),
     created_at: z.string().datetime().nullable().optional(),
 });

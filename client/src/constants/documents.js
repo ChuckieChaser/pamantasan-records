@@ -4,6 +4,7 @@ export const DOCUMENTS_STATUS = Object.freeze({
     PENDING_DIRECTOR: 'PENDING_DIRECTOR',
     PUBLISHED: 'PUBLISHED',
     ATTACHMENT: 'ATTACHMENT',
+    ARCHIVED: 'ARCHIVED',
 });
 
 export const DOCUMENT_REQUESTS_STATUS = Object.freeze({

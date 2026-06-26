@@ -65,4 +65,4 @@ const rawAuditLogs = [
 ];
 
 // --- Strict Validation ---
-export const auditLogsData = rawAuditLogs.map((auditLog) => AuditLogsSchema.parse(auditLog));
+export const auditLogsData = rawAuditLogs.map((al) => AuditLogsSchema.parse(al));

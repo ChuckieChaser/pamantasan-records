@@ -10,6 +10,7 @@ export const USERS_STATUS = Object.freeze({
     PENDING_PASSWORD: 'PENDING_PASSWORD',
     PENDING_SSO: 'PENDING_SSO',
     VERIFIED: 'VERIFIED',
+    SUSPENDED: 'SUSPENDED',
 });
 
 export const USER_SETTINGS_THEME = Object.freeze({

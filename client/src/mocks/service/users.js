@@ -141,7 +141,7 @@ export const mockUserSettingsService = {
         return new Promise((resolve) => {
             setTimeout(() => {
                 const userSetting = {
-                    user_id,
+                    user_id: user_id,
                     theme: USER_SETTINGS_THEME.SYSTEM,
                     notification: USER_SETTINGS_NOTIFICATION.ALL,
                     animation: true,

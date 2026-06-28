@@ -18,6 +18,6 @@ export const NotificationsSchema = z.object({
     is_read: z.boolean(),
     is_emailed: z.boolean(),
 
-    created_at: z.string().datetime().nullable().optional(),
-    updated_at: z.string().datetime().nullable().optional(),
+    created_at: z.string().datetime(),
+    updated_at: z.string().datetime(),
 });

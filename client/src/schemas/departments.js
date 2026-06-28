@@ -7,6 +7,6 @@ export const DepartmentsSchema = z.object({
     name: z.string().min(1, 'Department name is required'),
     code: z.string().min(1, 'Department code is required'),
 
-    created_at: z.string().datetime().nullable().optional(),
-    updated_at: z.string().datetime().nullable().optional(),
+    created_at: z.string().datetime(),
+    updated_at: z.string().datetime(),
 });

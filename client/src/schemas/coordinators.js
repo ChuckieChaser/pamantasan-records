@@ -16,6 +16,6 @@ export const CoordinatorRequestsSchema = z.object({
     status: CoordinatorRequestsStatusSchema,
     rejection_reason: z.string().nullable().optional(),
 
-    created_at: z.string().datetime().nullable().optional(),
-    updated_at: z.string().datetime().nullable().optional(),
+    created_at: z.string().datetime(),
+    updated_at: z.string().datetime(),
 });

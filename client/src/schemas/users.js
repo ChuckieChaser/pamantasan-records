@@ -28,8 +28,8 @@ export const UsersSchema = z.object({
     last_name: z.string().min(1),
     status: UsersStatusSchema,
 
-    created_at: z.string().datetime().nullable().optional(),
-    updated_at: z.string().datetime().nullable().optional(),
+    created_at: z.string().datetime(),
+    updated_at: z.string().datetime(),
 });
 
 export const UserCredentialsSchema = z.object({
@@ -38,8 +38,8 @@ export const UserCredentialsSchema = z.object({
     password_hash: z.string(),
     google_id: z.string().nullable().optional(),
 
-    created_at: z.string().datetime().nullable().optional(),
-    updated_at: z.string().datetime().nullable().optional(),
+    created_at: z.string().datetime(),
+    updated_at: z.string().datetime(),
 });
 
 export const UserSettingsSchema = z.object({
@@ -49,8 +49,8 @@ export const UserSettingsSchema = z.object({
     notification: UserSettingsNotificationSchema,
     animation: z.boolean(),
 
-    created_at: z.string().datetime().nullable().optional(),
-    updated_at: z.string().datetime().nullable().optional(),
+    created_at: z.string().datetime(),
+    updated_at: z.string().datetime(),
 });
 
 export const UserSessionsSchema = z.object({
@@ -61,6 +61,6 @@ export const UserSessionsSchema = z.object({
     ip_address: z.string().nullable().optional(),
     user_agent: z.string().nullable().optional(),
 
-    created_at: z.string().datetime().nullable().optional(),
+    created_at: z.string().datetime(),
     expired_at: z.string().datetime().nullable().optional(),
 });

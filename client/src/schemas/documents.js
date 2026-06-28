@@ -15,12 +15,16 @@ export const DocumentsSchema = z.object({
     comment: z.string().nullable().optional(),
     is_folder: z.boolean(),
     summary: z.string().nullable().optional(),
-    embedding: z.array(z.number()).nullable().optional(),
+    embedding: z
+        .array(z.number())
+        .nullable()
+        .optional()
+        .refine((v) => v == null || v.length === 1536, { message: 'Embedding vector must be length 1536 when present.' }),
 
     status: DocumentsStatusSchema,
 
-    created_at: z.string().datetime().nullable().optional(),
-    updated_at: z.string().datetime().nullable().optional(),
+    created_at: z.string().datetime(),
+    updated_at: z.string().datetime(),
 });
 
 export const DocumentVersionsSchema = z.object({
@@ -38,7 +42,7 @@ export const DocumentVersionsSchema = z.object({
     change_summary: z.string().nullable().optional(),
     rejection_reason: z.string().nullable().optional(),
 
-    created_at: z.string().datetime().nullable().optional(),
+    created_at: z.string().datetime(),
     rejected_at: z.string().datetime().nullable().optional(),
 });
 
@@ -50,8 +54,8 @@ export const DocumentRequestsSchema = z.object({
     subject: z.string().min(1),
     status: DocumentRequestsStatusSchema,
 
-    created_at: z.string().datetime().nullable().optional(),
-    updated_at: z.string().datetime().nullable().optional(),
+    created_at: z.string().datetime(),
+    updated_at: z.string().datetime(),
 });
 
 export const DocumentRequestMessagesSchema = z.object({
@@ -61,7 +65,7 @@ export const DocumentRequestMessagesSchema = z.object({
 
     message: z.string().min(1),
 
-    created_at: z.string().datetime().nullable().optional(),
+    created_at: z.string().datetime(),
 });
 
 export const DocumentSharesSchema = z
@@ -74,7 +78,7 @@ export const DocumentSharesSchema = z
         department_id: z.string().uuid().nullable().optional(),
         document_request_id: z.string().uuid().nullable().optional(),
 
-        created_at: z.string().datetime().nullable().optional(),
+        created_at: z.string().datetime(),
     })
     .refine(
         (data) => {

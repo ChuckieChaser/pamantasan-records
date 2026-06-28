@@ -16,5 +16,5 @@ export const AuditLogsSchema = z.object({
     action: AuditLogsActionSchema,
     data: z.record(z.any()),
 
-    created_at: z.string().datetime().nullable().optional(),
+    created_at: z.string().datetime(),
 });

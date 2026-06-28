@@ -61,6 +61,6 @@ export const UserSessionsSchema = z.object({
     ip_address: z.string().nullable().optional(),
     user_agent: z.string().nullable().optional(),
 
-    expired_at: z.string().datetime().nullable().optional(),
     created_at: z.string().datetime().nullable().optional(),
+    expired_at: z.string().datetime().nullable().optional(),
 });

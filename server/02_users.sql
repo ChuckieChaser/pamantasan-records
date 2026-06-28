@@ -93,10 +93,7 @@ CREATE TRIGGER set_timestamp_user_credentials
 ALTER TABLE user_credentials ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY user_credentials_select_access ON user_credentials
-    FOR SELECT USING (
-        is_system_role()
-        OR user_id = get_user_current_id()
-    );
+    FOR SELECT USING (is_system_role());
 
 CREATE POLICY user_credentials_insert_access ON user_credentials
     FOR INSERT WITH CHECK (

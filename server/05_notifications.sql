@@ -79,7 +79,6 @@ SELECT
     ARRAY_AGG(DISTINCT actor_id) as actor_ids
 
 FROM notifications
-WHERE is_read = FALSE
 GROUP BY
     recipient_id,
     entity_type,

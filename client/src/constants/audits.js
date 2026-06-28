@@ -16,4 +16,5 @@ export const AUDIT_LOGS_ACTION = Object.freeze({
     REJECTED: 'REJECTED',
     SUSPENDED: 'SUSPENDED',
     PUBLISHED: 'PUBLISHED',
+    UPLOADED: 'UPLOADED',
 });

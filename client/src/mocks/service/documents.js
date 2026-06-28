@@ -86,14 +86,6 @@ export const mockDocumentVersionsService = {
             }, DELAY_MS);
         });
     },
-    getById: async (id) => {
-        return new Promise((resolve, reject) => {
-            setTimeout(() => {
-                const documentVersion = documentVersionsData.find((dv) => dv.id === id);
-                documentVersion ? resolve({ ...documentVersion }) : reject(new Error('Document version not found'));
-            }, DELAY_MS);
-        });
-    },
 
     // --- Actions ---
     create: async (data) => {

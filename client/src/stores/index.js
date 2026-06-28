@@ -1,14 +1,20 @@
-export * from './authentication/useAuthentications';
+export * from './authentication/useAuthentication';
 
-export * from './department/useDepartments';
+export * from './department/useDepartment';
 
-export * from './user/useUsers';
-export * from './user/useCredentials';
-export * from './user/useSettings';
-export * from './user/useSessions';
+export * from './user/useUser';
+export * from './user/useCredential';
+export * from './user/useSetting';
+export * from './user/useSession';
 
-export * from './coordinator/useCoordinators';
+export * from './document/useDocument';
+export * from './document/useVersion';
+export * from './document/useRequest';
+export * from './document/useMessage';
+export * from './document/useShare';
 
-export * from './notification/useNotifications';
+export * from './coordinator/useCoordinator';
 
-export * from './audit/useAudits';
+export * from './notification/useNotification';
+
+export * from './audit/useAuditLog';

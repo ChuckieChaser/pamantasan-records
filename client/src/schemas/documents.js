@@ -15,6 +15,7 @@ export const DocumentsSchema = z.object({
     comment: z.string().nullable().optional(),
     is_folder: z.boolean(),
     summary: z.string().nullable().optional(),
+    embedding: z.array(z.number()).nullable().optional(),
 
     status: DocumentsStatusSchema,
 

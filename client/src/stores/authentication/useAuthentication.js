@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import { USER_SETTINGS_THEME } from '../../constants';
 import { usersService, userSettingsService } from '../../services';
-import { ADMINISTRATOR_ID } from '../../mocks/data';
 import { action } from '../utilities';
 
 export const useAuthentication = create((set) => ({
@@ -14,7 +13,8 @@ export const useAuthentication = create((set) => ({
 
     // --- Actions ---
     bypass: action(set, async () => {
-        const user = await usersService.getById(ADMINISTRATOR_ID);
+        const bypassId = import.meta.env.VITE_BYPASS_USER_ID;
+        const user = await usersService.getById(bypassId);
 
         const userSetting = await userSettingsService.getByUserId(user.id).catch(() => null);
         const theme = userSetting?.theme ?? USER_SETTINGS_THEME.SYSTEM;

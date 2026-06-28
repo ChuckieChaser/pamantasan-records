@@ -5,10 +5,10 @@ import { DOCUMENT_1_ID } from './documents';
 import { COORDINATOR_REQUEST_1_ID } from './coordinators';
 
 // --- Global Constants ---
-export const AUDIT_LOG_1_ID = 'a0000000-0000-4000-8000-000000000001';
-export const AUDIT_LOG_2_ID = 'a0000000-0000-4000-8000-000000000002';
-export const AUDIT_LOG_3_ID = 'a0000000-0000-4000-8000-000000000003';
-export const AUDIT_LOG_4_ID = 'a0000000-0000-4000-8000-000000000004';
+export const AUDIT_LOG_1_ID = 'f0000000-0000-4000-8000-000000000001';
+export const AUDIT_LOG_2_ID = 'f0000000-0000-4000-8000-000000000002';
+export const AUDIT_LOG_3_ID = 'f0000000-0000-4000-8000-000000000003';
+export const AUDIT_LOG_4_ID = 'f0000000-0000-4000-8000-000000000004';
 
 const NOW = new Date().toISOString();
 const TWO_HOURS_AGO = new Date(Date.now() - 7200000).toISOString();

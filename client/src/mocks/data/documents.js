@@ -9,11 +9,12 @@ export const DOCUMENT_1_ID = 'd0000000-0000-4000-8000-000000000002';
 export const DOCUMENT_2_ID = 'd0000000-0000-4000-8000-000000000003';
 export const DOCUMENT_3_ID = 'd0000000-0000-4000-8000-000000000004';
 
-export const DOCUMENT_REQUEST_1_ID = 'r0000000-0000-4000-8000-000000000001';
-export const DOCUMENT_REQUEST_2_ID = 'r0000000-0000-4000-8000-000000000002';
+export const DOCUMENT_REQUEST_1_ID = 'e0000000-0000-4000-8000-000000000001';
+export const DOCUMENT_REQUEST_2_ID = 'e0000000-0000-4000-8000-000000000002';
 
 const NOW = new Date().toISOString();
 const TWO_DAYS_AGO = new Date(Date.now() - 172800000).toISOString();
+const ONE_HOUR_AGO = new Date(Date.now() - 3600000).toISOString();
 
 // --- Raw Data ---
 const rawDocuments = [
@@ -73,7 +74,7 @@ const rawDocuments = [
 
 const rawDocumentVersions = [
     {
-        id: 'v0000000-0000-4000-8000-000000000001',
+        id: 'c0000000-0000-4000-8000-000000000001',
         document_id: DOCUMENT_1_ID,
         uploader_id: ADMINISTRATOR_ID,
         rejecter_id: null,
@@ -88,7 +89,7 @@ const rawDocumentVersions = [
         rejected_at: null,
     },
     {
-        id: 'v0000000-0000-4000-8000-000000000002',
+        id: 'c0000000-0000-4000-8000-000000000002',
         document_id: DOCUMENT_2_ID,
         uploader_id: ADMINISTRATOR_ID,
         rejecter_id: DIRECTOR_ID,
@@ -103,7 +104,7 @@ const rawDocumentVersions = [
         rejected_at: TWO_DAYS_AGO,
     },
     {
-        id: 'v0000000-0000-4000-8000-000000000003',
+        id: 'c0000000-0000-4000-8000-000000000003',
         document_id: DOCUMENT_2_ID,
         uploader_id: ADMINISTRATOR_ID,
         rejecter_id: null,
@@ -118,7 +119,7 @@ const rawDocumentVersions = [
         rejected_at: null,
     },
     {
-        id: 'v0000000-0000-4000-8000-000000000004',
+        id: 'c0000000-0000-4000-8000-000000000004',
         document_id: DOCUMENT_3_ID,
         uploader_id: ADMINISTRATOR_ID,
         rejecter_id: null,
@@ -157,14 +158,14 @@ const rawDocumentRequests = [
 
 const rawDocumentRequestMessages = [
     {
-        id: 'm0000000-0000-4000-8000-000000000001',
+        id: 'f0000000-0000-4000-8000-000000000001',
         document_request_id: DOCUMENT_REQUEST_1_ID,
         user_id: MEMBER_ID,
         message: 'Hi Admin, I cannot find the 2026 grading rubrics. Can you provide them?',
-        created_at: new Date(Date.now() - 3600000).toISOString(),
+        created_at: ONE_HOUR_AGO,
     },
     {
-        id: 'm0000000-0000-4000-8000-000000000002',
+        id: 'f0000000-0000-4000-8000-000000000002',
         document_request_id: DOCUMENT_REQUEST_1_ID,
         user_id: ADMINISTRATOR_ID,
         message: 'I am currently drafting them. They will be uploaded later today.',
@@ -174,7 +175,7 @@ const rawDocumentRequestMessages = [
 
 const rawDocumentShares = [
     {
-        id: 's0000000-0000-4000-8000-000000000001',
+        id: 'b0000000-0000-4000-8000-000000000001',
         document_id: DOCUMENT_2_ID,
         sharer_id: ADMINISTRATOR_ID,
         recipient_id: null,
@@ -183,7 +184,7 @@ const rawDocumentShares = [
         created_at: NOW,
     },
     {
-        id: 's0000000-0000-4000-8000-000000000002',
+        id: 'b0000000-0000-4000-8000-000000000002',
         document_id: DOCUMENT_3_ID,
         sharer_id: ADMINISTRATOR_ID,
         recipient_id: HR_MEMBER_ID,

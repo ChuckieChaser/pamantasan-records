@@ -9,11 +9,11 @@ export const useUserCredential = create((set) => ({
 
     // --- Actions ---
     create: action(set, async (data) => {
-        const createdCredential = await userCredentialsService.create(data);
-        return createdCredential;
+        const createdUserCredential = await userCredentialsService.create(data);
+        return createdUserCredential;
     }),
     update: action(set, async (userId, data) => {
-        const updatedCredential = await userCredentialsService.update(userId, data);
-        return updatedCredential;
+        const updatedUserCredential = await userCredentialsService.update(userId, data);
+        return updatedUserCredential;
     }),
 }));

@@ -21,21 +21,21 @@ export const useUserSession = create((set, get) => ({
 
     // --- Actions ---
     create: action(set, async (data) => {
-        const createdSession = await userSessionsService.create(data);
+        const createdUserSession = await userSessionsService.create(data);
 
         const activeUserSessions = get().activeUserSessions;
-        const newActiveSessions = [...activeUserSessions, createdSession];
+        const newActiveSessions = [...activeUserSessions, createdUserSession];
 
         set({ activeUserSessions: newActiveSessions });
-        return createdSession;
+        return createdUserSession;
     }),
-    delete: action(set, async (sessionId) => {
-        await userSessionsService.delete(sessionId);
+    delete: action(set, async (id) => {
+        await userSessionsService.delete(id);
 
         const activeUserSessions = get().activeUserSessions;
-        const newActiveSessions = activeUserSessions.filter((s) => s.id !== sessionId);
+        const newActiveSessions = activeUserSessions.filter((s) => s.id !== id);
 
         set({ activeUserSessions: newActiveSessions });
-        return sessionId;
+        return id;
     }),
 }));

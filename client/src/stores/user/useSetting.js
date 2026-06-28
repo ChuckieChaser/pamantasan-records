@@ -21,18 +21,18 @@ export const useUserSetting = create((set, get) => ({
 
     // --- Actions ---
     create: action(set, async (userId) => {
-        const createdSetting = await userSettingsService.create(userId);
+        const createdUserSetting = await userSettingsService.create(userId);
 
-        set({ activeUserSetting: createdSetting });
-        return createdSetting;
+        set({ activeUserSetting: createdUserSetting });
+        return createdUserSetting;
     }),
     update: action(set, async (userId, data) => {
-        const updatedSetting = await userSettingsService.update(userId, data);
+        const updatedUserSetting = await userSettingsService.update(userId, data);
 
         const activeUserSetting = get().activeUserSetting;
-        const newActiveSetting = activeUserSetting?.user_id === userId ? updatedSetting : activeUserSetting;
+        const newActiveSetting = activeUserSetting?.user_id === userId ? updatedUserSetting : activeUserSetting;
 
         set({ activeUserSetting: newActiveSetting });
-        return updatedSetting;
+        return updatedUserSetting;
     }),
 }));

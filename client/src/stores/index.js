@@ -17,4 +17,4 @@ export * from './coordinator/useCoordinator';
 
 export * from './notification/useNotification';
 
-export * from './audit/useAuditLog';
+export * from './audit/useAudit';

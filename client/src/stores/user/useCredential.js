@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { userCredentialsService } from '../../services';
 import { action } from '../utilities';
 
-export const useUserCredentials = create((set) => ({
+export const useUserCredential = create((set) => ({
     // --- States ---
     isLoading: false,
     error: null,

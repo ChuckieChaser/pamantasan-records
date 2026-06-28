@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { userSettingsService } from '../../services';
 import { action } from '../utilities';
 
-export const useUserSettings = create((set, get) => ({
+export const useUserSetting = create((set, get) => ({
     // --- States ---
     activeUserSetting: null,
     isLoading: false,

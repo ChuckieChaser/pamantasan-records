@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { auditLogsService } from '../../services';
 import { action } from '../utilities';
 
-export const useAuditLogs = create((set, get) => ({
+export const useAuditLog = create((set, get) => ({
     // --- States ---
     auditLogs: [],
     activeAuditLog: null,

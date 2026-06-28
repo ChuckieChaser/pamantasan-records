@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { departmentsService } from '../../services';
 import { action } from '../utilities';
 
-export const useDepartments = create((set, get) => ({
+export const useDepartment = create((set, get) => ({
     // --- States ---
     departments: [],
     activeDepartment: null,

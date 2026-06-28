@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { coordinatorRequestsService } from '../../services';
 import { action } from '../utilities';
 
-export const useCoordinatorRequests = create((set, get) => ({
+export const useCoordinatorRequest = create((set, get) => ({
     // --- States ---
     coordinatorRequests: [],
     activeCoordinatorRequest: null,

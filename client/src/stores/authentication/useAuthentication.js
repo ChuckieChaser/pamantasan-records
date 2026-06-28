@@ -4,7 +4,7 @@ import { usersService, userSettingsService } from '../../services';
 import { ADMINISTRATOR_ID } from '../../mocks/data';
 import { action } from '../utilities';
 
-export const useAuthentications = create((set) => ({
+export const useAuthentication = create((set) => ({
     // --- States ---
     user: null,
     theme: USER_SETTINGS_THEME.SYSTEM,

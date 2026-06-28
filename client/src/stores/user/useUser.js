@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { usersService } from '../../services';
 import { action } from '../utilities';
 
-export const useUsers = create((set, get) => ({
+export const useUser = create((set, get) => ({
     // --- States ---
     users: [],
     activeUser: null,

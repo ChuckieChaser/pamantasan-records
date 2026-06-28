@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { notificationsService } from '../../services';
 import { action } from '../utilities';
 
-export const useNotifications = create((set, get) => ({
+export const useNotification = create((set, get) => ({
     // --- States ---
     notifications: [],
     activeNotification: null,

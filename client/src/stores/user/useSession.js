@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { userSessionsService } from '../../services';
 import { action } from '../utilities';
 
-export const useUserSessions = create((set, get) => ({
+export const useUserSession = create((set, get) => ({
     // --- States ---
     activeUserSessions: [],
     isLoading: false,

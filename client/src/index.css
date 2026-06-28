@@ -12,13 +12,14 @@
     --color-muted: var(--color-zinc-500);
 
     --color-accent: var(--color-emerald-600);
+    --color-accent-background: var(--color-emerald-150);
     --color-accent-hover: var(--color-emerald-700);
 
-    --color-success-bg: var(--color-emerald-50);
+    --color-success-background: var(--color-emerald-50);
     --color-success-text: var(--color-emerald-700);
-    --color-warning-bg: var(--color-amber-50);
+    --color-warning-background: var(--color-amber-50);
     --color-warning-text: var(--color-amber-700);
-    --color-error-bg: var(--color-red-50);
+    --color-error-background: var(--color-red-50);
     --color-error-text: var(--color-red-700);
 
     --font-heading: 'Fraunces', serif;
@@ -35,13 +36,14 @@
         --color-muted: var(--color-zinc-400);
 
         --color-accent: var(--color-emerald-500);
+        --color-accent-background: var(--color-emerald-850);
         --color-accent-hover: var(--color-emerald-400);
 
-        --color-success-bg: var(--color-emerald-950);
+        --color-success-background: var(--color-emerald-950);
         --color-success-text: var(--color-emerald-400);
-        --color-warning-bg: var(--color-amber-950);
+        --color-warning-background: var(--color-amber-950);
         --color-warning-text: var(--color-amber-400);
-        --color-error-bg: var(--color-red-950);
+        --color-error-background: var(--color-red-950);
         --color-error-text: var(--color-red-400);
     }
 

@@ -8,7 +8,7 @@ export const useAuthentication = create((set) => ({
     user: null,
     theme: USER_SETTINGS_THEME.SYSTEM,
     isAuthenticated: false,
-    isLoading: true,
+    isLoading: false,
     error: null,
 
     // --- Actions ---

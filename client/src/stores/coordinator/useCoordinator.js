@@ -65,7 +65,7 @@ export const useCoordinatorRequest = create((set, get) => ({
         const updatedCoordinatorRequest = await coordinatorRequestsService.update(id, data);
 
         const coordinatorRequests = get().coordinatorRequests;
-        const newCoordinatorRequests = coordinatorRequests.map((cr) => (cr.id === id ? updatedCoordinatorRequest : cr));
+        const newCoordinatorRequests = coordinatorRequests.map((ncr) => (ncr.id === id ? updatedCoordinatorRequest : ncr));
 
         const activeCoordinatorRequest = get().activeCoordinatorRequest;
         const newActiveCoordinatorRequest = activeCoordinatorRequest?.id === id ? updatedCoordinatorRequest : activeCoordinatorRequest;
@@ -81,7 +81,7 @@ export const useCoordinatorRequest = create((set, get) => ({
         await coordinatorRequestsService.delete(id);
 
         const coordinatorRequests = get().coordinatorRequests;
-        const newCoordinatorRequests = coordinatorRequests.filter((cr) => cr.id !== id);
+        const newCoordinatorRequests = coordinatorRequests.filter((ncr) => ncr.id !== id);
 
         const activeCoordinatorRequest = get().activeCoordinatorRequest;
         const newActiveCoordinatorRequest = activeCoordinatorRequest?.id === id ? null : activeCoordinatorRequest;

@@ -63,7 +63,7 @@ export const useUser = create((set, get) => ({
         const updatedUser = await usersService.update(id, data);
 
         const users = get().users;
-        const newUsers = users.map((u) => (u.id === id ? updatedUser : u));
+        const newUsers = users.map((nu) => (nu.id === id ? updatedUser : nu));
 
         const activeUser = get().activeUser;
         const newActiveUser = activeUser?.id === id ? updatedUser : activeUser;

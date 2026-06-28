@@ -33,7 +33,7 @@ export const useUserSession = create((set, get) => ({
         await userSessionsService.delete(id);
 
         const activeUserSessions = get().activeUserSessions;
-        const newActiveSessions = activeUserSessions.filter((s) => s.id !== id);
+        const newActiveSessions = activeUserSessions.filter((nas) => nas.id !== id);
 
         set({ activeUserSessions: newActiveSessions });
         return id;

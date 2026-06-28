@@ -51,7 +51,7 @@ export const useDepartment = create((set, get) => ({
         const updatedDepartment = await departmentsService.update(id, data);
 
         const departments = get().departments;
-        const newDepartments = departments.map((d) => (d.id === id ? updatedDepartment : d));
+        const newDepartments = departments.map((nd) => (nd.id === id ? updatedDepartment : nd));
 
         const activeDepartment = get().activeDepartment;
         const newActiveDepartment = activeDepartment?.id === id ? updatedDepartment : activeDepartment;
@@ -67,7 +67,7 @@ export const useDepartment = create((set, get) => ({
         await departmentsService.delete(id);
 
         const departments = get().departments;
-        const newDepartments = departments.filter((d) => d.id !== id);
+        const newDepartments = departments.filter((nd) => nd.id !== id);
 
         const activeDepartment = get().activeDepartment;
         const newActiveDepartment = activeDepartment?.id === id ? null : activeDepartment;

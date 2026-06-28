@@ -4,35 +4,32 @@ import { action } from '../utilities';
 
 export const useUserSetting = create((set, get) => ({
     // --- States ---
-    activeUserSetting: null,
+    userSetting: null,
     isLoading: false,
     error: null,
 
-    // --- Locals ---
-    selectActiveUserSetting: action(set, async (userId) => {
-        const activeUserSetting = await userSettingsService.getByUserId(userId).catch(() => null);
+    // --- Reads ---
+    getByUserId: action(set, async (userId) => {
+        const userSetting = await userSettingsService.getByUserId(userId).catch(() => null);
 
-        set({ activeUserSetting: activeUserSetting });
-        return activeUserSetting;
+        set({ userSetting: userSetting });
+        return userSetting;
     }),
-    deselectActiveUserSetting: () => {
-        set({ activeUserSetting: null });
-    },
 
     // --- Actions ---
     create: action(set, async (userId) => {
         const createdUserSetting = await userSettingsService.create(userId);
 
-        set({ activeUserSetting: createdUserSetting });
+        set({ userSetting: createdUserSetting });
         return createdUserSetting;
     }),
     update: action(set, async (userId, data) => {
         const updatedUserSetting = await userSettingsService.update(userId, data);
 
-        const activeUserSetting = get().activeUserSetting;
-        const newActiveUserSetting = activeUserSetting?.user_id === userId ? updatedUserSetting : activeUserSetting;
+        const userSetting = get().userSetting;
+        const newUserSetting = userSetting?.user_id === userId ? updatedUserSetting : userSetting;
 
-        set({ activeUserSetting: newActiveUserSetting });
+        set({ userSetting: newUserSetting });
         return updatedUserSetting;
     }),
 }));

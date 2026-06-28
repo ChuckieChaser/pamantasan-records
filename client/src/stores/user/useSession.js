@@ -4,38 +4,35 @@ import { action } from '../utilities';
 
 export const useUserSession = create((set, get) => ({
     // --- States ---
-    activeUserSessions: [],
+    userSessions: [],
     isLoading: false,
     error: null,
 
-    // --- Locals ---
-    selectActiveUserSessions: action(set, async (userId) => {
-        const activeUserSessions = await userSessionsService.getByUserId(userId).catch(() => []);
+    // --- Reads ---
+    getByUserId: action(set, async (userId) => {
+        const userSessions = await userSessionsService.getByUserId(userId).catch(() => []);
 
-        set({ activeUserSessions: activeUserSessions });
-        return activeUserSessions;
+        set({ userSessions: userSessions });
+        return userSessions;
     }),
-    deselectActiveUserSessions: () => {
-        set({ activeUserSessions: [] });
-    },
 
     // --- Actions ---
     create: action(set, async (data) => {
         const createdUserSession = await userSessionsService.create(data);
 
-        const activeUserSessions = get().activeUserSessions;
-        const newActiveUserSessions = [...activeUserSessions, createdUserSession];
+        const userSessions = get().userSessions;
+        const newUserSessions = [...userSessions, createdUserSession];
 
-        set({ activeUserSessions: newActiveUserSessions });
+        set({ userSessions: newUserSessions });
         return createdUserSession;
     }),
     delete: action(set, async (id) => {
         await userSessionsService.delete(id);
 
-        const activeUserSessions = get().activeUserSessions;
-        const newActiveUserSessions = activeUserSessions.filter((nas) => nas.id !== id);
+        const userSessions = get().userSessions;
+        const newUserSessions = userSessions.filter((nus) => nus.id !== id);
 
-        set({ activeUserSessions: newActiveUserSessions });
+        set({ userSessions: newUserSessions });
         return id;
     }),
 }));

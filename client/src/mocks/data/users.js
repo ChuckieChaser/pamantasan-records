@@ -1,180 +1,128 @@
 import { UsersSchema, UserCredentialsSchema, UserSettingsSchema, UserSessionsSchema } from '../../schemas';
 import { USERS_ROLE, USERS_STATUS, USER_SETTINGS_THEME, USER_SETTINGS_NOTIFICATION } from '../../constants';
-import { DEPARTMENT_OUR_ID, DEPARTMENT_HRO_ID, DEPARTMENT_CCS_ID } from './departments';
+import { DEPARTMENT_CCS_ID, DEPARTMENT_HR_ID } from './departments';
 
 // --- Global Constants ---
-export const ADMINISTRATOR_ID = '11111111-1111-4111-8111-111111111111';
-export const COORDINATOR_ID = '22222222-2222-4222-8222-222222222222';
-export const DIRECTOR_ID = '33333333-3333-4333-8333-333333333333';
-export const OFFICER_ID = '44444444-4444-4444-8444-444444444444';
-export const MEMBER_ID = '55555555-5555-4555-8555-555555555555';
+export const ADMINISTRATOR_ID = 'u1111111-1111-4111-8111-111111111111';
+export const COORDINATOR_ID = 'u2222222-2222-4222-8222-222222222222';
+export const DIRECTOR_ID = 'u3333333-3333-4333-8333-333333333333';
+export const OFFICER_ID = 'u4444444-4444-4444-8444-444444444444';
+export const MEMBER_ID = 'u5555555-5555-4555-8555-555555555555';
+export const HR_MEMBER_ID = 'u6666666-6666-4666-8666-666666666666';
 
-const NOW = new Date().toISOString();
+const now = new Date().toISOString();
 
 // --- Raw Data ---
 const rawUsers = [
     {
         id: ADMINISTRATOR_ID,
-        university_id: '00-00001',
-        department_id: DEPARTMENT_OUR_ID,
+        university_id: '20-00001',
+        department_id: DEPARTMENT_CCS_ID,
         role: USERS_ROLE.ADMINISTRATOR,
-        email: 'admin.sys@university.edu.ph',
-        avatar_path: null,
-        first_name: 'System',
-        middle_name: null,
-        last_name: 'Administrator',
+        email: 'admin.ccs@university.edu.ph',
+        first_name: 'Arthur',
+        last_name: 'Pendragon',
         status: USERS_STATUS.VERIFIED,
-        created_at: NOW,
-        updated_at: NOW,
+        created_at: now,
+        updated_at: now,
     },
     {
         id: COORDINATOR_ID,
-        university_id: '15-10234',
-        department_id: DEPARTMENT_HRO_ID,
+        university_id: '20-00002',
+        department_id: DEPARTMENT_CCS_ID,
         role: USERS_ROLE.COORDINATOR,
-        email: 'hr.coordinator@university.edu.ph',
-        avatar_path: '/storage/avatars/15-10234.jpg',
-        first_name: 'Elena',
-        middle_name: 'Reyes',
-        last_name: 'Bautista',
+        email: 'coord.ccs@university.edu.ph',
+        first_name: 'Cora',
+        last_name: 'Smith',
         status: USERS_STATUS.VERIFIED,
-        created_at: NOW,
-        updated_at: NOW,
+        created_at: now,
+        updated_at: now,
     },
     {
         id: DIRECTOR_ID,
-        university_id: '10-55421',
+        university_id: '20-00003',
         department_id: DEPARTMENT_CCS_ID,
         role: USERS_ROLE.DIRECTOR,
-        email: 'dean.ccs@university.edu.ph',
-        avatar_path: null,
-        first_name: 'Roberto',
-        middle_name: 'Tan',
-        last_name: 'Villanueva',
+        email: 'director.ccs@university.edu.ph',
+        first_name: 'Diana',
+        last_name: 'Prince',
         status: USERS_STATUS.VERIFIED,
-        created_at: NOW,
-        updated_at: NOW,
+        created_at: now,
+        updated_at: now,
     },
     {
         id: OFFICER_ID,
-        university_id: '18-33214',
+        university_id: '20-00004',
         department_id: DEPARTMENT_CCS_ID,
         role: USERS_ROLE.OFFICER,
-        email: 'secretary.ccs@university.edu.ph',
-        avatar_path: null,
-        first_name: 'Maria',
-        middle_name: 'Santos',
-        last_name: 'Dela Cruz',
+        email: 'officer.ccs@university.edu.ph',
+        first_name: 'Oliver',
+        last_name: 'Queen',
         status: USERS_STATUS.VERIFIED,
-        created_at: NOW,
-        updated_at: NOW,
+        created_at: now,
+        updated_at: now,
     },
     {
         id: MEMBER_ID,
-        university_id: '22-88765',
+        university_id: '20-00005',
         department_id: DEPARTMENT_CCS_ID,
         role: USERS_ROLE.MEMBER,
-        email: 'faculty.ccs@university.edu.ph',
-        avatar_path: null,
-        first_name: 'Juan',
-        middle_name: null,
-        last_name: 'Perez',
+        email: 'member.ccs@university.edu.ph',
+        first_name: 'Marcus',
+        last_name: 'Aurelius',
         status: USERS_STATUS.VERIFIED,
-        created_at: NOW,
-        updated_at: NOW,
+        created_at: now,
+        updated_at: now,
+    },
+    {
+        id: HR_MEMBER_ID,
+        university_id: '21-00123',
+        department_id: DEPARTMENT_HR_ID,
+        role: USERS_ROLE.MEMBER,
+        email: 'member.hr@university.edu.ph',
+        first_name: 'Helena',
+        last_name: 'Roosevelt',
+        status: USERS_STATUS.VERIFIED,
+        created_at: now,
+        updated_at: now,
     },
 ];
 
-const rawUserCredentials = [
-    {
-        user_id: ADMINISTRATOR_ID,
-        password_hash: '$2b$10$FakeHashForAdmin',
-        google_id: null,
-        created_at: NOW,
-        updated_at: NOW,
-    },
-    {
-        user_id: COORDINATOR_ID,
-        password_hash: '$2b$10$FakeHashForCoord',
-        google_id: null,
-        created_at: NOW,
-        updated_at: NOW,
-    },
-    {
-        user_id: DIRECTOR_ID,
-        password_hash: '$2b$10$FakeHashForDir',
-        google_id: '104857392817',
-        created_at: NOW,
-        updated_at: NOW,
-    },
-    {
-        user_id: OFFICER_ID,
-        password_hash: '$2b$10$FakeHashForOfficer',
-        google_id: null,
-        created_at: NOW,
-        updated_at: NOW,
-    },
-    {
-        user_id: MEMBER_ID,
-        password_hash: '$2b$10$FakeHashForMember',
-        google_id: null,
-        created_at: NOW,
-        updated_at: NOW,
-    },
-];
+const rawUserCredentials = rawUsers.map((user) => ({
+    user_id: user.id,
+    password_hash: '$2b$10$abcdefghijklmnopqrstuv',
+    google_id: user.id === ADMINISTRATOR_ID ? '10485739281' : null,
+    created_at: now,
+    updated_at: now,
+}));
 
-const rawUserSettings = [
-    {
-        user_id: ADMINISTRATOR_ID,
-        theme: USER_SETTINGS_THEME.DARK,
-        notification: USER_SETTINGS_NOTIFICATION.ALL,
-        animation: false,
-        created_at: NOW,
-        updated_at: NOW,
-    },
-    {
-        user_id: COORDINATOR_ID,
-        theme: USER_SETTINGS_THEME.SYSTEM,
-        notification: USER_SETTINGS_NOTIFICATION.IMPORTANT,
-        animation: true,
-        created_at: NOW,
-        updated_at: NOW,
-    },
-    {
-        user_id: DIRECTOR_ID,
-        theme: USER_SETTINGS_THEME.LIGHT,
-        notification: USER_SETTINGS_NOTIFICATION.ALL,
-        animation: true,
-        created_at: NOW,
-        updated_at: NOW,
-    },
-    {
-        user_id: OFFICER_ID,
-        theme: USER_SETTINGS_THEME.SYSTEM,
-        notification: USER_SETTINGS_NOTIFICATION.ALL,
-        animation: true,
-        created_at: NOW,
-        updated_at: NOW,
-    },
-    {
-        user_id: MEMBER_ID,
-        theme: USER_SETTINGS_THEME.DARK,
-        notification: USER_SETTINGS_NOTIFICATION.SYSTEM,
-        animation: true,
-        created_at: NOW,
-        updated_at: NOW,
-    },
-];
+const rawUserSettings = rawUsers.map((user, index) => ({
+    user_id: user.id,
+    theme: index % 2 === 0 ? USER_SETTINGS_THEME.SYSTEM : USER_SETTINGS_THEME.DARK,
+    notification: USER_SETTINGS_NOTIFICATION.ALL,
+    animation: true,
+    created_at: now,
+    updated_at: now,
+}));
 
 const rawUserSessions = [
     {
-        id: '5e551111-1111-4111-8111-111111111111',
+        id: 's0000000-0000-4000-8000-000000000001',
         user_id: ADMINISTRATOR_ID,
-        token_hash: 'abc123xyz_secure_token',
-        ip_address: '192.168.1.1',
+        token_hash: 'mock_jwt_token_admin_123',
+        ip_address: '192.168.1.100',
         user_agent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
+        created_at: now,
         expired_at: new Date(Date.now() + 86400000).toISOString(),
-        created_at: NOW,
+    },
+    {
+        id: 's0000000-0000-4000-8000-000000000002',
+        user_id: HR_MEMBER_ID,
+        token_hash: 'mock_jwt_token_hr_456',
+        ip_address: '10.0.0.55',
+        user_agent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+        created_at: now,
+        expired_at: new Date(Date.now() + 86400000).toISOString(),
     },
 ];
 

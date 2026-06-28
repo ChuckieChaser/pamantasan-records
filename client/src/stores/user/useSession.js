@@ -9,13 +9,13 @@ export const useUserSession = create((set, get) => ({
     error: null,
 
     // --- Locals ---
-    selectActiveSessions: action(set, async (userId) => {
+    selectActiveUserSessions: action(set, async (userId) => {
         const activeUserSessions = await userSessionsService.getByUserId(userId).catch(() => []);
 
         set({ activeUserSessions: activeUserSessions });
         return activeUserSessions;
     }),
-    deselectActiveSessions: () => {
+    deselectActiveUserSessions: () => {
         set({ activeUserSessions: [] });
     },
 
@@ -24,18 +24,18 @@ export const useUserSession = create((set, get) => ({
         const createdUserSession = await userSessionsService.create(data);
 
         const activeUserSessions = get().activeUserSessions;
-        const newActiveSessions = [...activeUserSessions, createdUserSession];
+        const newActiveUserSessions = [...activeUserSessions, createdUserSession];
 
-        set({ activeUserSessions: newActiveSessions });
+        set({ activeUserSessions: newActiveUserSessions });
         return createdUserSession;
     }),
     delete: action(set, async (id) => {
         await userSessionsService.delete(id);
 
         const activeUserSessions = get().activeUserSessions;
-        const newActiveSessions = activeUserSessions.filter((nas) => nas.id !== id);
+        const newActiveUserSessions = activeUserSessions.filter((nas) => nas.id !== id);
 
-        set({ activeUserSessions: newActiveSessions });
+        set({ activeUserSessions: newActiveUserSessions });
         return id;
     }),
 }));

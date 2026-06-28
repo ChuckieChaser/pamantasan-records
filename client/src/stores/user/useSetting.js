@@ -9,13 +9,13 @@ export const useUserSetting = create((set, get) => ({
     error: null,
 
     // --- Locals ---
-    selectActiveSetting: action(set, async (userId) => {
+    selectActiveUserSetting: action(set, async (userId) => {
         const activeUserSetting = await userSettingsService.getByUserId(userId).catch(() => null);
 
         set({ activeUserSetting: activeUserSetting });
         return activeUserSetting;
     }),
-    deselectActiveSetting: () => {
+    deselectActiveUserSetting: () => {
         set({ activeUserSetting: null });
     },
 
@@ -30,9 +30,9 @@ export const useUserSetting = create((set, get) => ({
         const updatedUserSetting = await userSettingsService.update(userId, data);
 
         const activeUserSetting = get().activeUserSetting;
-        const newActiveSetting = activeUserSetting?.user_id === userId ? updatedUserSetting : activeUserSetting;
+        const newActiveUserSetting = activeUserSetting?.user_id === userId ? updatedUserSetting : activeUserSetting;
 
-        set({ activeUserSetting: newActiveSetting });
+        set({ activeUserSetting: newActiveUserSetting });
         return updatedUserSetting;
     }),
 }));

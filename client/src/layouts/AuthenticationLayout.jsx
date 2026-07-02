@@ -1,7 +1,7 @@
 // File: src/layouts/AuthLayout.jsx
 import { Outlet } from 'react-router-dom';
 
-export default function AuthLayout() {
+const AuthenticationLayout = () => {
     return (
         // We use your custom Tailwind v4 theme colors (bg-background, text-main)
         // min-h-screen ensures it takes up the full height of the browser
@@ -12,4 +12,6 @@ export default function AuthLayout() {
             <Outlet />
         </div>
     );
-}
+};
+
+export default AuthenticationLayout;

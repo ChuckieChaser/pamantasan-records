@@ -1,45 +1,36 @@
+import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
-import Sidebar from '../components/layout/Sidebar';
 
-const current_user = {
-    avatar_path: null,
-    name: 'Admin User',
-    role: 'ADMINISTRATOR',
-};
+import Sidebar from '../components/layout/Sidebar';
+import Topbar from '../components/layout/Topbar';
+
+// TO BE REMOVED: This is a temporary import for demonstration purposes. In a real application, you would fetch the current user from your authentication context or state management solution.
+import { usersData } from '../mocks/data';
+const currentUser = usersData[0];
+// TO BE REMOVED: This is a temporary import for demonstration purposes. In a real application, you would fetch the current user from your authentication context or state management solution.
 
 export default function MainLayout() {
+    const [isInspectorOpen, setIsInspectorOpen] = useState(false);
+    const toggleInspector = () => setIsInspectorOpen((prev) => !prev);
+
     return (
-        // The absolute outer container. It takes up the full screen and prevents scrolling on the body.
         <div className="flex h-screen w-screen overflow-hidden bg-background text-main">
-            <Sidebar user={current_user} />
+            <Sidebar user={currentUser} />
 
-            {/* ========================================= */}
-            {/* PANE 2: THE MAIN WORKSPACE (Center)       */}
-            {/* ========================================= */}
-            {/* flex-1 allows this pane to grow and fill all remaining space. */}
             <main className="relative flex min-w-0 flex-1 flex-col">
-                {/* THE TOPBAR */}
-                {/* h-16 sets a fixed height. */}
-                <header className="flex h-16 shrink-0 items-center border-b border-border bg-surface px-6">
-                    <div className="text-sm text-muted">Topbar & Search Placeholder</div>
-                </header>
+                <Topbar onToggleInspector={toggleInspector} isInspectorOpen={isInspectorOpen} />
 
-                {/* THE DYNAMIC CONTENT AREA */}
-                {/* overflow-y-auto allows ONLY this area to scroll if the table gets too long. */}
                 <div className="flex-1 overflow-y-auto bg-background p-6">
-                    {/* Again, Outlet injects the specific page (Dashboard, Documents) here. */}
                     <Outlet />
                 </div>
             </main>
 
-            {/* ========================================= */}
-            {/* PANE 3: THE DETAIL PANEL (Right)          */}
-            {/* ========================================= */}
-            {/* We will conditionally hide/show this later using Zustand. */}
-            {/* w-80 sets a fixed width for the metadata drawer. */}
-            <aside className="hidden w-80 shrink-0 flex-col border-l border-border bg-surface p-6 xl:flex">
-                <div className="text-sm text-muted">Detail Panel Placeholder</div>
-            </aside>
+            {isInspectorOpen && (
+                <aside className="flex w-80 shrink-0 flex-col border-l border-border bg-surface p-6 shadow-[-4px_0_15px_-3px_rgba(0,0,0,0.1)]">
+                    <h2 className="mb-4 text-lg font-bold">Inspector</h2>
+                    <div className="text-sm text-muted">Select a document row to view details here.</div>
+                </aside>
+            )}
         </div>
     );
 }

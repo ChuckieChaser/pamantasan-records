@@ -1,6 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { USERS_ROLE } from '../../constants';
-import { ImageButton, NavigationButton } from '../ui/Buttons';
+import { ImageButton, NavigationButton } from '../ui';
 
 import { LayoutDashboard, Box, FileText, Archive, ClipboardList } from 'lucide-react';
 

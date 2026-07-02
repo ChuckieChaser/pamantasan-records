@@ -7,7 +7,7 @@ import { LayoutDashboard, Box, FileText, Archive, ClipboardList } from 'lucide-r
 import logo from '../../assets/logo.jpg';
 import avatar from '../../assets/avatar.png';
 
-export default function Sidebar({ user }) {
+const Sidebar = ({ user }) => {
     const location = useLocation();
     const navigate = useNavigate();
 
@@ -39,4 +39,6 @@ export default function Sidebar({ user }) {
             </div>
         </aside>
     );
-}
+};
+
+export default Sidebar;

@@ -27,11 +27,11 @@ export default function Sidebar({ user }) {
 
                 {canViewManagement && <NavigationButton icon={Users} active={isActive('/management')} onClick={() => navigate('/management')} title="Management" />}
 
-                <NavigationButton icon={FileText} active={isActive('/document')} onClick={() => navigate('/document')} title="Documents" />
+                <NavigationButton icon={FileText} active={isActive('/documents')} onClick={() => navigate('/documents')} title="Documents" />
 
-                <NavigationButton icon={Archive} active={isActive('/archive')} onClick={() => navigate('/archive')} title="Archives" />
+                <NavigationButton icon={Archive} active={isActive('/archives')} onClick={() => navigate('/archives')} title="Archives" />
 
-                {canViewRequests && <NavigationButton icon={ClipboardList} active={isActive('/request')} onClick={() => navigate('/request')} title="Requests" />}
+                {canViewRequests && <NavigationButton icon={ClipboardList} active={isActive('/requests')} onClick={() => navigate('/requests')} title="Requests" />}
             </nav>
 
             <div className="flex flex-col items-center gap-4">

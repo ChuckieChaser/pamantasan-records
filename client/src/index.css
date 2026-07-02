@@ -4,17 +4,22 @@
 @import 'tailwindcss';
 
 @theme {
+    /* --- Base Surfaces --- */
     --color-background: var(--color-zinc-50);
     --color-surface: var(--color-white);
     --color-surface-hover: var(--color-zinc-100);
     --color-border: var(--color-zinc-200);
+
+    /* --- Typography Colors --- */
     --color-main: var(--color-zinc-900);
     --color-muted: var(--color-zinc-500);
 
+    /* --- Interactive Palette (Accent) --- */
     --color-accent: var(--color-emerald-600);
-    --color-accent-background: var(--color-emerald-150);
+    --color-accent-background: var(--color-emerald-100);
     --color-accent-hover: var(--color-emerald-700);
 
+    /* --- System Feedback (Statuses) --- */
     --color-success-background: var(--color-emerald-50);
     --color-success-text: var(--color-emerald-700);
     --color-warning-background: var(--color-amber-50);
@@ -22,6 +27,7 @@
     --color-error-background: var(--color-red-50);
     --color-error-text: var(--color-red-700);
 
+    /* --- Typography Manifesto --- */
     --font-heading: 'Fraunces', serif;
     --font-body: 'Urbanist', sans-serif;
 }
@@ -32,11 +38,12 @@
         --color-surface: var(--color-zinc-900);
         --color-surface-hover: var(--color-zinc-800);
         --color-border: var(--color-zinc-800);
+
         --color-main: var(--color-zinc-50);
         --color-muted: var(--color-zinc-400);
 
         --color-accent: var(--color-emerald-500);
-        --color-accent-background: var(--color-emerald-850);
+        --color-accent-background: var(--color-emerald-900);
         --color-accent-hover: var(--color-emerald-400);
 
         --color-success-background: var(--color-emerald-950);

@@ -70,3 +70,21 @@ export const SwitchButton = ({ size = 'medium', checked = false, className = '',
         </button>
     );
 };
+
+export const MenuButton = ({ icon: Icon, label, description, destructive = false, className = '', children, ...props }) => {
+    const textColorClass = destructive ? 'text-error-text hover:bg-error-background/10' : 'text-main hover:bg-surface-hover';
+
+    return (
+        <button type="button" className={`flex w-full cursor-pointer items-start gap-3 rounded-md px-3 py-2 text-left transition-colors duration-200 ${textColorClass} ${className}`} {...props}>
+            {Icon && <Icon className="mt-0.5 size-4 shrink-0 text-muted" />}
+
+            <div className="flex flex-col">
+                {label && <span className="text-sm font-medium">{label}</span>}
+
+                {description && <span className="text-xs text-muted">{description}</span>}
+
+                {children}
+            </div>
+        </button>
+    );
+};

@@ -61,16 +61,16 @@ export const SelectField = ({ icon: DefaultIcon, options = [], value, size = 'me
     const textStateClass = selectedOption ? 'text-main' : 'text-muted';
     const chevronStateClass = isOpen ? 'rotate-180 text-accent' : '';
 
-    const handleOpenSelect = () => setIsOpen((previous) => !previous);
-    const handleCloseSelect = () => setIsOpen(false);
-    const handleOptionSelect = (selectedValue) => {
+    const handleToggle = () => setIsOpen((previous) => !previous);
+    const handleClose = () => setIsOpen(false);
+    const handleOption = (selectedValue) => {
         onChange(selectedValue);
         setIsOpen(false);
     };
 
     return (
         <div className={`relative w-full ${className}`}>
-            <button type="button" className={`${BASE_WRAPPER_CLASS} ${UI_SIZES[size]} ${triggerStateClass} cursor-pointer`} onClick={handleOpenSelect} {...props}>
+            <button type="button" className={`${BASE_WRAPPER_CLASS} ${UI_SIZES[size]} ${triggerStateClass} cursor-pointer`} onClick={handleToggle} {...props}>
                 {DisplayIcon && <DisplayIcon className={`${ICON_SIZES[size]} ${BASE_ICON_CLASS} ${iconStateClass}`} />}
 
                 <span className={`flex h-full w-full items-center truncate bg-transparent text-left outline-none ${textStateClass}`}>{displayText}</span>
@@ -80,7 +80,7 @@ export const SelectField = ({ icon: DefaultIcon, options = [], value, size = 'me
 
             {isOpen && (
                 <>
-                    <TransparentBackdrop onClick={handleCloseSelect} />
+                    <TransparentBackdrop onClick={handleClose} />
 
                     <div className="absolute top-full left-0 z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-md border border-border bg-surface shadow-lg">
                         {options.map((option) => (
@@ -88,7 +88,7 @@ export const SelectField = ({ icon: DefaultIcon, options = [], value, size = 'me
                                 key={option.value}
                                 type="button"
                                 className="group/item flex w-full cursor-pointer items-center justify-start gap-2 px-4 py-3 text-sm font-medium text-main transition-all duration-300 hover:bg-surface-hover"
-                                onClick={() => handleOptionSelect(option.value)}
+                                onClick={() => handleOption(option.value)}
                             >
                                 {option.icon && <option.icon className={`${ICON_SIZES[size]} shrink-0 text-muted transition-all duration-300 group-hover/item:text-accent`} />}
                                 {option.label && <span>{option.label}</span>}

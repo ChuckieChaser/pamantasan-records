@@ -1,41 +1,80 @@
-import { useLocation, useNavigate } from 'react-router-dom';
-import { USERS_ROLE } from '../../constants';
-import { ImageButton, NavigationButton } from '../ui';
-
+import { useNavigate, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Box, FileText, Archive, ClipboardList } from 'lucide-react';
 
+import { useAuthentication } from '../../stores';
+import { USERS_ROLE } from '../../constants';
+import { ImageButton, NavigationButton, UserMenu } from '../ui';
+
 import logo from '../../assets/logo.jpg';
-import avatar from '../../assets/avatar.png';
 
+// ==============================================================================
+// SECTION 1: NAVIGATION CONFIG
+// ==============================================================================
+
+// --- Routes visible to all roles ---
+const SHARED_ROUTES = [
+    { path: '/dashboard', icon: LayoutDashboard, title: 'Dashboard' },
+    { path: '/documents', icon: FileText, title: 'Documents' },
+    { path: '/archives', icon: Archive, title: 'Archives' },
+];
+
+// --- Routes visible only to Administrator and Coordinator ---
+const MANAGEMENT_ROUTES = [
+    { path: '/management', icon: Box, title: 'Management' },
+];
+
+// --- Routes visible only to Director, Officer, Member ---
+const REQUESTER_ROUTES = [
+    { path: '/requests', icon: ClipboardList, title: 'Requests' },
+];
+
+// ==============================================================================
+// SECTION 2: COMPONENT
+// ==============================================================================
+
+// --- Sidebar: layout panel → flush, no border radius, no shadow ---
 const Sidebar = ({ user }) => {
-    const location = useLocation();
     const navigate = useNavigate();
+    const location = useLocation();
 
-    const canViewManagement = user.role === USERS_ROLE.ADMINISTRATOR || user.role === USERS_ROLE.COORDINATOR;
-    const canViewRequests = user.role !== USERS_ROLE.ADMINISTRATOR && user.role !== USERS_ROLE.COORDINATOR;
+    const { logout } = useAuthentication();
 
-    const isActive = (path) => location.pathname.includes(path);
+    // --- Computed ---
+    const isAdminOrCoordinator = (
+        user?.role === USERS_ROLE.ADMINISTRATOR
+        || user?.role === USERS_ROLE.COORDINATOR
+    );
+
+    const visibleRoutes = [
+        ...SHARED_ROUTES,
+        ...(isAdminOrCoordinator ? MANAGEMENT_ROUTES : REQUESTER_ROUTES),
+    ];
+
+    const isActive = (path) => location.pathname.startsWith(path);
 
     return (
-        <aside className="flex h-full w-20 shrink-0 flex-col items-center justify-between border-r border-border bg-surface py-6">
-            <div className="flex flex-col items-center gap-4">
+        <aside className="flex h-full shrink-0 flex-col items-center justify-between border-r border-border bg-surface p-4">
+            {/* --- Logo --- */}
+            <div className="flex flex-col items-center">
                 <ImageButton src={logo} alt="University Logo" size="large" />
             </div>
 
-            <nav className="flex flex-col items-center gap-4">
-                <NavigationButton icon={LayoutDashboard} active={isActive('/dashboard')} onClick={() => navigate('/dashboard')} title="Dashboard" />
-
-                {canViewManagement && <NavigationButton icon={Box} active={isActive('/management')} onClick={() => navigate('/management')} title="Management" />}
-
-                <NavigationButton icon={FileText} active={isActive('/documents')} onClick={() => navigate('/documents')} title="Documents" />
-
-                <NavigationButton icon={Archive} active={isActive('/archives')} onClick={() => navigate('/archives')} title="Archives" />
-
-                {canViewRequests && <NavigationButton icon={ClipboardList} active={isActive('/requests')} onClick={() => navigate('/requests')} title="Requests" />}
+            {/* --- Navigation --- */}
+            <nav className="flex flex-col items-center gap-2">
+                {visibleRoutes.map((route) => (
+                    <NavigationButton
+                        key={route.path}
+                        icon={route.icon}
+                        title={route.title}
+                        active={isActive(route.path)}
+                        onClick={() => navigate(route.path)}
+                    />
+                ))}
             </nav>
 
-            <div className="flex flex-col items-center gap-4">
-                <ImageButton src={user.avatar_path || avatar} alt={`${user.first_name} Profile`} size="medium" />
+            {/* --- User Menu --- */}
+            <div className="flex flex-col items-center">
+                <UserMenu user={user} onLogout={logout} />
             </div>
         </aside>
     );

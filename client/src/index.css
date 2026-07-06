@@ -21,10 +21,13 @@
 
     /* --- System Feedback (Statuses) --- */
     --color-success-background: var(--color-emerald-50);
+    --color-success-border: var(--color-emerald-200);
     --color-success-text: var(--color-emerald-700);
     --color-warning-background: var(--color-amber-50);
+    --color-warning-border: var(--color-amber-200);
     --color-warning-text: var(--color-amber-700);
     --color-error-background: var(--color-red-50);
+    --color-error-border: var(--color-red-200);
     --color-error-text: var(--color-red-700);
 
     /* --- Typography Manifesto --- */
@@ -47,10 +50,13 @@
         --color-accent-hover: var(--color-emerald-400);
 
         --color-success-background: var(--color-emerald-950);
+        --color-success-border: var(--color-emerald-800);
         --color-success-text: var(--color-emerald-400);
         --color-warning-background: var(--color-amber-950);
+        --color-warning-border: var(--color-amber-800);
         --color-warning-text: var(--color-amber-400);
         --color-error-background: var(--color-red-950);
+        --color-error-border: var(--color-red-800);
         --color-error-text: var(--color-red-400);
     }
 

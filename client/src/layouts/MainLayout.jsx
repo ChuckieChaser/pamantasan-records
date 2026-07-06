@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 
 import { useAuthentication, useDocument, useUserSetting } from '../stores';
+import { USER_SETTINGS_THEME } from '../constants';
 
 import Sidebar from '../components/layout/Sidebar';
 import Topbar from '../components/layout/Topbar';
@@ -30,9 +31,9 @@ export default function MainLayout() {
         if (!userSetting?.theme) return;
 
         const root = document.documentElement;
-        if (userSetting.theme === 'DARK') {
+        if (userSetting.theme === USER_SETTINGS_THEME.DARK) {
             root.classList.add('dark');
-        } else if (userSetting.theme === 'LIGHT') {
+        } else if (userSetting.theme === USER_SETTINGS_THEME.LIGHT) {
             root.classList.remove('dark');
         } else {
             // SYSTEM

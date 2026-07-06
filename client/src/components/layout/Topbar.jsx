@@ -1,9 +1,9 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Search, PanelRight, ChevronRight } from 'lucide-react';
+import { Search, PanelRight } from 'lucide-react';
 
 import { useAuthentication, useNotification } from '../../stores';
-import { IconButton, InputField, NotificationMenu } from '../ui';
+import { IconButton, InputField, NotificationMenu, Breadcrumb } from '../ui';
 
 // ==============================================================================
 // SECTION 1: TOPBAR
@@ -51,21 +51,7 @@ const Topbar = ({ onToggleInspector, isInspectorOpen }) => {
     return (
         <header className="flex w-full shrink-0 items-center justify-between p-4">
             {/* --- Breadcrumb --- */}
-            <div className="flex items-center gap-2 text-sm font-medium capitalize text-muted">
-                {pathSegments.length === 0 ? (
-                    <span className="text-main">Home</span>
-                ) : (
-                    pathSegments.map((segment, index) => {
-                        const isLast = index === pathSegments.length - 1;
-                        return (
-                            <div key={segment} className="flex items-center gap-2">
-                                {index > 0 && <ChevronRight className="size-4 shrink-0 text-border" />}
-                                <span className={isLast ? 'text-main' : 'text-muted'}>{segment}</span>
-                            </div>
-                        );
-                    })
-                )}
-            </div>
+            <Breadcrumb segments={pathSegments} />
 
             {/* --- Actions --- */}
             <div className="flex items-center gap-4">

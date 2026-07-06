@@ -8,11 +8,11 @@ import { IconButton } from '../ui';
 // --- Inspector: layout panel = top-level container → no rounded corners (full-height flush border) ---
 const Inspector = ({ document, onClose }) => {
     return (
-        <aside className="flex w-80 shrink-0 flex-col border-l border-border bg-surface">
+        <aside className="flex w-100 shrink-0 flex-col border-l border-border bg-surface">
             {/* --- Header --- */}
             <div className="flex shrink-0 items-center justify-between border-b border-border p-4">
                 <h2 className="text-sm font-bold text-main">Inspector</h2>
-                <IconButton icon={X} size="small" onClick={onClose} />
+                <IconButton icon={X} onClick={onClose} />
             </div>
 
             {/* --- Body --- */}

@@ -37,7 +37,7 @@ export const NotificationMenu = ({ hasUnread = false, notifications = [], classN
                 <>
                     <TransparentBackdrop onClick={handleClose} />
 
-                    <MenuContainer className="top-full right-0 w-100">
+                    <MenuContainer className="top-full right-0 w-96">
                         <MenuHeader title="Notifications" />
 
                         <MenuBody className="max-h-80">

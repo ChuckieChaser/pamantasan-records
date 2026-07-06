@@ -15,7 +15,7 @@ export const Modal = ({ isOpen, onClose, title, className = '', children }) => {
             <DimBackdrop onClick={onClose} />
 
             {/* Modal Body: rounded-lg, shadow-lg, relative above backdrop */}
-            <div className={`relative flex z-60 max-h-[90vh] flex-col overflow-hidden rounded-lg border border-border bg-surface shadow-lg ${className}`}>
+            <div className={`relative flex z-60 max-h-full flex-col overflow-hidden rounded-lg border border-border bg-surface shadow-lg ${className}`}>
                 {title && (
                     <div className="flex shrink-0 items-center justify-between border-b border-border p-4">
                         <h2 className="text-lg font-bold text-main">{title}</h2>

@@ -13,7 +13,7 @@
 // --- Card: container rule → rounded-lg, sm shadow, no padding (children control it) ---
 export const Card = ({ className = '', children, ...props }) => {
     return (
-        <div className={`flex flex-col overflow-hidden rounded-md border border-border bg-surface shadow-sm transition-shadow duration-200 ${className}`} {...props}>
+        <div className={`flex flex-col overflow-hidden rounded-lg border border-border bg-surface shadow-sm transition-shadow duration-200 ${className}`} {...props}>
             {children}
         </div>
     );
@@ -47,7 +47,7 @@ export const CardBody = ({ padded = false, className = '', children, ...props })
 // --- CardFooter: first child container → p-4 ---
 export const CardFooter = ({ className = '', children, ...props }) => {
     return (
-        <div className={`flex shrink-0 items-center justify-end gap-2 border-t border-border bg-surface p-2 ${className}`} {...props}>
+        <div className={`flex shrink-0 items-center justify-end gap-2 border-t border-border bg-surface p-4 ${className}`} {...props}>
             {children}
         </div>
     );
@@ -60,7 +60,7 @@ export const CardFooter = ({ className = '', children, ...props }) => {
 // --- MenuContainer: container → rounded-lg, shadow-lg, no padding ---
 export const MenuContainer = ({ className = '', children, ...props }) => {
     return (
-        <div className={`absolute z-50 mt-2 flex flex-col overflow-hidden rounded-md border border-border bg-surface shadow-lg ${className}`} {...props}>
+        <div className={`absolute z-50 mt-2 flex flex-col overflow-hidden rounded-lg border border-border bg-surface shadow-lg ${className}`} {...props}>
             {children}
         </div>
     );

@@ -19,7 +19,7 @@ export const Modal = ({ isOpen, onClose, title, className = '', children }) => {
                 {title && (
                     <div className="flex shrink-0 items-center justify-between border-b border-border p-4">
                         <h2 className="text-lg font-bold text-main">{title}</h2>
-                        {onClose && <IconButton icon={X} size="small" onClick={onClose} />}
+                        {onClose && <IconButton icon={X} onClick={onClose} />}
                     </div>
                 )}
                 {children}

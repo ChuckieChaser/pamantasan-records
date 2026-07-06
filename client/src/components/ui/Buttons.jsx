@@ -50,9 +50,7 @@ export const ImageButton = ({ src, alt, size = 'medium', className = '', ...prop
 
 // --- Icon Button: rounded-md to match UI action rule ---
 export const IconButton = ({ icon: Icon, size = 'medium', active = false, className = '', ...props }) => {
-    const stateClass = active
-        ? 'bg-accent-background text-accent'
-        : 'bg-transparent text-muted hover:bg-surface-hover hover:text-main';
+    const stateClass = active ? 'bg-accent-background text-accent' : 'bg-transparent text-muted hover:bg-surface-hover hover:text-main';
 
     return (
         <button className={`${BASE_ICON_BUTTON} ${ICON_BUTTON_SIZES[size]} ${stateClass} ${className}`} {...props}>
@@ -63,9 +61,7 @@ export const IconButton = ({ icon: Icon, size = 'medium', active = false, classN
 
 // --- Navigation Button: rounded-md, solid active state ---
 export const NavigationButton = ({ icon: Icon, size = 'medium', active = false, className = '', ...props }) => {
-    const stateClass = active
-        ? 'bg-accent text-surface'
-        : 'bg-transparent text-muted hover:bg-surface-hover hover:text-main';
+    const stateClass = active ? 'bg-accent text-surface' : 'bg-transparent text-muted hover:bg-surface-hover hover:text-main';
 
     return (
         <button className={`${BASE_ICON_BUTTON} ${ICON_BUTTON_SIZES[size]} ${stateClass} ${className}`} {...props}>
@@ -88,13 +84,11 @@ export const SwitchButton = ({ size = 'medium', checked = false, className = '',
 
 // --- Menu Button: full-width, left-aligned, for dropdown items ---
 export const MenuButton = ({ icon: Icon, label, description, destructive = false, className = '', children, ...props }) => {
-    const textColorClass = destructive
-        ? 'text-error-text hover:bg-error-background'
-        : 'text-main hover:bg-surface-hover';
+    const textColorClass = destructive ? 'text-error-text hover:bg-error-background' : 'text-main hover:bg-surface-hover';
 
     return (
-        <button type="button" className={`flex w-full cursor-pointer items-start gap-3 rounded-md px-3 py-2 text-left transition-colors duration-200 ${textColorClass} ${className}`} {...props}>
-            {Icon && <Icon className="mt-1 size-4 shrink-0 text-muted" />}
+        <button type="button" className={`flex w-full cursor-pointer items-start gap-2 rounded-md p-2 text-left transition-colors duration-200 ${textColorClass} ${className}`} {...props}>
+            {Icon && <Icon className="size-4 shrink-0 self-center justify-self-center text-muted" />}
 
             <div className="flex flex-col">
                 {label && <span className="text-sm font-medium">{label}</span>}

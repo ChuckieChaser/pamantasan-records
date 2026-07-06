@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Eye, EyeOff, ChevronDown } from 'lucide-react';
+import { Eye, EyeOff, ChevronDown, Lock } from 'lucide-react';
 
 import { UI_SIZES, ICON_SIZES, TEXTAREA_SIZES } from '../scale';
 import { IconButton } from './Buttons';
@@ -28,7 +28,7 @@ export const InputField = ({ leftIcon: LeftIcon, rightIcon: RightIcon, size = 'm
     );
 };
 
-export const PasswordField = ({ icon: Icon, size = 'medium', className = '', ...props }) => {
+export const PasswordField = ({ icon: Icon = Lock, size = 'medium', className = '', ...props }) => {
     const [showPassword, setShowPassword] = useState(false);
 
     const handleToggle = () => setShowPassword((previous) => !previous);

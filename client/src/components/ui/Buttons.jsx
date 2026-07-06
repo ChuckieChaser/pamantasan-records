@@ -90,7 +90,7 @@ export const MenuButton = ({ icon: Icon, label, description, destructive = false
         <button type="button" className={`flex w-full cursor-pointer items-start gap-2 rounded-md p-2 text-left transition-colors duration-200 ${textColorClass} ${className}`} {...props}>
             {Icon && <Icon className="size-4 shrink-0 self-center justify-self-center text-muted" />}
 
-            <div className="flex flex-col">
+            <div className="flex flex-1 flex-col">
                 {label && <span className="text-sm font-medium">{label}</span>}
                 {description && <span className="text-xs text-muted">{description}</span>}
                 {children}

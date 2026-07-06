@@ -60,7 +60,7 @@ const Sidebar = ({ user }) => {
             </div>
 
             {/* --- Navigation --- */}
-            <nav className="flex flex-col items-center gap-2">
+            <nav className="flex flex-col items-center gap-4">
                 {visibleRoutes.map((route) => (
                     <NavigationButton
                         key={route.path}

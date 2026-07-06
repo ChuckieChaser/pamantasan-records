@@ -14,22 +14,39 @@ const Topbar = ({ onToggleInspector, isInspectorOpen }) => {
     const location = useLocation();
 
     const { user } = useAuthentication();
-    const { notifications, unreadCount, getByRecipientId } = useNotification();
+    const { notifications, unreadCount, getGroupedByRecipientId } = useNotification();
 
     // --- Load notifications when the authenticated user changes ---
     useEffect(() => {
-        if (user?.id) getByRecipientId(user.id);
-    }, [user?.id, getByRecipientId]);
+        if (user?.id) getGroupedByRecipientId(user.id);
+    }, [user?.id, getGroupedByRecipientId]);
 
     // --- Breadcrumb computation ---
     const pathSegments = location.pathname.split('/').filter((segment) => segment !== '');
 
     // --- Shape notifications for the menu component ---
-    const notificationItems = notifications.map((notification) => ({
-        title: `${notification.action} — ${notification.entity_type}`,
-        message: null,
-        time: new Date(notification.created_at).toLocaleString(),
-    }));
+    const notificationItems = notifications.map((notification) => {
+        const isPlural = notification.group_count > 1;
+        const actorText = isPlural ? `${notification.actor_name} and others` : notification.actor_name;
+
+        const titleNode = (
+            <span className="text-main">
+                <span className="font-semibold text-accent">{actorText}</span>
+                {' '}
+                <span className="lowercase">{notification.action.replace(/_/g, ' ')}</span>
+                {' on '}
+                <span className="font-semibold text-accent">{notification.entity_name}</span>
+            </span>
+        );
+
+        return {
+            title: titleNode,
+            message: null,
+            time: new Date(notification.created_at).toLocaleString(),
+            count: notification.group_count,
+            avatar: notification.actor_avatar,
+        };
+    });
 
     return (
         <header className="flex w-full shrink-0 items-center justify-between p-4">
@@ -51,7 +68,7 @@ const Topbar = ({ onToggleInspector, isInspectorOpen }) => {
             </div>
 
             {/* --- Actions --- */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-4">
                 <div className="w-72">
                     <InputField leftIcon={Search} placeholder="Search anything..." />
                 </div>

@@ -2,8 +2,11 @@ import { useState } from 'react';
 import { Bell, MoreVertical, Settings, LogOut } from 'lucide-react';
 
 import { IconButton, ImageButton, MenuButton } from './Buttons';
+import { Badge } from './Badges';
 import { TransparentBackdrop } from './Backdrops';
 import { MenuContainer, MenuHeader, MenuBody } from './Containers';
+
+import SettingsModal from '../layout/SettingsModal';
 
 import avatar from '../../assets/avatar.png';
 
@@ -34,7 +37,7 @@ export const NotificationMenu = ({ hasUnread = false, notifications = [], classN
                 <>
                     <TransparentBackdrop onClick={handleClose} />
 
-                    <MenuContainer className="top-full right-0 w-80">
+                    <MenuContainer className="top-full right-0 w-100">
                         <MenuHeader title="Notifications" />
 
                         <MenuBody className="max-h-80">
@@ -46,18 +49,31 @@ export const NotificationMenu = ({ hasUnread = false, notifications = [], classN
                                 notifications.map((notification, index) => (
                                     <MenuButton
                                         key={index}
-                                        label={notification.title}
-                                        description={notification.message}
                                         onClick={() => {
                                             if (notification.onClick) notification.onClick();
                                             handleClose();
                                         }}
                                     >
-                                        {notification.time && (
-                                            <span className="mt-1 text-xs text-muted">
-                                                {notification.time}
-                                            </span>
-                                        )}
+                                        <div className="flex w-full items-center justify-between gap-4">
+                                            {/* Left side: Avatar + Information */}
+                                            <div className="flex items-center gap-3">
+                                                <div className="size-10 shrink-0 overflow-hidden rounded-full border border-border">
+                                                    <img src={notification.avatar || avatar} alt="Actor" className="h-full w-full object-cover" />
+                                                </div>
+                                                <div className="flex flex-col">
+                                                    {notification.title && <span className="text-sm font-medium">{notification.title}</span>}
+                                                    {notification.message && <span className="text-xs text-muted">{notification.message}</span>}
+                                                    {notification.time && <span className="mt-1 text-xs text-muted">{notification.time}</span>}
+                                                </div>
+                                            </div>
+
+                                            {/* Right side: Interaction count */}
+                                            {notification.count > 1 && (
+                                                <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-bold text-surface">
+                                                    {notification.count}
+                                                </div>
+                                            )}
+                                        </div>
                                     </MenuButton>
                                 ))
                             )}
@@ -116,6 +132,7 @@ export const ActionMenu = ({ options = [], size = 'medium', className = '' }) =>
 
 export const UserMenu = ({ user, onLogout, className = '' }) => {
     const [isOpen, setIsOpen] = useState(false);
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
     const handleToggle = () => setIsOpen((previous) => !previous);
     const handleClose = () => setIsOpen(false);
@@ -133,11 +150,15 @@ export const UserMenu = ({ user, onLogout, className = '' }) => {
                 <>
                     <TransparentBackdrop onClick={handleClose} />
 
-                    <MenuContainer className="left-full bottom-0 ml-2 w-56">
+                    <MenuContainer className="left-full bottom-0 ml-2 w-72">
                         <MenuHeader>
-                            <div className="flex flex-col">
-                                <span className="font-bold text-main">{user?.first_name} {user?.last_name}</span>
-                                <span className="text-xs text-muted">{user?.email}</span>
+                            <div className="flex items-center gap-3">
+                                <ImageButton src={user?.avatar_path || avatar} alt="Profile" size="large" />
+                                <div className="flex flex-col">
+                                    <span className="font-bold text-main">{user?.first_name} {user?.last_name}</span>
+                                    <span className="text-xs text-muted">{user?.email}</span>
+                                    <Badge label={user?.role} variant="neutral" size="small" className="mt-1 w-max" />
+                                </div>
                             </div>
                         </MenuHeader>
 
@@ -146,6 +167,7 @@ export const UserMenu = ({ user, onLogout, className = '' }) => {
                                 icon={Settings}
                                 label="Settings"
                                 onClick={() => {
+                                    setIsSettingsOpen(true);
                                     handleClose();
                                 }}
                             />
@@ -162,6 +184,9 @@ export const UserMenu = ({ user, onLogout, className = '' }) => {
                     </MenuContainer>
                 </>
             )}
+
+            {/* --- Modals --- */}
+            <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
         </div>
     );
 };

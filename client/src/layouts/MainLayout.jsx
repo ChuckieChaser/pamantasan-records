@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 
-import { useAuthentication, useDocument } from '../stores';
+import { useAuthentication, useDocument, useUserSetting } from '../stores';
 
 import Sidebar from '../components/layout/Sidebar';
 import Topbar from '../components/layout/Topbar';
@@ -16,6 +16,33 @@ export default function MainLayout() {
 
     const { user } = useAuthentication();
     const { activeDocument } = useDocument();
+    const { userSetting, getByUserId } = useUserSetting();
+
+    // --- Load Settings if missing ---
+    useEffect(() => {
+        if (user?.id && !userSetting) {
+            getByUserId(user.id);
+        }
+    }, [user?.id, userSetting, getByUserId]);
+
+    // --- Apply Theme ---
+    useEffect(() => {
+        if (!userSetting?.theme) return;
+
+        const root = document.documentElement;
+        if (userSetting.theme === 'DARK') {
+            root.classList.add('dark');
+        } else if (userSetting.theme === 'LIGHT') {
+            root.classList.remove('dark');
+        } else {
+            // SYSTEM
+            if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                root.classList.add('dark');
+            } else {
+                root.classList.remove('dark');
+            }
+        }
+    }, [userSetting?.theme]);
 
     // --- Handlers ---
     const handleToggleInspector = () => setIsInspectorOpen((previous) => !previous);

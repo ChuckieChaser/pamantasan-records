@@ -7,6 +7,12 @@ export const useUserCredential = create((set) => ({
     isLoading: false,
     error: null,
 
+    // --- Reads ---
+    getByUserId: action(set, async (userId) => {
+        const credential = await userCredentialsService.getByUserId(userId).catch(() => null);
+        return credential;
+    }),
+
     // --- Actions ---
     create: action(set, async (data) => {
         const createdUserCredential = await userCredentialsService.create(data);

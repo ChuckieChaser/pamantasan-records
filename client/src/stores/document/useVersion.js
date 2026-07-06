@@ -9,6 +9,12 @@ export const useDocumentVersion = create((set, get) => ({
     error: null,
 
     // --- Reads ---
+    getAll: action(set, async () => {
+        const documentVersions = await documentVersionsService.getAll();
+
+        set({ documentVersions: documentVersions });
+        return documentVersions;
+    }),
     getByDocumentId: action(set, async (documentId) => {
         const documentVersions = await documentVersionsService.getByDocumentId(documentId).catch(() => []);
 

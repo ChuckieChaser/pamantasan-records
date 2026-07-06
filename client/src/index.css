@@ -62,7 +62,6 @@
 
     html {
         scroll-behavior: smooth;
-        scrollbar-gutter: stable;
 
         background-color: var(--color-background);
         color: var(--color-main);
@@ -77,5 +76,18 @@
     h5,
     h6 {
         font-family: var(--font-heading);
+    }
+
+    /* Hide scrollbar for Chrome, Safari and Opera */
+    *::-webkit-scrollbar {
+        display: none;
+    }
+
+    /* Hide scrollbar for IE, Edge and Firefox */
+    * {
+        -ms-overflow-style: none;
+        /* IE and Edge */
+        scrollbar-width: none;
+        /* Firefox */
     }
 }

@@ -45,6 +45,13 @@ export default function MainLayout() {
         }
     }, [userSetting?.theme]);
 
+    // --- Automatically open inspector when a document is selected ---
+    useEffect(() => {
+        if (activeDocument) {
+            setIsInspectorOpen(true);
+        }
+    }, [activeDocument?.id]);
+
     // --- Handlers ---
     const handleToggleInspector = () => setIsInspectorOpen((previous) => !previous);
     const handleCloseInspector = () => setIsInspectorOpen(false);

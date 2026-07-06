@@ -11,22 +11,12 @@ import logo from '../../assets/logo.jpg';
 // SECTION 1: NAVIGATION CONFIG
 // ==============================================================================
 
-// --- Routes visible to all roles ---
-const SHARED_ROUTES = [
-    { path: '/dashboard', icon: LayoutDashboard, title: 'Dashboard' },
-    { path: '/documents', icon: FileText, title: 'Documents' },
-    { path: '/archives', icon: Archive, title: 'Archives' },
-];
-
-// --- Routes visible only to Administrator and Coordinator ---
-const MANAGEMENT_ROUTES = [
-    { path: '/management', icon: Box, title: 'Management' },
-];
-
-// --- Routes visible only to Director, Officer, Member ---
-const REQUESTER_ROUTES = [
-    { path: '/requests', icon: ClipboardList, title: 'Requests' },
-];
+// --- Individual Route Definitions ---
+const ROUTE_DASHBOARD = { path: '/dashboard', icon: LayoutDashboard, title: 'Dashboard' };
+const ROUTE_DOCUMENTS = { path: '/documents', icon: FileText, title: 'Documents' };
+const ROUTE_ARCHIVES = { path: '/archives', icon: Archive, title: 'Archives' };
+const ROUTE_MANAGEMENT = { path: '/management', icon: Box, title: 'Management' };
+const ROUTE_REQUESTS = { path: '/requests', icon: ClipboardList, title: 'Requests' };
 
 // ==============================================================================
 // SECTION 2: COMPONENT
@@ -46,8 +36,11 @@ const Sidebar = ({ user }) => {
     );
 
     const visibleRoutes = [
-        ...SHARED_ROUTES,
-        ...(isAdminOrCoordinator ? MANAGEMENT_ROUTES : REQUESTER_ROUTES),
+        ROUTE_DASHBOARD,
+        ...(isAdminOrCoordinator ? [ROUTE_MANAGEMENT] : []),
+        ROUTE_DOCUMENTS,
+        ROUTE_ARCHIVES,
+        ...(!isAdminOrCoordinator ? [ROUTE_REQUESTS] : []),
     ];
 
     const isActive = (path) => location.pathname.startsWith(path);

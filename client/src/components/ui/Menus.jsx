@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bell, MoreVertical, Settings, LogOut } from 'lucide-react';
+import { Bell, MoreVertical, Settings, LogOut, User } from 'lucide-react';
 
 import { IconButton, ImageButton, MenuButton } from './Buttons';
 import { Badge } from './Badges';
@@ -7,6 +7,7 @@ import { TransparentBackdrop } from './Backdrops';
 import { MenuContainer, MenuHeader, MenuBody } from './Containers';
 
 import SettingsModal from '../layout/SettingsModal';
+import ProfileModal from '../layout/ProfileModal';
 
 import avatar from '../../assets/avatar.png';
 
@@ -133,6 +134,7 @@ export const ActionMenu = ({ options = [], size = 'medium', className = '' }) =>
 export const UserMenu = ({ user, onLogout, className = '' }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [isProfileOpen, setIsProfileOpen] = useState(false);
 
     const handleToggle = () => setIsOpen((previous) => !previous);
     const handleClose = () => setIsOpen(false);
@@ -164,6 +166,14 @@ export const UserMenu = ({ user, onLogout, className = '' }) => {
 
                         <MenuBody>
                             <MenuButton
+                                icon={User}
+                                label="Profile"
+                                onClick={() => {
+                                    setIsProfileOpen(true);
+                                    handleClose();
+                                }}
+                            />
+                            <MenuButton
                                 icon={Settings}
                                 label="Settings"
                                 onClick={() => {
@@ -186,6 +196,7 @@ export const UserMenu = ({ user, onLogout, className = '' }) => {
             )}
 
             {/* --- Modals --- */}
+            <ProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} />
             <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
         </div>
     );

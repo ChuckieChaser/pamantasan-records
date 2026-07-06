@@ -78,6 +78,14 @@ export const mockDocumentsService = {
 
 export const mockDocumentVersionsService = {
     // --- Reads ---
+    getAll: async () => {
+        return new Promise((resolve) => {
+            setTimeout(() => {
+                const documentVersions = [...documentVersionsData];
+                resolve(documentVersions);
+            }, DELAY_MS);
+        });
+    },
     getByDocumentId: async (documentId) => {
         return new Promise((resolve) => {
             setTimeout(() => {

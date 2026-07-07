@@ -8,6 +8,15 @@ import { Modal, PrimaryButton, SecondaryButton, DestructiveButton, SelectField, 
 // SECTION 1: SETTINGS MODAL
 // ==============================================================================
 
+// ==============================================================================
+// SECTION 1: CONSTANTS
+// ==============================================================================
+
+const SETTINGS_TABS = Object.freeze({
+    PREFERENCE: 'preference',
+    SECURITY: 'security',
+});
+
 const THEME_OPTIONS = [
     { label: 'System', value: USER_SETTINGS_THEME.SYSTEM },
     { label: 'Light', value: USER_SETTINGS_THEME.LIGHT },
@@ -21,7 +30,7 @@ const NOTIFICATION_OPTIONS = [
 ];
 
 const SettingsModal = ({ isOpen, onClose }) => {
-    const [activeTab, setActiveTab] = useState('preference');
+    const [activeTab, setActiveTab] = useState(SETTINGS_TABS.PREFERENCE);
 
     const { user } = useAuthentication();
     const { userSetting, getByUserId: getSettings, update: updateSettings } = useUserSetting();
@@ -40,8 +49,8 @@ const SettingsModal = ({ isOpen, onClose }) => {
 
     // --- Tab definitions ---
     const TABS = [
-        { id: 'preference', label: 'Preferences', icon: Settings },
-        { id: 'security', label: 'Security', icon: Shield },
+        { id: SETTINGS_TABS.PREFERENCE, label: 'Preferences', icon: Settings },
+        { id: SETTINGS_TABS.SECURITY, label: 'Security', icon: Shield },
     ];
 
     return (
@@ -73,7 +82,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
 
                 {/* --- Right Pane: Content --- */}
                 <div className="flex-1 overflow-y-auto p-6">
-                    {activeTab === 'preference' && (
+                    {activeTab === SETTINGS_TABS.PREFERENCE && (
                         <div className="flex flex-col gap-8">
                             <div className="flex items-center justify-between gap-4">
                                 <div>
@@ -107,7 +116,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                         </div>
                     )}
 
-                    {activeTab === 'security' && (
+                    {activeTab === SETTINGS_TABS.SECURITY && (
                         <div className="flex flex-col gap-8">
                             <div>
                                 <h3 className="text-sm font-bold text-main">Password Reset</h3>

@@ -1,10 +1,14 @@
-const Documents = () => {
+// ==============================================================================
+// SECTION 1: PAGE
+// ==============================================================================
+
+export default function Documents() {
     return (
-        <div>
-            <h1 className="mb-4 text-3xl font-bold">Documents</h1>
-            <p className="text-muted">Welcome to the documents section. This is injected into the MainLayout Outlet!</p>
+        <div className="flex flex-col gap-10">
+            <div>
+                <h1 className="text-3xl font-bold text-main">Documents</h1>
+                <p className="mt-1 text-sm text-muted">Browse and manage all documents in the system.</p>
+            </div>
         </div>
     );
-};
-
-export default Documents;
+}

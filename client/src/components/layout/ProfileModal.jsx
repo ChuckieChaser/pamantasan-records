@@ -3,6 +3,10 @@ import { useAuthentication, useDepartment } from '../../stores';
 import { Modal, Badge } from '../ui';
 import avatar from '../../assets/avatar.png';
 
+// ==============================================================================
+// SECTION 1: MODAL
+// ==============================================================================
+
 export default function ProfileModal({ isOpen, onClose }) {
     const { user } = useAuthentication();
     const { departments, getAll: getDepartments } = useDepartment();
@@ -11,7 +15,7 @@ export default function ProfileModal({ isOpen, onClose }) {
         if (isOpen) {
             getDepartments();
         }
-    }, [isOpen]);
+    }, [isOpen, getDepartments]);
 
     if (!user) return null;
 
@@ -30,7 +34,7 @@ export default function ProfileModal({ isOpen, onClose }) {
                         </h3>
                         <p className="text-sm text-muted">{user.email}</p>
                         <div className="mt-3 flex gap-2">
-                            <Badge label={user.role} variant="accent" size="small" />
+                            <Badge label={user.role} variant="neutral" size="small" />
                             <Badge label={user.status} variant={user.status === 'VERIFIED' ? 'success' : 'warning'} size="small" />
                         </div>
                     </div>

@@ -1,12 +1,4 @@
 // ==============================================================================
-// SECTION 1: CARD — Top-level container
-// ==============================================================================
-
-// ==============================================================================
-// SECTION 1: CARD — Top-level container
-// ==============================================================================
-
-// ==============================================================================
 // SECTION 1: CARD — Container
 // ==============================================================================
 
@@ -33,18 +25,16 @@ export const CardHeader = ({ title, description, action, className = '', ...prop
     );
 };
 
-// --- CardBody: first child container → p-4 ---
-export const CardBody = ({ padded = false, className = '', children, ...props }) => {
-    const paddingClass = padded ? 'p-2' : '';
-
+// --- CardBody: flex-1 child container, no forced padding (caller controls it) ---
+export const CardBody = ({ className = '', children, ...props }) => {
     return (
-        <div className={`flex-1 ${paddingClass} ${className}`} {...props}>
+        <div className={`flex-1 ${className}`} {...props}>
             {children}
         </div>
     );
 };
 
-// --- CardFooter: first child container → p-4 ---
+// --- CardFooter: last child container → p-4 ---
 export const CardFooter = ({ className = '', children, ...props }) => {
     return (
         <div className={`flex shrink-0 items-center justify-end gap-2 border-t border-border bg-surface p-4 ${className}`} {...props}>

@@ -216,6 +216,14 @@ export const mockDocumentRequestMessagesService = {
 
 export const mockDocumentSharesService = {
     // --- Reads ---
+    getAll: async () => {
+        return new Promise((resolve) => {
+            setTimeout(() => {
+                const documentShares = [...documentSharesData];
+                resolve(documentShares);
+            }, DELAY_MS);
+        });
+    },
     getByDocumentId: async (documentId) => {
         return new Promise((resolve) => {
             setTimeout(() => {

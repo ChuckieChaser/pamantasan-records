@@ -107,7 +107,14 @@ CREATE POLICY documents_update_access ON documents
     )
     WITH CHECK (
         is_system_role()
-        OR is_administrator_role()
+        OR (
+            is_administrator_role()
+            AND (
+                status != 'ARCHIVED'
+                OR NOT EXISTS (SELECT 1 FROM document_shares ds WHERE ds.document_id = id)
+                OR EXISTS (SELECT 1 FROM documents d WHERE d.id = id AND d.status = 'ATTACHMENT')
+            )
+        )
         OR (
             EXISTS (
                 SELECT 1 FROM document_shares ds
@@ -325,7 +332,7 @@ CREATE POLICY document_shares_insert_access ON document_shares
         is_system_role()
         OR is_administrator_role()
         OR (
-            (is_director_role() OR is_officer_role())
+            is_director_role()
             AND department_id = get_user_current_department_id()
         )
     );
@@ -353,7 +360,7 @@ CREATE POLICY document_shares_delete_access ON document_shares
         is_system_role()
         OR is_administrator_role()
         OR (
-            (is_director_role() OR is_officer_role())
+            is_director_role()
             AND department_id = get_user_current_department_id()
         )
     );

@@ -55,8 +55,8 @@ const Topbar = ({ onToggleInspector, isInspectorOpen }) => {
 
             {/* --- Actions --- */}
             <div className="flex items-center gap-4">
-                <div className="w-72">
-                    <InputField leftIcon={Search} placeholder="Search anything..." />
+                <div className="w-72 cursor-not-allowed opacity-50" title="Global search — coming soon">
+                    <InputField leftIcon={Search} placeholder="Search... (coming soon)" disabled />
                 </div>
 
                 <NotificationMenu

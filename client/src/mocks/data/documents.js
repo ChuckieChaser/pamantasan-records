@@ -8,6 +8,8 @@ export const FOLDER_1_ID = 'd0000000-0000-4000-8000-000000000001';
 export const DOCUMENT_1_ID = 'd0000000-0000-4000-8000-000000000002';
 export const DOCUMENT_2_ID = 'd0000000-0000-4000-8000-000000000003';
 export const DOCUMENT_3_ID = 'd0000000-0000-4000-8000-000000000004';
+export const DOCUMENT_4_ID = 'd0000000-0000-4000-8000-000000000005';
+export const DOCUMENT_5_ID = 'd0000000-0000-4000-8000-000000000006';
 
 export const DOCUMENT_REQUEST_1_ID = 'e0000000-0000-4000-8000-000000000001';
 export const DOCUMENT_REQUEST_2_ID = 'e0000000-0000-4000-8000-000000000002';
@@ -67,6 +69,32 @@ const rawDocuments = [
         summary: 'Updated guidelines for password rotation and two-factor authentication.',
         embedding: null,
         status: DOCUMENTS_STATUS.ATTACHMENT,
+        created_at: NOW,
+        updated_at: NOW,
+    },
+    {
+        id: DOCUMENT_4_ID,
+        parent_id: null,
+        uploader_id: ADMINISTRATOR_ID,
+        name: 'Faculty_Evaluation_Q2.pdf',
+        comment: 'Awaiting Director approval for publication.',
+        is_folder: false,
+        summary: 'Evaluation results for the second quarter.',
+        embedding: null,
+        status: DOCUMENTS_STATUS.PENDING_DIRECTOR,
+        created_at: NOW,
+        updated_at: NOW,
+    },
+    {
+        id: DOCUMENT_5_ID,
+        parent_id: null,
+        uploader_id: ADMINISTRATOR_ID,
+        name: 'New_Employee_Handbook.pdf',
+        comment: 'Freshly uploaded document, awaiting share.',
+        is_folder: false,
+        summary: 'Policies and guidelines for new employees.',
+        embedding: null,
+        status: DOCUMENTS_STATUS.UPLOADED,
         created_at: NOW,
         updated_at: NOW,
     },
@@ -133,6 +161,36 @@ const rawDocumentVersions = [
         created_at: NOW,
         rejected_at: null,
     },
+    {
+        id: 'c0000000-0000-4000-8000-000000000005',
+        document_id: DOCUMENT_4_ID,
+        uploader_id: ADMINISTRATOR_ID,
+        rejecter_id: null,
+        version: 1,
+        checksum: 'c2ca6b0bac6105445211993427181054521b1070e67e3fb1070e67e3fb1070e7',
+        path: '/storage/docs/faculty_eval_q2.pdf',
+        size_bytes: 1548000,
+        mime_type: 'application/pdf',
+        change_summary: 'Initial draft upload.',
+        rejection_reason: null,
+        created_at: NOW,
+        rejected_at: null,
+    },
+    {
+        id: 'c0000000-0000-4000-8000-000000000006',
+        document_id: DOCUMENT_5_ID,
+        uploader_id: ADMINISTRATOR_ID,
+        rejecter_id: null,
+        version: 1,
+        checksum: 'e8ca6b0bac6105445211993427181054521b1070e67e3fb1070e67e3fb1070e8',
+        path: '/storage/docs/handbook.pdf',
+        size_bytes: 3145728,
+        mime_type: 'application/pdf',
+        change_summary: 'Initial upload.',
+        rejection_reason: null,
+        created_at: NOW,
+        rejected_at: null,
+    },
 ];
 
 const rawDocumentRequests = [
@@ -176,7 +234,7 @@ const rawDocumentRequestMessages = [
 const rawDocumentShares = [
     {
         id: 'b0000000-0000-4000-8000-000000000001',
-        document_id: DOCUMENT_2_ID,
+        document_id: DOCUMENT_1_ID, // CS101_Syllabus_Draft.pdf — PENDING_OFFICER: shared to CCS for review
         sharer_id: ADMINISTRATOR_ID,
         recipient_id: null,
         department_id: DEPARTMENT_CCS_ID,
@@ -185,14 +243,33 @@ const rawDocumentShares = [
     },
     {
         id: 'b0000000-0000-4000-8000-000000000002',
-        document_id: DOCUMENT_3_ID,
+        document_id: DOCUMENT_2_ID, // Q3_Financial_Allocation.xlsx — PUBLISHED: shared to CCS for all
+        sharer_id: ADMINISTRATOR_ID,
+        recipient_id: null,
+        department_id: DEPARTMENT_CCS_ID,
+        document_request_id: null,
+        created_at: NOW,
+    },
+    {
+        id: 'b0000000-0000-4000-8000-000000000003',
+        document_id: DOCUMENT_3_ID, // IT_Security_Policy_v2.pdf — ATTACHMENT: routed via document request
         sharer_id: ADMINISTRATOR_ID,
         recipient_id: HR_MEMBER_ID,
         department_id: null,
         document_request_id: DOCUMENT_REQUEST_2_ID,
         created_at: NOW,
     },
+    {
+        id: 'b0000000-0000-4000-8000-000000000004',
+        document_id: DOCUMENT_4_ID, // Faculty_Evaluation_Q2.pdf — PENDING_DIRECTOR: shared to CCS for review
+        sharer_id: ADMINISTRATOR_ID,
+        recipient_id: null,
+        department_id: DEPARTMENT_CCS_ID,
+        document_request_id: null,
+        created_at: NOW,
+    },
 ];
+
 
 // --- Strict Validation ---
 export const documentsData = rawDocuments.map((d) => DocumentsSchema.parse(d));

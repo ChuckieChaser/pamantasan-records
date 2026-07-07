@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 
-import { useAuthentication, useDocument, useUserSetting } from '../stores';
+import { useAuthentication, useDocument, useUserSetting, useAuditLog } from '../stores';
 import { USER_SETTINGS_THEME } from '../constants';
 
 import Sidebar from '../components/layout/Sidebar';
@@ -17,6 +17,7 @@ export default function MainLayout() {
 
     const { user } = useAuthentication();
     const { activeDocument } = useDocument();
+    const { activeAuditLog } = useAuditLog();
     const { userSetting, getByUserId } = useUserSetting();
 
     // --- Load Settings if missing ---
@@ -45,12 +46,12 @@ export default function MainLayout() {
         }
     }, [userSetting?.theme]);
 
-    // --- Automatically open inspector when a document is selected ---
+    // --- Automatically open inspector when a document or audit log is selected ---
     useEffect(() => {
-        if (activeDocument) {
+        if (activeDocument || activeAuditLog) {
             setIsInspectorOpen(true);
         }
-    }, [activeDocument?.id]);
+    }, [activeDocument?.id, activeAuditLog?.id]);
 
     // --- Handlers ---
     const handleToggleInspector = () => setIsInspectorOpen((previous) => !previous);
@@ -72,7 +73,7 @@ export default function MainLayout() {
             </main>
 
             {isInspectorOpen && (
-                <Inspector document={activeDocument} onClose={handleCloseInspector} />
+                <Inspector document={activeDocument} auditLog={activeAuditLog} onClose={handleCloseInspector} />
             )}
         </div>
     );

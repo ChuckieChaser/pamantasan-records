@@ -9,6 +9,12 @@ export const useDocumentShare = create((set, get) => ({
     error: null,
 
     // --- Reads ---
+    getAll: action(set, async () => {
+        const documentShares = await documentSharesService.getAll().catch(() => []);
+
+        set({ documentShares: documentShares });
+        return documentShares;
+    }),
     getByDocumentId: action(set, async (documentId) => {
         const documentShares = await documentSharesService.getByDocumentId(documentId).catch(() => []);
 

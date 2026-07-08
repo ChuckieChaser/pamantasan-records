@@ -87,6 +87,8 @@ app.post('/api/pull', async (req, res) => {
         }).catch(err => {
             if (err.message === 'Pull cancelled') {
                 logger.emit('model_progress', { modelName, progress: { status: 'cancelled' } });
+            } else {
+                logger.emit('model_progress', { modelName, progress: { status: 'error' } });
             }
         });
         logger.success('Pull request sent successfully', 'API');
@@ -124,6 +126,12 @@ app.delete('/api/delete', async (req, res) => {
     }
 });
 
+// DELETE /api/logs - Clear all backend logs
+app.delete('/api/logs', (req, res) => {
+    logger.clearLogs();
+    res.json({ success: true, message: 'Logs cleared' });
+});
+
 // Create HTTP server
 const server = http.createServer(app);
 
@@ -146,12 +154,19 @@ wss.on('connection', (ws) => {
         ws.send(JSON.stringify({ type: 'MODEL_PROGRESS', data: payload }));
     };
 
+    // Setup listener for clearing logs
+    const onClearLogs = () => {
+        ws.send(JSON.stringify({ type: 'INIT_LOGS', data: [] }));
+    };
+
     logger.on('new_log', onNewLog);
     logger.on('model_progress', onModelProgress);
+    logger.on('clear_logs', onClearLogs);
 
     ws.on('close', () => {
         logger.removeListener('new_log', onNewLog);
         logger.removeListener('model_progress', onModelProgress);
+        logger.removeListener('clear_logs', onClearLogs);
     });
 });
 

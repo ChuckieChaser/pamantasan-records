@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { Terminal, Trash2, Pause, Play, AlertTriangle, CheckCircle, Info, XCircle } from 'lucide-react';
+import { Terminal, Trash2, RefreshCw, AlertTriangle, CheckCircle, Info, XCircle } from 'lucide-react';
 
 export default function LogViewer() {
     const [logs, setLogs] = useState([]);
-    const [isPaused, setIsPaused] = useState(false);
     const [wsStatus, setWsStatus] = useState('CONNECTING'); // CONNECTING, CONNECTED, DISCONNECTED
     const scrollRef = useRef(null);
 
@@ -59,12 +58,27 @@ export default function LogViewer() {
 
     // Auto-scroll logic
     useEffect(() => {
-        if (!isPaused && scrollRef.current) {
+        if (scrollRef.current) {
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
         }
-    }, [logs, isPaused]);
+    }, [logs]);
 
-    const clearLogs = () => setLogs([]);
+    const clearLogs = async () => {
+        try {
+            await fetch('/api/logs', { method: 'DELETE' });
+            setLogs([]);
+        } catch (err) {
+            console.error('Failed to clear logs on server', err);
+        }
+    };
+
+    const refreshLogs = () => {
+        // A simple page reload is the most robust way to restart the WS and fetch INIT_LOGS
+        // But if we want to do it in-place without page reload, we can clear and fetch /api/logs manually,
+        // or just let the reconnect logic handle it. For now, since logs are stateful on server, we can
+        // just close the WS to trigger a reconnect if it's not connected, or we can add a specific refresh endpoint.
+        window.location.reload();
+    };
 
     const getIcon = (level) => {
         switch (level) {
@@ -100,18 +114,18 @@ export default function LogViewer() {
                 </div>
                 <div className="flex items-center gap-2">
                     <button 
-                        onClick={() => setIsPaused(!isPaused)}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md border text-xs font-bold uppercase transition-colors ${isPaused ? 'bg-accent/10 border-accent/30 text-accent' : 'bg-surface border-border text-muted hover:text-main'}`}
+                        onClick={refreshLogs} 
+                        className="p-1.5 rounded bg-surface-hover text-muted hover:text-main hover:bg-accent/10 transition-colors"
+                        title="Refresh Connection"
                     >
-                        {isPaused ? <Play className="size-3.5" /> : <Pause className="size-3.5" />}
-                        {isPaused ? 'Resume' : 'Pause'}
+                        <RefreshCw className="size-4" />
                     </button>
                     <button 
-                        onClick={clearLogs}
-                        className="flex items-center gap-2 px-3 py-1.5 rounded-md border border-border bg-surface text-muted hover:text-main hover:bg-surface-hover transition-colors text-xs font-bold uppercase"
+                        onClick={clearLogs} 
+                        className="p-1.5 rounded bg-surface-hover text-muted hover:text-error hover:bg-error/10 transition-colors"
+                        title="Clear Logs"
                     >
-                        <Trash2 className="size-3.5" />
-                        Clear
+                        <Trash2 className="size-4" />
                     </button>
                 </div>
             </div>

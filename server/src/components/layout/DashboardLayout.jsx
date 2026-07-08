@@ -1,27 +1,33 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Server, Database, BrainCircuit, Activity, Monitor } from 'lucide-react';
 import LogViewer from '../logging/LogViewer';
 import ModelManager from '../ai/ModelManager';
 
 export default function DashboardLayout() {
     const [status, setStatus] = useState({ postgres: false, ollama: false, client: false });
+    const failCountRef = useRef(0);
 
     useEffect(() => {
         const fetchStatus = async () => {
+            if (failCountRef.current >= 3) return; // Stop polling if failed too many times
+
             try {
                 const res = await fetch('/api/status');
                 if (res.ok) {
                     const data = await res.json();
                     setStatus(data);
+                    failCountRef.current = 0; // Reset fail count on success
+                } else {
+                    throw new Error('API down');
                 }
             } catch (err) {
-                // If API is down, everything is offline
+                failCountRef.current += 1;
                 setStatus({ postgres: false, ollama: false, client: false });
             }
         };
 
         fetchStatus();
-        const interval = setInterval(fetchStatus, 5000);
+        const interval = setInterval(fetchStatus, 15000); // 15 seconds
         return () => clearInterval(interval);
     }, []);
 

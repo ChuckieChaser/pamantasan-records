@@ -56,6 +56,9 @@ class OllamaService {
                     for (const line of lines) {
                         try {
                             const parsed = JSON.parse(line);
+                            if (parsed.error) {
+                                throw new Error(parsed.error);
+                            }
                             if (progressCallback) {
                                 progressCallback(parsed);
                             }
@@ -63,6 +66,9 @@ class OllamaService {
                                 logger.success(`Successfully pulled model: ${modelName}`, 'OLLAMA');
                             }
                         } catch (e) {
+                            if (e.message && !e.message.includes('JSON')) {
+                                throw e; // Throw actual ollama stream errors
+                            }
                             // ignore partial JSON
                         }
                     }

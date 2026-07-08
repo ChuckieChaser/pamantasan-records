@@ -49,6 +49,11 @@ class LoggerService extends EventEmitter {
     getLogs() {
         return this.logs;
     }
+
+    clearLogs() {
+        this.logs = [];
+        this.emit('clear_logs');
+    }
 }
 
 export const logger = new LoggerService();

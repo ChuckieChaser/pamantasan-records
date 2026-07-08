@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BrainCircuit, Search, Download, Trash2, ExternalLink, CheckCircle, Database, X } from 'lucide-react';
+import { BrainCircuit, Search, Download, Trash2, ExternalLink, CheckCircle, Database, X, AlertTriangle } from 'lucide-react';
 
 const CATALOG = [
     { name: 'llama3.1', display: 'Llama 3.1', params: '8B', context: '128K', desc: 'Highly proficient in text summarization, reasoning, and instruction following.' },
@@ -15,7 +15,7 @@ const CATALOG = [
 export default function ModelManager({ onOllamaStatus }) {
     const [installedModels, setInstalledModels] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
-    const [activePull, setActivePull] = useState(null); // { modelName, status, total, completed }
+    const [activePulls, setActivePulls] = useState({}); // { [modelName]: { status, total, completed } }
     const [customPull, setCustomPull] = useState('');
     const [activeModel, setActiveModel] = useState(() => localStorage.getItem('activeModel') || '');
 
@@ -52,18 +52,27 @@ export default function ModelManager({ onOllamaStatus }) {
                     const message = JSON.parse(event.data);
                     if (message.type === 'MODEL_PROGRESS') {
                         const { modelName, progress } = message.data;
-                        setActivePull({
-                            modelName,
-                            status: progress.status,
-                            total: progress.total || 0,
-                            completed: progress.completed || 0
-                        });
                         
-                        if (progress.status === 'success' || progress.status === 'cancelled') {
-                            setTimeout(() => {
-                                setActivePull(null);
-                                fetchModels();
-                            }, 1000);
+                        if (progress.status === 'success' || progress.status === 'cancelled' || progress.status === 'error') {
+                            // On completion/failure, remove from active pulls and refresh models
+                            setActivePulls(prev => {
+                                const next = { ...prev };
+                                delete next[modelName];
+                                return next;
+                            });
+                            if (progress.status === 'success') {
+                                setTimeout(fetchModels, 1000);
+                            }
+                        } else {
+                            // Update progress
+                            setActivePulls(prev => ({
+                                ...prev,
+                                [modelName]: {
+                                    status: progress.status,
+                                    total: progress.total || prev[modelName]?.total || 0,
+                                    completed: progress.completed || prev[modelName]?.completed || 0
+                                }
+                            }));
                         }
                     }
                 } catch (e) {
@@ -78,8 +87,13 @@ export default function ModelManager({ onOllamaStatus }) {
     }, []);
 
     const handlePull = async (modelName) => {
-        if (!modelName.trim() || activePull) return;
-        setActivePull({ modelName, status: 'Initializing...', total: 100, completed: 0 });
+        if (!modelName.trim() || activePulls[modelName]) return;
+        
+        setActivePulls(prev => ({
+            ...prev,
+            [modelName]: { status: 'Initializing...', total: 100, completed: 0 }
+        }));
+        
         if (modelName === customPull) setCustomPull('');
         
         try {
@@ -90,7 +104,11 @@ export default function ModelManager({ onOllamaStatus }) {
             });
         } catch (err) {
             console.error('Failed to initiate pull', err);
-            setActivePull(null);
+            setActivePulls(prev => {
+                const next = { ...prev };
+                delete next[modelName];
+                return next;
+            });
         }
     };
 
@@ -131,10 +149,11 @@ export default function ModelManager({ onOllamaStatus }) {
     const isInstalled = (name) => installedModels.some(m => m.name === name || m.name === `${name}:latest`);
 
     const renderDownloadButton = (modelName) => {
-        const isPulling = activePull?.modelName === modelName;
+        const activePullState = activePulls[modelName];
+        const isPulling = !!activePullState;
         const installed = isInstalled(modelName);
 
-        if (installed) {
+        if (installed && !isPulling) {
             return (
                 <button onClick={() => handleDelete(modelName)} className="p-2 rounded-full border border-border text-muted hover:text-error hover:border-error hover:bg-error/10 transition-colors" title="Delete Model">
                     <Trash2 className="size-4" />
@@ -143,7 +162,7 @@ export default function ModelManager({ onOllamaStatus }) {
         }
 
         if (isPulling) {
-            const percentage = activePull.total > 0 ? (activePull.completed / activePull.total) * 100 : 0;
+            const percentage = activePullState.total > 0 ? (activePullState.completed / activePullState.total) * 100 : 0;
             const radius = 14;
             const circumference = 2 * Math.PI * radius;
             const offset = circumference - (percentage / 100) * circumference;
@@ -171,8 +190,7 @@ export default function ModelManager({ onOllamaStatus }) {
         return (
             <button 
                 onClick={() => handlePull(modelName)} 
-                disabled={activePull !== null}
-                className="p-2 rounded-full border border-border text-muted hover:text-accent hover:border-accent hover:bg-accent/10 transition-colors disabled:opacity-50" 
+                className="p-2 rounded-full border border-border text-muted hover:text-accent hover:border-accent hover:bg-accent/10 transition-colors" 
                 title="Download Model"
             >
                 <Download className="size-4" />
@@ -189,16 +207,19 @@ export default function ModelManager({ onOllamaStatus }) {
             </div>
 
             {/* Active Model Banner */}
-            <div className="p-4 border-b border-border bg-surface-hover shrink-0 flex items-center justify-between">
-                <div className="flex flex-col">
-                    <span className="text-xs font-bold uppercase tracking-wide text-muted">Active System Model</span>
+            <div className="p-6 border-b border-border bg-gradient-to-r from-surface to-surface-hover shrink-0 flex items-center justify-between">
+                <div className="flex flex-col gap-1">
+                    <span className="text-xs font-bold uppercase tracking-wider text-muted">Active System Model</span>
                     {activeModel ? (
-                        <div className="flex items-center gap-2 mt-1">
-                            <CheckCircle className="size-4 text-success" />
-                            <span className="font-bold text-main">{activeModel}</span>
+                        <div className="flex items-center gap-3">
+                            <CheckCircle className="size-5 text-success drop-shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
+                            <span className="text-xl font-bold font-heading text-main tracking-wide">{activeModel}</span>
                         </div>
                     ) : (
-                        <span className="text-sm font-medium text-error mt-1">No model selected</span>
+                        <div className="flex items-center gap-2 mt-1 px-3 py-1 bg-error/10 border border-error/20 rounded-md w-fit">
+                            <AlertTriangle className="size-4 text-error" />
+                            <span className="text-sm font-bold text-error">No model selected</span>
+                        </div>
                     )}
                 </div>
             </div>

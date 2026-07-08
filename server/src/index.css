@@ -1,0 +1,93 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,100..900;1,9..144,100..900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Urbanist:ital,wght@0,100..900;1,100..900&display=swap');
+
+@import 'tailwindcss';
+
+@theme {
+    /* --- Base Surfaces --- */
+    --color-background: var(--color-zinc-50);
+    --color-surface: var(--color-white);
+    --color-surface-hover: var(--color-zinc-100);
+    --color-border: var(--color-zinc-200);
+
+    /* --- Typography Colors --- */
+    --color-main: var(--color-zinc-900);
+    --color-muted: var(--color-zinc-500);
+
+    /* --- Interactive Palette (Accent) --- */
+    --color-accent: var(--color-emerald-600);
+    --color-accent-background: var(--color-emerald-100);
+    --color-accent-hover: var(--color-emerald-700);
+
+    /* --- System Feedback (Statuses) --- */
+    --color-success-background: var(--color-emerald-50);
+    --color-success-border: var(--color-emerald-200);
+    --color-success-text: var(--color-emerald-700);
+    --color-warning-background: var(--color-amber-50);
+    --color-warning-border: var(--color-amber-200);
+    --color-warning-text: var(--color-amber-700);
+    --color-error-background: var(--color-red-50);
+    --color-error-border: var(--color-red-200);
+    --color-error-text: var(--color-red-700);
+
+    /* --- Typography Manifesto --- */
+    --font-heading: 'Fraunces', serif;
+    --font-body: 'Urbanist', sans-serif;
+}
+
+@layer base {
+    .dark {
+        --color-background: var(--color-zinc-950);
+        --color-surface: var(--color-zinc-900);
+        --color-surface-hover: var(--color-zinc-800);
+        --color-border: var(--color-zinc-800);
+
+        --color-main: var(--color-zinc-50);
+        --color-muted: var(--color-zinc-400);
+
+        --color-accent: var(--color-emerald-500);
+        --color-accent-background: var(--color-emerald-900);
+        --color-accent-hover: var(--color-emerald-400);
+
+        --color-success-background: var(--color-emerald-950);
+        --color-success-border: var(--color-emerald-800);
+        --color-success-text: var(--color-emerald-400);
+        --color-warning-background: var(--color-amber-950);
+        --color-warning-border: var(--color-amber-800);
+        --color-warning-text: var(--color-amber-400);
+        --color-error-background: var(--color-red-950);
+        --color-error-border: var(--color-red-800);
+        --color-error-text: var(--color-red-400);
+    }
+
+    html {
+        scroll-behavior: smooth;
+
+        background-color: var(--color-background);
+        color: var(--color-main);
+
+        font-family: var(--font-body);
+    }
+
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+        font-family: var(--font-heading);
+    }
+
+    /* Hide scrollbar for Chrome, Safari and Opera */
+    *::-webkit-scrollbar {
+        display: none;
+    }
+
+    /* Hide scrollbar for IE, Edge and Firefox */
+    * {
+        -ms-overflow-style: none;
+        /* IE and Edge */
+        scrollbar-width: none;
+        /* Firefox */
+    }
+}

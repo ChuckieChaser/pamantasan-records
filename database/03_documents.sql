@@ -139,6 +139,8 @@ CREATE TABLE IF NOT EXISTS document_versions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     document_id UUID NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
     uploader_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    approver_id UUID REFERENCES users(id) ON DELETE RESTRICT,
+    publisher_id UUID REFERENCES users(id) ON DELETE RESTRICT,
     rejecter_id UUID REFERENCES users(id) ON DELETE RESTRICT,
 
     version INT NOT NULL DEFAULT 1,
@@ -151,13 +153,20 @@ CREATE TABLE IF NOT EXISTS document_versions (
     rejection_reason TEXT NULL,
 
     created_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    rejected_at timestamptz DEFAULT NULL,
+    updated_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT uq_document_versions_document_id_version UNIQUE (document_id, version),
     CONSTRAINT chk_document_versions_version CHECK (version > 0)
 );
 
 CREATE INDEX IF NOT EXISTS idx_document_versions_document_id ON document_versions(document_id);
+
+-- --- Triggers ---
+DROP TRIGGER IF EXISTS set_timestamp_document_versions ON document_versions;
+CREATE TRIGGER set_timestamp_document_versions
+    BEFORE UPDATE ON document_versions
+    FOR EACH ROW
+    EXECUTE FUNCTION trigger_set_timestamp();
 
 -- --- Row Level Security ---
 ALTER TABLE document_versions ENABLE ROW LEVEL SECURITY;

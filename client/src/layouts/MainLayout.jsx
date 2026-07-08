@@ -1,12 +1,16 @@
 import { useState, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 
-import { useAuthentication, useDocument, useUserSetting, useAuditLog } from '../stores';
+import { useAuthentication, useDocument, useUserSetting, useAuditLog, useDepartment, useUser, useCoordinatorRequest, useDocumentRequest } from '../stores';
 import { USER_SETTINGS_THEME } from '../constants';
 
 import Sidebar from '../components/layout/Sidebar';
 import Topbar from '../components/layout/Topbar';
 import Inspector from '../components/layout/Inspector';
+import DepartmentInspector from '../components/management/DepartmentInspector';
+import UserInspector from '../components/management/UserInspector';
+import CoordinatorRequestInspector from '../components/management/CoordinatorRequestInspector';
+import DocumentRequestInspector from '../components/management/DocumentRequestInspector';
 
 // ==============================================================================
 // SECTION 1: LAYOUT
@@ -19,6 +23,10 @@ export default function MainLayout() {
     const { activeDocument } = useDocument();
     const { activeAuditLog } = useAuditLog();
     const { userSetting, getByUserId } = useUserSetting();
+    const { activeDepartment } = useDepartment();
+    const { activeUser } = useUser();
+    const { activeCoordinatorRequest } = useCoordinatorRequest();
+    const { activeDocumentRequest } = useDocumentRequest();
 
     // --- Load Settings if missing ---
     useEffect(() => {
@@ -46,12 +54,12 @@ export default function MainLayout() {
         }
     }, [userSetting?.theme]);
 
-    // --- Automatically open inspector when a document or audit log is selected ---
+    // --- Automatically open inspector when any relevant entity is selected ---
     useEffect(() => {
-        if (activeDocument || activeAuditLog) {
+        if (activeDocument || activeAuditLog || activeDepartment || activeUser || activeCoordinatorRequest || activeDocumentRequest) {
             setIsInspectorOpen(true);
         }
-    }, [activeDocument?.id, activeAuditLog?.id]);
+    }, [activeDocument?.id, activeAuditLog?.id, activeDepartment?.id, activeUser?.id, activeCoordinatorRequest?.id, activeDocumentRequest?.id]);
 
     // --- Handlers ---
     const handleToggleInspector = () => setIsInspectorOpen((previous) => !previous);
@@ -73,7 +81,23 @@ export default function MainLayout() {
             </main>
 
             {isInspectorOpen && (
-                <Inspector document={activeDocument} auditLog={activeAuditLog} onClose={handleCloseInspector} />
+                <>
+                    {(activeDocument || activeAuditLog) && (
+                        <Inspector document={activeDocument} auditLog={activeAuditLog} onClose={handleCloseInspector} />
+                    )}
+                    {activeDepartment && (
+                        <DepartmentInspector department={activeDepartment} onClose={handleCloseInspector} />
+                    )}
+                    {activeUser && (
+                        <UserInspector user={activeUser} onClose={handleCloseInspector} />
+                    )}
+                    {activeCoordinatorRequest && (
+                        <CoordinatorRequestInspector request={activeCoordinatorRequest} onClose={handleCloseInspector} />
+                    )}
+                    {activeDocumentRequest && (
+                        <DocumentRequestInspector request={activeDocumentRequest} onClose={handleCloseInspector} />
+                    )}
+                </>
             )}
         </div>
     );

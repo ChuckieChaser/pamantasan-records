@@ -3,7 +3,7 @@ import { Search, ArrowUpDown, ArrowUp, ArrowDown, Filter, Activity } from 'lucid
 import { Card } from '../ui/Containers';
 import { Badge } from '../ui/Badges';
 import { InputField } from '../ui/Textfields';
-import AuditFilterMenu from './AuditFilterMenu';
+import { FilterMenu } from '../ui/Menus';
 import { useUser } from '../../stores';
 import { AUDIT_LOGS_ENTITY_TYPE, AUDIT_LOGS_ACTION } from '../../constants';
 
@@ -37,12 +37,25 @@ export default function AuditBrowser({ title, description, audits, activeAuditLo
     const [selectedActions, setSelectedActions] = useState([]);
     const [sortCol, setSortCol] = useState('DATE');
     const [sortState, setSortState] = useState('DEFAULT');
+    const [selectedEntities, setSelectedEntities] = useState([]);
 
-    const filterOptions = [...Object.values(AUDIT_LOGS_ACTION), ...Object.values(AUDIT_LOGS_ENTITY_TYPE)];
+    const toggleAction = (action) => setSelectedActions(prev => prev.includes(action) ? prev.filter(a => a !== action) : [...prev, action]);
+    const toggleEntity = (entity) => setSelectedEntities(prev => prev.includes(entity) ? prev.filter(e => e !== entity) : [...prev, entity]);
 
-    const toggleAction = (action) => {
-        setSelectedActions(prev => prev.includes(action) ? prev.filter(a => a !== action) : [...prev, action]);
-    };
+    const filterGroups = [
+        { 
+            title: 'Actions', 
+            options: Object.values(AUDIT_LOGS_ACTION).map(a => ({ value: a, label: a.replace(/_/g, ' ') })), 
+            selected: selectedActions, 
+            onToggle: toggleAction 
+        },
+        { 
+            title: 'Entities', 
+            options: Object.values(AUDIT_LOGS_ENTITY_TYPE).map(e => ({ value: e, label: e.replace(/_/g, ' ') })), 
+            selected: selectedEntities, 
+            onToggle: toggleEntity 
+        }
+    ];
 
     const handleSort = (col) => {
         if (col === 'ENTITY') {
@@ -78,9 +91,8 @@ export default function AuditBrowser({ title, description, audits, activeAuditLo
     const displayAudits = (() => {
         let result = [...audits];
 
-        if (selectedActions.length > 0) {
-            result = result.filter(a => selectedActions.includes(a.action) || selectedActions.includes(a.entity_type));
-        }
+        if (selectedActions.length > 0) result = result.filter(a => selectedActions.includes(a.action));
+        if (selectedEntities.length > 0) result = result.filter(a => selectedEntities.includes(a.entity_type));
 
         if (filter) {
             const term = filter.toLowerCase();
@@ -143,7 +155,7 @@ export default function AuditBrowser({ title, description, audits, activeAuditLo
                             onChange={(e) => setFilter(e.target.value)}
                         />
                     </div>
-                    <AuditFilterMenu options={filterOptions} selectedOptions={selectedActions} onToggleOption={toggleAction} />
+                    <FilterMenu groups={filterGroups} />
                 </div>
             </div>
 
@@ -193,11 +205,18 @@ export default function AuditBrowser({ title, description, audits, activeAuditLo
                                     <td className="px-4 py-4">
                                         <Badge label={audit.entity_type} variant="neutral" size="small" />
                                     </td>
-                                    <td className="px-4 py-4 font-medium text-main">
+                                    <td className="px-4 py-4">
                                         {(() => {
-                                            if (!audit.actor_id) return 'System';
+                                            if (!audit.actor_id) return <span className="font-medium text-main">System</span>;
                                             const actor = users.find(u => u.id === audit.actor_id);
-                                            return actor ? `${actor.first_name} ${actor.last_name}` : 'Unknown User';
+                                            if (!actor) return <span className="font-medium text-main">Unknown User</span>;
+                                            
+                                            return (
+                                                <div className="flex items-center gap-2">
+                                                    <img src={actor.avatar_path || '/assets/default_avatar.jpg'} alt="Avatar" className="h-5 w-5 rounded-full object-cover shrink-0" />
+                                                    <span className="font-medium text-main">{actor.first_name} {actor.last_name}</span>
+                                                </div>
+                                            );
                                         })()}
                                     </td>
                                     <td className="px-4 py-4 font-medium text-muted">

@@ -5,7 +5,7 @@ import { Badge } from '../ui/Badges';
 import { InputField } from '../ui/Textfields';
 import { IconButton } from '../ui/Buttons';
 import { getFileIcon } from '../ui/FileIcon';
-import FilterMenu from './FilterMenu';
+import { FilterMenu } from '../ui/Menus';
 import DocumentCard from './DocumentCard';
 import { DOCUMENTS_STATUS } from '../../constants';
 
@@ -44,8 +44,9 @@ const renderSortIcon = (col, currentSortCol, currentSortState, type = 'ARROW') =
  *   documentVersions — Array of all document versions (to resolve latestVersion)
  *   activeDocumentId — Currently selected document id
  *   onDocumentClick  — (id) => void
+ *   customStatus     — { header: string, render: (doc) => ReactNode }
  */
-export default function DocumentBrowser({ title, description, documents, documentVersions, activeDocumentId, onDocumentClick }) {
+export default function DocumentBrowser({ title, description, documents, documentVersions, activeDocumentId, onDocumentClick, customStatus }) {
     const [filter, setFilter] = useState('');
     const [selectedStatuses, setSelectedStatuses] = useState([]);
     const [sortCol, setSortCol] = useState('DATE');
@@ -55,6 +56,15 @@ export default function DocumentBrowser({ title, description, documents, documen
     const toggleStatus = (status) => {
         setSelectedStatuses(prev => prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]);
     };
+
+    const filterGroups = [
+        {
+            title: 'Statuses',
+            options: Object.values(DOCUMENTS_STATUS).map(s => ({ value: s, label: s.replace(/_/g, ' ') })),
+            selected: selectedStatuses,
+            onToggle: toggleStatus
+        }
+    ];
 
     const handleSort = (col) => {
         if (col === 'STATUS') {
@@ -129,7 +139,7 @@ export default function DocumentBrowser({ title, description, documents, documen
                             onChange={(e) => setFilter(e.target.value)}
                         />
                     </div>
-                    <FilterMenu selectedStatuses={selectedStatuses} onToggleStatus={toggleStatus} />
+                    <FilterMenu groups={filterGroups} />
                     <div className="flex items-center rounded-md border border-border bg-surface p-1">
                         <IconButton icon={List} size="small" active={view === 'TABLE'} onClick={() => setView('TABLE')} />
                         <IconButton icon={LayoutGrid} size="small" active={view === 'CARD'} onClick={() => setView('CARD')} />
@@ -169,10 +179,13 @@ export default function DocumentBrowser({ title, description, documents, documen
                                     <div className="flex items-center gap-1">Document Name {renderSortIcon('NAME', sortCol, sortState)}</div>
                                 </th>
                                 <th
-                                    className="cursor-pointer px-4 py-3 transition-colors duration-200 hover:text-accent"
-                                    onClick={() => handleSort('STATUS')}
+                                    className={`px-4 py-3 ${customStatus ? '' : 'cursor-pointer transition-colors duration-200 hover:text-accent'}`}
+                                    onClick={() => !customStatus && handleSort('STATUS')}
                                 >
-                                    <div className="flex items-center gap-1">{sortCol === 'STATUS' && sortState !== 'DEFAULT' ? `Status (${sortState.replace(/_/g, ' ')})` : 'Status'} {renderSortIcon('STATUS', sortCol, sortState, 'FILTER')}</div>
+                                    <div className="flex items-center gap-1">
+                                        {customStatus ? customStatus.header : (sortCol === 'STATUS' && sortState !== 'DEFAULT' ? `Status (${sortState.replace(/_/g, ' ')})` : 'Status')}
+                                        {!customStatus && renderSortIcon('STATUS', sortCol, sortState, 'FILTER')}
+                                    </div>
                                 </th>
                                 <th
                                     className="cursor-pointer px-4 py-3 transition-colors duration-200 hover:text-accent"
@@ -208,7 +221,7 @@ export default function DocumentBrowser({ title, description, documents, documen
                                                 </div>
                                             </td>
                                             <td className="px-4 py-4">
-                                                <Badge label={doc.status} variant="neutral" size="small" />
+                                                {customStatus ? customStatus.render(doc) : <Badge label={doc.status} variant="neutral" size="small" />}
                                             </td>
                                             <td className="px-4 py-4 font-medium text-muted">
                                                 {new Date(doc.updated_at).toLocaleDateString()}

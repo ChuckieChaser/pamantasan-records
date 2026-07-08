@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { FileText, FileClock, XCircle, Clock, Activity } from 'lucide-react';
 
-import { useAuthentication, useDocument, useCoordinatorRequest, useDocumentRequest, useDocumentVersion, useDocumentShare, useAuditLog } from '../stores';
+import { useAuthentication, useDocument, useCoordinatorRequest, useDocumentRequest, useDocumentVersion, useDocumentShare, useAuditLog, useUser } from '../stores';
 import { USERS_ROLE, COORDINATOR_REQUESTS_STATUS, DOCUMENT_REQUESTS_STATUS, DOCUMENTS_STATUS } from '../constants';
 
 import MetricCard from '../components/dashboard/MetricCard';
@@ -20,9 +20,11 @@ export default function Dashboard() {
     const { documentVersions, getAll: getDocumentVersions } = useDocumentVersion();
     const { documentShares, getAll: getDocumentShares } = useDocumentShare();
     const { auditLogs, activeAuditLog, getAll: getAuditLogs, selectActiveAuditLog, deselectActiveAuditLog } = useAuditLog();
+    const { users, getAll: getUsers } = useUser();
 
     // --- Load data on mount ---
     useEffect(() => {
+        if (users.length === 0) getUsers();
         getDocuments();
         getDocumentVersions();
 
@@ -42,7 +44,7 @@ export default function Dashboard() {
             deselectActiveDocument();
             deselectActiveAuditLog();
         };
-    }, [user, getDocuments, getCoordinatorRequests, getDocumentRequests, getDocumentRequestsByRequesterId, getDocumentVersions, getDocumentShares, getAuditLogs, deselectActiveDocument, deselectActiveAuditLog]);
+    }, [user, getDocuments, getCoordinatorRequests, getDocumentRequests, getDocumentRequestsByRequesterId, getDocumentVersions, getDocumentShares, getAuditLogs, deselectActiveDocument, deselectActiveAuditLog, users.length, getUsers]);
 
     // ==============================================================================
     // SECTION 2: ACCESS CONTROL FILTER (mirrors server RLS)
@@ -50,7 +52,9 @@ export default function Dashboard() {
 
     const visibleDocuments = useMemo(() => {
         if (!user) return [];
-        if (user.role === USERS_ROLE.ADMINISTRATOR || user.role === USERS_ROLE.COORDINATOR) return documents;
+        if (user.role === USERS_ROLE.ADMINISTRATOR || user.role === USERS_ROLE.COORDINATOR) {
+            return documents.filter(doc => doc.status !== DOCUMENTS_STATUS.ARCHIVED);
+        }
 
         return documents.filter(doc => {
             if (doc.status === DOCUMENTS_STATUS.ARCHIVED) return false;
@@ -93,7 +97,7 @@ export default function Dashboard() {
         , [documentRequests]);
 
     const rejectedDocuments = useMemo(() =>
-        documentVersions.filter(v => v.rejected_at !== null).length
+        documentVersions.filter(v => v.rejecter_id != null).length
         , [documentVersions]);
 
     const pendingApproval = useMemo(() =>
@@ -123,9 +127,24 @@ export default function Dashboard() {
 
     const sharedDocsList = useMemo(() => {
         const sharedDocs = documentShares
+            .filter(ds => !ds.document_request_id)
             .map(ds => visibleDocuments.find(d => d.id === ds.document_id))
             .filter(Boolean);
         return Array.from(new Set(sharedDocs.map(d => d.id))).map(id => sharedDocs.find(d => d.id === id));
+    }, [documentShares, visibleDocuments]);
+
+    const publishedDocs = useMemo(() => {
+        return visibleDocuments
+            .filter(d => d.status === DOCUMENTS_STATUS.PUBLISHED)
+            .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+    }, [visibleDocuments]);
+
+    const requestedDocs = useMemo(() => {
+        const reqDocs = documentShares
+            .filter(ds => ds.document_request_id)
+            .map(ds => visibleDocuments.find(d => d.id === ds.document_id))
+            .filter(Boolean);
+        return Array.from(new Set(reqDocs.map(d => d.id))).map(id => reqDocs.find(d => d.id === id));
     }, [documentShares, visibleDocuments]);
 
     // --- Handlers ---
@@ -147,6 +166,38 @@ export default function Dashboard() {
         }
     };
 
+    const requestedDocsStatus = {
+        header: 'Provider',
+        render: (doc) => {
+            const share = documentShares.find(ds => ds.document_id === doc.id && ds.document_request_id);
+            if (!share) return <span className="font-medium text-muted">Unknown</span>;
+            const provider = users.find(u => u.id === share.sharer_id);
+            if (!provider) return <span className="font-medium text-main">Unknown</span>;
+            return (
+                <div className="flex items-center gap-2">
+                    <img src={provider.avatar_path || '/assets/default_avatar.jpg'} alt="Avatar" className="h-5 w-5 rounded-full object-cover shrink-0" />
+                    <span className="font-medium text-main">{provider.first_name} {provider.last_name}</span>
+                </div>
+            );
+        }
+    };
+
+    const dispatchedDocsStatus = {
+        header: 'Recipient',
+        render: (doc) => {
+            const share = documentShares.find(ds => ds.document_id === doc.id && ds.document_request_id);
+            if (!share) return <span className="font-medium text-muted">Unknown</span>;
+            const recipient = users.find(u => u.id === share.recipient_id);
+            if (!recipient) return <span className="font-medium text-main">Unknown</span>;
+            return (
+                <div className="flex items-center gap-2">
+                    <img src={recipient.avatar_path || '/assets/default_avatar.jpg'} alt="Avatar" className="h-5 w-5 rounded-full object-cover shrink-0" />
+                    <span className="font-medium text-main">{recipient.first_name} {recipient.last_name}</span>
+                </div>
+            );
+        }
+    };
+
     // ==============================================================================
     // SECTION 5: RENDER
     // ==============================================================================
@@ -159,34 +210,30 @@ export default function Dashboard() {
             </div>
 
             {/* --- Overview Metrics --- */}
-            {user?.role !== USERS_ROLE.MEMBER && (
-                <section className="flex flex-col gap-4">
-                    <h2 className="text-xl font-bold text-main">Overview Metrics</h2>
-                    <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(240px,1fr))]">
-                        <MetricCard title="Total Documents" value={totalDocuments} icon={FileText} colorTheme="accent" to="/documents" />
+            <section className="flex flex-col gap-4">
+                <h2 className="text-xl font-bold text-main">Overview Metrics</h2>
+                <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(240px,1fr))]">
+                    <MetricCard title="Total Documents" value={totalDocuments} icon={FileText} colorTheme="accent" to="/documents" />
 
-                        {(user?.role === USERS_ROLE.ADMINISTRATOR || user?.role === USERS_ROLE.COORDINATOR) && (
-                            <MetricCard title="Pending Coordinator Requests" value={pendingCoordinator} icon={FileClock} colorTheme="warning" to="/management" />
-                        )}
+                    {(user?.role === USERS_ROLE.ADMINISTRATOR || user?.role === USERS_ROLE.COORDINATOR) && (
+                        <MetricCard title="Pending Coordinator Requests" value={pendingCoordinator} icon={FileClock} colorTheme="warning" to="/management" />
+                    )}
 
-                        {user?.role === USERS_ROLE.OFFICER && (
-                            <MetricCard title="Pending Approval" value={pendingApproval} icon={FileClock} colorTheme="warning" to="/documents" />
-                        )}
+                    {user?.role === USERS_ROLE.OFFICER && (
+                        <MetricCard title="Pending Approval" value={pendingApproval} icon={FileClock} colorTheme="warning" to="/documents" />
+                    )}
 
-                        {user?.role === USERS_ROLE.DIRECTOR && (
-                            <MetricCard title="Pending Publication" value={pendingPublication} icon={FileClock} colorTheme="warning" to="/documents" />
-                        )}
+                    {user?.role === USERS_ROLE.DIRECTOR && (
+                        <MetricCard title="Pending Publication" value={pendingPublication} icon={FileClock} colorTheme="warning" to="/documents" />
+                    )}
 
-                        {(user?.role === USERS_ROLE.ADMINISTRATOR || user?.role === USERS_ROLE.COORDINATOR) && (
-                            <MetricCard title="Pending Document Requests" value={pendingDocumentReq} icon={Clock} colorTheme="warning" to="/requests" />
-                        )}
+                    <MetricCard title="Pending Document Requests" value={pendingDocumentReq} icon={Clock} colorTheme="warning" to="/requests" />
 
-                        {(user?.role === USERS_ROLE.ADMINISTRATOR || user?.role === USERS_ROLE.COORDINATOR) && (
-                            <MetricCard title="Rejected Documents" value={rejectedDocuments} icon={XCircle} colorTheme="error" to="/archives" />
-                        )}
-                    </div>
-                </section>
-            )}
+                    {(user?.role === USERS_ROLE.ADMINISTRATOR || user?.role === USERS_ROLE.COORDINATOR) && (
+                        <MetricCard title="Rejected Documents" value={rejectedDocuments} icon={XCircle} colorTheme="error" to="/archives" />
+                    )}
+                </div>
+            </section>
 
             {/* --- Pending Documents (Officers) --- */}
             {user?.role === USERS_ROLE.OFFICER && (
@@ -212,15 +259,53 @@ export default function Dashboard() {
                 />
             )}
 
+            {/* --- Published Documents (Members) --- */}
+            {user?.role === USERS_ROLE.MEMBER && (
+                <DocumentBrowser
+                    title="Published Documents"
+                    description="Official documents published and available for your reference."
+                    documents={publishedDocs}
+                    documentVersions={documentVersions}
+                    activeDocumentId={activeDocument?.id}
+                    onDocumentClick={handleDocumentClick}
+                />
+            )}
+
+            {/* --- Requested Documents (Member, Officer, Director) --- */}
+            {(user?.role === USERS_ROLE.MEMBER || user?.role === USERS_ROLE.OFFICER || user?.role === USERS_ROLE.DIRECTOR) && (
+                <DocumentBrowser
+                    title="Requested Documents"
+                    description="Documents that have been shared with you via document requests."
+                    documents={requestedDocs}
+                    documentVersions={documentVersions}
+                    activeDocumentId={activeDocument?.id}
+                    onDocumentClick={handleDocumentClick}
+                    customStatus={requestedDocsStatus}
+                />
+            )}
+
             {/* --- Shared Documents (Admin/Coordinator) --- */}
             {(user?.role === USERS_ROLE.ADMINISTRATOR || user?.role === USERS_ROLE.COORDINATOR) && (
                 <DocumentBrowser
                     title="Shared Documents"
-                    description="Documents shared with your department or via requests."
+                    description="Documents manually shared with departments or specific users."
                     documents={sharedDocsList}
                     documentVersions={documentVersions}
                     activeDocumentId={activeDocument?.id}
                     onDocumentClick={handleDocumentClick}
+                />
+            )}
+
+            {/* --- Dispatched Documents (Admin/Coordinator) --- */}
+            {(user?.role === USERS_ROLE.ADMINISTRATOR || user?.role === USERS_ROLE.COORDINATOR) && (
+                <DocumentBrowser
+                    title="Dispatched Documents"
+                    description="Documents that were securely sent out to fulfill document requests."
+                    documents={requestedDocs}
+                    documentVersions={documentVersions}
+                    activeDocumentId={activeDocument?.id}
+                    onDocumentClick={handleDocumentClick}
+                    customStatus={dispatchedDocsStatus}
                 />
             )}
 

@@ -1,10 +1,10 @@
 import { useState, useMemo, useEffect } from 'react';
 import {
-    FileText, Sparkles, X, Building2, User,
+    FileText, Sparkles, X, Building2, User, Users,
     Share2, Archive, Eye, Download, MessageSquare, RotateCcw,
     CheckCircle, XCircle, UploadCloud, EyeOff, RefreshCcw, Tag, Calendar, Search, Activity
 } from 'lucide-react';
-import { useAuthentication, useDocumentVersion, useDocumentShare, useUser, useDepartment } from '../../stores';
+import { useAuthentication, useDocument, useDocumentVersion, useDocumentShare, useUser, useDepartment } from '../../stores';
 import { USERS_ROLE, DOCUMENTS_STATUS } from '../../constants';
 import { IconButton, PrimaryButton, SecondaryButton, DestructiveButton, getFileIcon, Modal, TextArea, SelectField, InputField } from '../ui';
 import DefaultAvatar from '../../assets/avatar.png';
@@ -36,8 +36,9 @@ const INSPECTOR_TABS = Object.freeze({
 
 const Inspector = ({ document, auditLog, onClose }) => {
     const { user } = useAuthentication();
-    const { documentVersions } = useDocumentVersion();
-    const { documentShares } = useDocumentShare();
+    const { update: updateDocument } = useDocument();
+    const { documentVersions, create: createVersion } = useDocumentVersion();
+    const { documentShares, create: createShare, delete: deleteShare } = useDocumentShare();
     const { users, getAll: getUsers } = useUser();
     const { departments, getAll: getDepartments } = useDepartment();
 
@@ -51,10 +52,16 @@ const Inspector = ({ document, auditLog, onClose }) => {
 
     // --- Modal States ---
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-    const [isCommentModalOpen, setIsCommentModalOpen] = useState(false);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isRevertModalOpen, setIsRevertModalOpen] = useState(false);
     const [isArchiveModalOpen, setIsArchiveModalOpen] = useState(false);
     const [isApproveModalOpen, setIsApproveModalOpen] = useState(false);
+    
+    // --- Edit State ---
+    const [editName, setEditName] = useState('');
+    const [editComment, setEditComment] = useState('');
+    
+    // --- Share/Publish State ---
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
     const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
     const [commentText, setCommentText] = useState('');
@@ -86,34 +93,133 @@ const Inspector = ({ document, auditLog, onClose }) => {
         window.URL.revokeObjectURL(url);
     };
 
-    const handleCommentSubmit = () => {
-        // For now, this is just a placeholder until we connect to a submit function
-        console.log('Submitting comment:', commentText);
-        setIsCommentModalOpen(false);
-        setCommentText('');
+    const handleCommentSubmit = async () => {
+        if (!document) return;
+        try {
+            await updateDocument(document.id, { comment: commentText });
+            setIsCommentModalOpen(false);
+            setCommentText('');
+        } catch (error) {
+            console.error('Failed to submit comment', error);
+        }
     };
 
-    const handleRevertSubmit = () => {
-        // For now, this is just a placeholder until we connect to a submit function
-        console.log(`Reverting document ${document?.id} to version ${activeVersionId}`);
-        setIsRevertModalOpen(false);
+    const handleRevertSubmit = async () => {
+        if (!document || !activeVersionId) return;
+        const targetVersion = documentVersions.find(v => v.id === activeVersionId);
+        if (!targetVersion) return;
+        
+        try {
+            // Find latest version number
+            const docVers = documentVersions.filter(v => v.document_id === document.id);
+            const maxVersion = Math.max(...docVers.map(v => v.version), 0);
+            
+            await createVersion({
+                document_id: document.id,
+                uploader_id: user.id,
+                version: maxVersion + 1,
+                path: targetVersion.path,
+                size_bytes: targetVersion.size_bytes,
+                mime_type: targetVersion.mime_type,
+                change_summary: `Reverted to version ${targetVersion.version}`,
+            });
+            setIsRevertModalOpen(false);
+        } catch (error) {
+            console.error('Failed to revert version', error);
+        }
     };
 
-    const handleArchiveSubmit = () => {
-        // Placeholder until we connect to the submit function
-        console.log(`Archiving document ${document?.id}`);
-        setIsArchiveModalOpen(false);
+    const handleArchiveSubmit = async () => {
+        if (!document) return;
+        try {
+            await updateDocument(document.id, { status: DOCUMENTS_STATUS.ARCHIVED });
+            setIsArchiveModalOpen(false);
+        } catch (error) {
+            console.error('Failed to archive document', error);
+        }
     };
 
-    const handleApproveSubmit = () => {
-        // Placeholder until we connect to the submit function
-        console.log(`Approving document ${document?.id}`);
-        setIsApproveModalOpen(false);
+    const handleApproveSubmit = async () => {
+        if (!document) return;
+        try {
+            // If it's PENDING_OFFICER, approve moves it to PENDING_DIRECTOR
+            if (document.status === DOCUMENTS_STATUS.PENDING_OFFICER) {
+                await updateDocument(document.id, { status: DOCUMENTS_STATUS.PENDING_DIRECTOR });
+            } else if (document.status === DOCUMENTS_STATUS.PENDING_DIRECTOR) {
+                await updateDocument(document.id, { status: DOCUMENTS_STATUS.PUBLISHED });
+            }
+            setIsApproveModalOpen(false);
+        } catch (error) {
+            console.error('Failed to approve document', error);
+        }
     };
 
-    const handleCommentOpen = () => {
-        setCommentText(document?.comment || '');
-        setIsCommentModalOpen(true);
+    const handleEditOpen = () => {
+        setEditName(document?.name || '');
+        setEditComment(document?.comment || '');
+
+        if (document?.status === DOCUMENTS_STATUS.UPLOADED || document?.status === DOCUMENTS_STATUS.PENDING_OFFICER || document?.status === DOCUMENTS_STATUS.PENDING_DIRECTOR) {
+            const currentDeptIds = docShares.map(s => s.department_id).filter(Boolean);
+            setShareDepartmentIds(currentDeptIds);
+            setDepartmentSearch('');
+        } else if (document?.status === DOCUMENTS_STATUS.PUBLISHED) {
+            const currentUserIds = docShares.map(s => s.recipient_id).filter(Boolean);
+            if (currentUserIds.length === eligibleUsers.length && eligibleUsers.length > 0) {
+                setPublishUserIds(['ALL_USERS']);
+            } else {
+                setPublishUserIds(currentUserIds);
+            }
+            setUserSearch('');
+        }
+        
+        setIsEditModalOpen(true);
+    };
+
+    const handleEditSubmit = async () => {
+        if (!document || !user) return;
+        try {
+            const updatePayload = {};
+            if (editName !== document.name) updatePayload.name = editName;
+            if (editComment !== document.comment) updatePayload.comment = editComment;
+            
+            if (Object.keys(updatePayload).length > 0) {
+                await updateDocument(document.id, updatePayload);
+            }
+
+            // Sync shares only if the status allows sharing/publishing
+            if (document.status === DOCUMENTS_STATUS.UPLOADED || document.status === DOCUMENTS_STATUS.PENDING_OFFICER || document.status === DOCUMENTS_STATUS.PENDING_DIRECTOR) {
+                const currentDeptIds = docShares.map(s => s.department_id).filter(Boolean);
+                const toAdd = shareDepartmentIds.filter(id => !currentDeptIds.includes(id));
+                const toRemove = docShares.filter(s => s.department_id && !shareDepartmentIds.includes(s.department_id));
+
+                for (const deptId of toAdd) {
+                    await createShare({ document_id: document.id, sharer_id: user.id, department_id: deptId });
+                }
+                for (const share of toRemove) {
+                    await deleteShare(share.id);
+                }
+            } else if (document.status === DOCUMENTS_STATUS.PUBLISHED) {
+                const currentUserIds = docShares.map(s => s.recipient_id).filter(Boolean);
+                let newIds = publishUserIds;
+                if (publishUserIds.includes('ALL_USERS')) {
+                    newIds = eligibleUsers.map(u => u.id);
+                }
+                
+                const toAdd = newIds.filter(id => !currentUserIds.includes(id));
+                const toRemove = docShares.filter(s => s.recipient_id && !newIds.includes(s.recipient_id));
+
+                for (const uid of toAdd) {
+                    await createShare({ document_id: document.id, sharer_id: user.id, recipient_id: uid });
+                }
+                for (const share of toRemove) {
+                    await deleteShare(share.id);
+                }
+            }
+            
+            setIsEditModalOpen(false);
+        } catch (error) {
+            console.error('Failed to edit document', error);
+        }
     };
 
     const handleShareOpen = () => {
@@ -123,10 +229,23 @@ const Inspector = ({ document, auditLog, onClose }) => {
         setIsShareModalOpen(true);
     };
 
-    const handleShareSubmit = () => {
-        // Placeholder until we connect to the submit function
-        console.log(`Sharing document ${document?.id} with departments ${shareDepartmentIds.join(', ')} and comment: ${shareComment}`);
-        setIsShareModalOpen(false);
+    const handleShareSubmit = async () => {
+        if (!document || !user) return;
+        try {
+            for (const deptId of shareDepartmentIds) {
+                await createShare({
+                    document_id: document.id,
+                    sharer_id: user.id,
+                    department_id: deptId,
+                });
+            }
+            if (shareComment) {
+                await updateDocument(document.id, { comment: shareComment });
+            }
+            setIsShareModalOpen(false);
+        } catch (error) {
+            console.error('Failed to share document', error);
+        }
     };
 
     const toggleDepartment = (deptId) => {
@@ -150,14 +269,54 @@ const Inspector = ({ document, auditLog, onClose }) => {
         setIsPublishModalOpen(true);
     };
 
-    const handlePublishSubmit = () => {
-        console.log(`Publishing document ${document?.id} to users ${publishUserIds.join(', ')} with comment: ${publishComment}`);
-        setIsPublishModalOpen(false);
+    const handlePublishSubmit = async () => {
+        if (!document || !user) return;
+        try {
+            let userIdsToShare = publishUserIds;
+            if (publishUserIds.includes('ALL_USERS')) {
+                userIdsToShare = eligibleUsers.map(u => u.id);
+            }
+            
+            for (const uid of userIdsToShare) {
+                await createShare({
+                    document_id: document.id,
+                    sharer_id: user.id,
+                    recipient_id: uid,
+                });
+            }
+            await updateDocument(document.id, { 
+                status: DOCUMENTS_STATUS.PUBLISHED,
+                ...(publishComment ? { comment: publishComment } : {})
+            });
+            setIsPublishModalOpen(false);
+        } catch (error) {
+            console.error('Failed to publish document', error);
+        }
     };
 
-    const handleDestructiveSubmit = () => {
-        console.log(`Executing ${destructiveAction} for document ${document?.id}`);
-        setDestructiveAction(null);
+    const handleDestructiveSubmit = async () => {
+        if (!document) return;
+        try {
+            if (destructiveAction === 'UNSHARE') {
+                const docSharesList = documentShares.filter(s => s.document_id === document.id);
+                for (const share of docSharesList) {
+                    await deleteShare(share.id);
+                }
+            } else if (destructiveAction === 'UNAPPROVE') {
+                await updateDocument(document.id, { status: DOCUMENTS_STATUS.PENDING_OFFICER });
+            } else if (destructiveAction === 'UNPUBLISH') {
+                const docSharesList = documentShares.filter(s => s.document_id === document.id);
+                for (const share of docSharesList) {
+                    await deleteShare(share.id);
+                }
+                await updateDocument(document.id, { status: DOCUMENTS_STATUS.PENDING_DIRECTOR });
+            } else if (destructiveAction === 'REJECT') {
+                await updateDocument(document.id, { status: DOCUMENTS_STATUS.UPLOADED, rejection_reason: 'Rejected by officer' });
+            }
+            setDestructiveAction(null);
+        } catch (error) {
+            console.error('Failed destructive action', error);
+        }
     };
 
     const toggleUser = (userId) => {
@@ -214,24 +373,29 @@ const Inspector = ({ document, auditLog, onClose }) => {
         );
 
         if (role === USERS_ROLE.ADMINISTRATOR || role === USERS_ROLE.COORDINATOR) {
-            // Admin/Coordinator: comment always, archive always
             secondaryActions.push(
-                <SecondaryButton key="comment" size="small" icon={MessageSquare} className="flex-1 justify-center" onClick={handleCommentOpen}>Comment</SecondaryButton>
+                <SecondaryButton key="edit" size="small" icon={MessageSquare} className="flex-1 justify-center" onClick={handleEditOpen}>Edit</SecondaryButton>
             );
 
-            if (status === DOCUMENTS_STATUS.UPLOADED) {
-                primaryDestructiveActions.push(
-                    <PrimaryButton key="share" size="small" icon={Share2} className="flex-1 justify-center" onClick={handleShareOpen}>Share</PrimaryButton>
-                );
-            } else if (status !== DOCUMENTS_STATUS.ARCHIVED && status !== DOCUMENTS_STATUS.ATTACHMENT) {
-                primaryDestructiveActions.push(
-                    <DestructiveButton key="unshare" size="small" icon={XCircle} className="flex-1 justify-center" onClick={() => setDestructiveAction('UNSHARE')}>Unshare</DestructiveButton>
-                );
+            if (status !== DOCUMENTS_STATUS.ARCHIVED && status !== DOCUMENTS_STATUS.ATTACHMENT) {
+                if (docShares.length === 0) {
+                    primaryDestructiveActions.push(
+                        <PrimaryButton key="share" size="small" icon={Share2} className="flex-1 justify-center" onClick={handleShareOpen}>Share</PrimaryButton>
+                    );
+                } else {
+                    primaryDestructiveActions.push(
+                        <DestructiveButton key="unshare" size="small" icon={XCircle} className="flex-1 justify-center" onClick={() => setDestructiveAction('UNSHARE')}>Unshare</DestructiveButton>
+                    );
+                }
             }
 
             if ((docShares.length === 0 || status === DOCUMENTS_STATUS.ATTACHMENT) && status !== DOCUMENTS_STATUS.ARCHIVED) {
                 primaryDestructiveActions.push(
                     <DestructiveButton key="archive" size="small" icon={Archive} className="flex-1 justify-center" onClick={() => setIsArchiveModalOpen(true)}>Archive</DestructiveButton>
+                );
+            } else if (status === DOCUMENTS_STATUS.ARCHIVED) {
+                primaryDestructiveActions.push(
+                    <PrimaryButton key="unarchive" size="small" icon={RotateCcw} className="flex-1 justify-center" onClick={() => updateDocument(document.id, { status: DOCUMENTS_STATUS.PUBLISHED })}>Unarchive</PrimaryButton>
                 );
             }
         } else if (role === USERS_ROLE.OFFICER) {
@@ -382,53 +546,93 @@ const Inspector = ({ document, auditLog, onClose }) => {
                                     </div>
                                 )}
 
-                                {/* Shared With */}
+                                {/* Actors & Sharing */}
                                 <div>
                                     <div className="flex items-center gap-1.5 text-muted">
-                                        <Share2 className="size-3.5" />
-                                        <span className="text-xs font-bold uppercase tracking-wide">Shared With</span>
+                                        <Users className="size-3.5" />
+                                        <span className="text-xs font-bold uppercase tracking-wide">Actors & Sharing</span>
                                     </div>
                                     <div className="mt-2 flex flex-col gap-3 rounded bg-surface-hover p-2 text-sm text-main">
-                                        {docShares.length > 0 ? (
-                                            docShares.map(share => {
-                                                if (document.status === DOCUMENTS_STATUS.ATTACHMENT || share.document_request_id) {
-                                                    // Ticket attachment pipeline: recipient_id is the requester
-                                                    const u = users.find(u => u.id === share.recipient_id);
-                                                    const label = u ? `${u.first_name} ${u.last_name}` : 'Ticket Attachment';
-                                                    return (
-                                                        <div key={share.id} className="flex flex-col">
-                                                            <span className="text-xs text-muted">User</span>
-                                                            <span className="truncate font-medium">{label}</span>
-                                                        </div>
-                                                    );
-                                                } else {
-                                                    // Normal pipeline: department_id + optional recipient_id
-                                                    const dept = departments.find(d => d.id === share.department_id);
-                                                    const u = users.find(u => u.id === share.recipient_id);
+                                        <div className="flex flex-col">
+                                            <span className="text-xs text-muted">Author / Uploader</span>
+                                            <span className="truncate font-medium">
+                                                {(() => {
+                                                    const u = users.find(u => u.id === document.uploader_id);
+                                                    return u ? (u.id === user.id ? 'Me' : `${u.first_name} ${u.last_name}`) : 'Unknown';
+                                                })()}
+                                            </span>
+                                        </div>
 
-                                                    const deptLabel = dept ? dept.name : (share.department_id || 'Unknown');
-                                                    const userLabel = u ? `${u.first_name} ${u.last_name}` : 'Everyone';
+                                        {(document.status === DOCUMENTS_STATUS.PUBLISHED || document.status === DOCUMENTS_STATUS.PENDING_DIRECTOR) && (
+                                            <div className="flex flex-col">
+                                                <span className="text-xs text-muted">Approved By</span>
+                                                <span className="truncate font-medium">
+                                                    {(() => {
+                                                        const approverId = latestVersion?.approver_id;
+                                                        if (!approverId) return <span className="italic text-muted">System</span>;
+                                                        const u = users.find(u => u.id === approverId);
+                                                        return u ? (u.id === user.id ? 'Me' : `${u.first_name} ${u.last_name}`) : <span className="italic text-muted">System</span>;
+                                                    })()}
+                                                </span>
+                                            </div>
+                                        )}
 
-                                                    return (
-                                                        <div key={share.id} className="flex flex-col gap-3">
-                                                            {share.department_id && (
-                                                                <div className="flex flex-col">
-                                                                    <span className="text-xs text-muted">Department</span>
-                                                                    <span className="truncate font-medium">{deptLabel}</span>
-                                                                </div>
-                                                            )}
-                                                            {document.status === DOCUMENTS_STATUS.PUBLISHED && (
-                                                                <div className="flex flex-col">
-                                                                    <span className="text-xs text-muted">User</span>
-                                                                    <span className="truncate font-medium">{userLabel}</span>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    );
-                                                }
-                                            })
-                                        ) : (
-                                            <span className="italic text-muted">Not shared</span>
+                                        {document.status === DOCUMENTS_STATUS.PUBLISHED && (
+                                            <div className="flex flex-col">
+                                                <span className="text-xs text-muted">Published By</span>
+                                                <span className="truncate font-medium">
+                                                    {(() => {
+                                                        const publisherId = latestVersion?.publisher_id;
+                                                        if (!publisherId) return <span className="italic text-muted">System</span>;
+                                                        const u = users.find(u => u.id === publisherId);
+                                                        return u ? (u.id === user.id ? 'Me' : `${u.first_name} ${u.last_name}`) : <span className="italic text-muted">System</span>;
+                                                    })()}
+                                                </span>
+                                            </div>
+                                        )}
+
+                                        {docShares.length > 0 && (
+                                            <>
+                                                <div className="flex flex-col">
+                                                    <span className="text-xs text-muted">Shared By</span>
+                                                    <span className="truncate font-medium">
+                                                        {Array.from(new Set(docShares.map(ds => ds.sharer_id))).map(id => {
+                                                            const u = users.find(u => u.id === id);
+                                                            return u ? (u.id === user.id ? 'Me' : `${u.first_name} ${u.last_name}`) : 'Unknown';
+                                                        }).join(', ')}
+                                                    </span>
+                                                </div>
+
+                                                <div className="flex flex-col">
+                                                    <span className="text-xs text-muted">Shared With</span>
+                                                    <span className="flex flex-col font-medium">
+                                                        {docShares.map(share => {
+                                                            if (document.status === DOCUMENTS_STATUS.ATTACHMENT || share.document_request_id) {
+                                                                const u = users.find(u => u.id === share.recipient_id);
+                                                                const label = u ? (u.id === user.id ? 'Me' : `${u.first_name} ${u.last_name}`) : 'Ticket Attachment';
+                                                                return (
+                                                                    <span key={share.id} className="truncate">
+                                                                        {label}
+                                                                    </span>
+                                                                );
+                                                            } else {
+                                                                const dept = departments.find(d => d.id === share.department_id);
+                                                                const u = users.find(u => u.id === share.recipient_id);
+                                                                const deptLabel = dept ? dept.name : (share.department_id || 'Unknown');
+                                                                const userLabel = u ? (u.id === user.id ? 'Me' : `${u.first_name} ${u.last_name}`) : 'Everyone';
+
+                                                                return (
+                                                                    <span key={share.id} className="truncate">
+                                                                        {share.department_id ? deptLabel : ''}
+                                                                        {share.department_id && document.status === DOCUMENTS_STATUS.PUBLISHED ? ' => ' : ''}
+                                                                        {document.status === DOCUMENTS_STATUS.PUBLISHED ? userLabel : ''}
+                                                                    </span>
+                                                                );
+                                                            }
+                                                        })}
+                                                    </span>
+                                                </div>
+                                            </>
                                         )}
                                     </div>
                                 </div>
@@ -530,7 +734,7 @@ const Inspector = ({ document, auditLog, onClose }) => {
                         <button
                             className="flex-1 border-b-2 border-accent py-3 text-xs font-bold uppercase text-accent transition-colors"
                         >
-                            Additional Information
+                            Metadata
                         </button>
                     </div>
 
@@ -664,22 +868,129 @@ const Inspector = ({ document, auditLog, onClose }) => {
                 </div>
             </Modal>
 
-            <Modal isOpen={isCommentModalOpen} onClose={() => setIsCommentModalOpen(false)} title={`Adding comment to ${document?.name || 'Document'}`} className="w-full max-w-lg">
-                <div className="p-4 flex flex-col gap-4">
-                    <div className="flex flex-col gap-1.5">
-                        <label className="text-sm font-semibold text-main">Comment</label>
-                        <TextArea
-                            placeholder="Enter your comment here..."
-                            value={commentText}
-                            onChange={(e) => setCommentText(e.target.value)}
-                            rows={4}
-                        />
+            <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title={`Edit Document`} className={`w-full ${docShares.length > 0 ? 'max-w-4xl' : 'max-w-xl'}`}>
+                <div className={`grid ${docShares.length > 0 ? 'grid-cols-2' : 'grid-cols-1'} gap-6 p-6`}>
+                    {/* Left Pane: Document Attributes */}
+                    <div className={`flex flex-col gap-6 ${docShares.length > 0 ? 'border-r border-border pr-6' : ''}`}>
+                        <div className="flex flex-col gap-2">
+                            <label className="text-sm font-semibold text-main">Name</label>
+                            <InputField
+                                value={editName}
+                                onChange={(e) => setEditName(e.target.value)}
+                            />
+                        </div>
+                        <div className="flex flex-col gap-2">
+                            <label className="text-sm font-semibold text-main">Comment (Optional)</label>
+                            <TextArea
+                                placeholder="Add any instructions or remarks..."
+                                rows={4}
+                                value={editComment}
+                                onChange={(e) => setEditComment(e.target.value)}
+                            />
+                        </div>
                     </div>
-                    <div className="flex justify-end gap-3 pt-2">
-                        <SecondaryButton onClick={() => setIsCommentModalOpen(false)}>Cancel</SecondaryButton>
-                        <PrimaryButton onClick={handleCommentSubmit}>Submit Comment</PrimaryButton>
-                    </div>
+
+                    {/* Right Pane: Share Selection (Conditional based on status) */}
+                    {docShares.length > 0 && (
+                        <div className="flex flex-col gap-6 border-border pl-0">
+                            {document?.status === DOCUMENTS_STATUS.UPLOADED || document?.status === DOCUMENTS_STATUS.PENDING_OFFICER || document?.status === DOCUMENTS_STATUS.PENDING_DIRECTOR ? (
+                                <div className="flex flex-col gap-3 h-full">
+                                    <label className="text-sm font-semibold text-main">Manage Shared Departments</label>
+                                    <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface-hover p-3 flex-1 max-h-[400px]">
+                                        <div className="flex gap-2">
+                                            <InputField
+                                                className="flex-1"
+                                                leftIcon={Search}
+                                                placeholder="Search departments..."
+                                                value={departmentSearch}
+                                                onChange={(e) => setDepartmentSearch(e.target.value)}
+                                            />
+                                            <SecondaryButton onClick={toggleAllDepartments}>
+                                                {shareDepartmentIds.length === departments.length ? 'None' : 'All'}
+                                            </SecondaryButton>
+                                        </div>
+                                        <div className="flex flex-1 flex-col gap-2 overflow-y-auto pr-1">
+                                            {departments.filter(d => d.name.toLowerCase().includes(departmentSearch.toLowerCase())).map(dept => {
+                                                const isSelected = shareDepartmentIds.includes(dept.id);
+                                                return (
+                                                    <button
+                                                        key={dept.id}
+                                                        type="button"
+                                                        onClick={() => toggleDepartment(dept.id)}
+                                                        className={`flex cursor-pointer items-center justify-between rounded-md border p-2.5 text-left transition-colors ${isSelected ? 'border-accent bg-accent/10 text-accent' : 'border-border bg-surface text-main hover:bg-surface-hover'}`}
+                                                    >
+                                                        <span className="text-sm font-medium">{dept.name}</span>
+                                                        {isSelected && <CheckCircle className="size-4" />}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : document?.status === DOCUMENTS_STATUS.PUBLISHED ? (
+                                <div className="flex flex-col gap-3 h-full">
+                                    <label className="text-sm font-semibold text-main">Manage Published Users</label>
+                                    <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface-hover p-3 flex-1 max-h-[400px]">
+                                        <div className="flex gap-2">
+                                            <InputField
+                                                className="flex-1"
+                                                leftIcon={Search}
+                                                placeholder="Search users..."
+                                                value={userSearch}
+                                                onChange={(e) => setUserSearch(e.target.value)}
+                                            />
+                                            <SecondaryButton onClick={toggleAllUsers}>
+                                                {publishUserIds.includes('ALL_USERS') ? 'None' : 'All'}
+                                            </SecondaryButton>
+                                        </div>
+                                        <div className="flex flex-1 flex-col gap-2 overflow-y-auto pr-1">
+                                            {eligibleUsers.filter(u => `${u.first_name} ${u.last_name}`.toLowerCase().includes(userSearch.toLowerCase())).map(u => {
+                                                const isSelected = publishUserIds.includes('ALL_USERS') || publishUserIds.includes(u.id);
+                                                return (
+                                                    <button
+                                                        key={u.id}
+                                                        type="button"
+                                                        onClick={() => toggleUser(u.id)}
+                                                        className={`flex cursor-pointer items-center justify-between rounded-md border p-2.5 transition-colors ${isSelected ? 'border-accent bg-accent/10 text-accent' : 'border-border bg-surface text-main hover:bg-surface-hover'}`}
+                                                    >
+                                                        <div className="flex items-center gap-3">
+                                                            <img src={u.avatar_path || DefaultAvatar} alt="Avatar" className="h-8 w-8 shrink-0 rounded-full object-cover ring-1 ring-border" />
+                                                            <div className="flex flex-col text-left">
+                                                                <span className="text-sm font-medium leading-tight">{u.first_name} {u.last_name}</span>
+                                                                <span className={`mt-0.5 text-[10px] font-bold uppercase tracking-wider ${isSelected ? 'text-accent/70' : 'text-muted'}`}>
+                                                                    {u.role.replace('_', ' ')}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                        {isSelected && <CheckCircle className="size-4 shrink-0" />}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="flex flex-1 flex-col items-center justify-center gap-3 p-4 text-center">
+                                    <Share2 className="size-10 text-border" />
+                                    <p className="text-sm text-muted">Share settings are not available for this document status.</p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {docShares.length === 0 && (
+                        <div className="mt-auto flex justify-end gap-3 pt-4">
+                            <SecondaryButton onClick={() => setIsEditModalOpen(false)}>Cancel</SecondaryButton>
+                            <PrimaryButton onClick={handleEditSubmit}>Save Changes</PrimaryButton>
+                        </div>
+                    )}
                 </div>
+                {docShares.length > 0 && (
+                    <div className="mt-auto flex justify-end gap-3 p-6 pt-0">
+                        <SecondaryButton onClick={() => setIsEditModalOpen(false)}>Cancel</SecondaryButton>
+                        <PrimaryButton onClick={handleEditSubmit}>Save Changes</PrimaryButton>
+                    </div>
+                )}
             </Modal>
 
             <Modal isOpen={isRevertModalOpen} onClose={() => setIsRevertModalOpen(false)} title="Confirm Revert" className="w-full max-w-sm">

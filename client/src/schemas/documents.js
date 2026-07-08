@@ -31,6 +31,8 @@ export const DocumentVersionsSchema = z.object({
     id: z.string().uuid(),
     document_id: z.string().uuid(),
     uploader_id: z.string().uuid(),
+    approver_id: z.string().uuid().nullable().optional(),
+    publisher_id: z.string().uuid().nullable().optional(),
     rejecter_id: z.string().uuid().nullable().optional(),
 
     version: z.number().int().positive(),
@@ -43,7 +45,7 @@ export const DocumentVersionsSchema = z.object({
     rejection_reason: z.string().nullable().optional(),
 
     created_at: z.string().datetime(),
-    rejected_at: z.string().datetime().nullable().optional(),
+    updated_at: z.string().datetime(),
 });
 
 export const DocumentRequestsSchema = z.object({
@@ -62,6 +64,7 @@ export const DocumentRequestMessagesSchema = z.object({
     id: z.string().uuid(),
     document_request_id: z.string().uuid(),
     user_id: z.string().uuid().nullable().optional(),
+    attachment_ids: z.array(z.string().uuid()).default([]),
 
     message: z.string().min(1),
 

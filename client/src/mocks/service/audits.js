@@ -1,6 +1,19 @@
-import { auditLogsData } from '../data';
+import { auditLogsData, ADMINISTRATOR_ID } from '../data';
 
 const DELAY_MS = 500;
+
+export const logAudit = (entityType, entityId, action, data = null) => {
+    const auditLog = {
+        id: crypto.randomUUID(),
+        actor_id: ADMINISTRATOR_ID, // Defaulting to admin for mock automated logs
+        entity_type: entityType,
+        entity_id: entityId,
+        action: action,
+        data: data ? JSON.parse(JSON.stringify(data)) : null,
+        created_at: new Date().toISOString(),
+    };
+    auditLogsData.push(auditLog);
+};
 
 export const mockAuditLogsService = {
     // --- Reads ---

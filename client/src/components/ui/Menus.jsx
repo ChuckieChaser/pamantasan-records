@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bell, MoreVertical, Settings, LogOut, User } from 'lucide-react';
+import { Bell, MoreVertical, Settings, LogOut, User, Filter } from 'lucide-react';
 
 import { IconButton, ImageButton, MenuButton } from './Buttons';
 import { Badge } from './Badges';
@@ -198,6 +198,54 @@ export const UserMenu = ({ user, onLogout, className = '' }) => {
             {/* --- Modals --- */}
             <ProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} />
             <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+        </div>
+    );
+};
+
+// ==============================================================================
+// SECTION 4: FILTER MENU
+// ==============================================================================
+
+export const FilterMenu = ({ groups = [], className = '' }) => {
+    const [isOpen, setIsOpen] = useState(false);
+
+    const handleToggle = () => setIsOpen((previous) => !previous);
+    const handleClose = () => setIsOpen(false);
+
+    const hasActiveFilters = groups.some(group => group.selected.length > 0);
+    const gridCols = groups.length === 2 ? 'grid-cols-2' : groups.length >= 3 ? 'grid-cols-3' : 'grid-cols-1';
+    const widthClass = groups.length === 2 ? 'w-96' : groups.length >= 3 ? 'w-[42rem]' : 'w-56';
+
+    return (
+        <div className={`relative ${className}`}>
+            <IconButton icon={Filter} size="medium" onClick={handleToggle} active={hasActiveFilters || isOpen} />
+            {isOpen && (
+                <>
+                    <TransparentBackdrop onClick={handleClose} />
+                    <MenuContainer className={`right-0 top-full mt-2 ${widthClass}`}>
+                        <MenuBody className={`grid ${gridCols} max-h-80 gap-6 p-4`}>
+                            {groups.map((group, groupIdx) => (
+                                <div key={groupIdx} className="flex flex-col gap-1">
+                                    <span className="px-2 text-xs font-bold uppercase text-muted">{group.title}</span>
+                                    <div className="flex flex-col">
+                                        {group.options.map((option) => (
+                                            <label key={option.value} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 transition-colors hover:bg-surface-hover">
+                                                <input
+                                                    type="checkbox"
+                                                    className="rounded border-border text-accent focus:ring-accent"
+                                                    checked={group.selected.includes(option.value)}
+                                                    onChange={() => group.onToggle(option.value)}
+                                                />
+                                                <span className="text-sm font-medium text-main">{option.label}</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+                        </MenuBody>
+                    </MenuContainer>
+                </>
+            )}
         </div>
     );
 };

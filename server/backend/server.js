@@ -48,7 +48,7 @@ const wss = new WebSocketServer({ server, path: '/logs' });
 
 wss.on('connection', (ws) => {
     logger.info('New WebSocket connection established', 'WEBSOCKET');
-    
+
     // Send existing logs immediately on connection
     ws.send(JSON.stringify({ type: 'INIT_LOGS', data: logger.getLogs() }));
 

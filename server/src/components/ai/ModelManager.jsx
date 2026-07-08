@@ -1,32 +1,47 @@
 import { useState, useEffect } from 'react';
-import { BrainCircuit, Download, RefreshCw, CheckCircle, Database } from 'lucide-react';
+import { BrainCircuit, Search, Download, Trash2, ExternalLink, CheckCircle, Database, X } from 'lucide-react';
+
+const CATALOG = [
+    { name: 'llama3.1', display: 'Llama 3.1', params: '8B', context: '128K', desc: 'Highly proficient in text summarization, reasoning, and instruction following.' },
+    { name: 'llama3.2-vision', display: 'Llama 3.2 Vision', params: '11B', context: '128K', desc: 'Multimodal model excellent at understanding images and summarizing visual text.' },
+    { name: 'mistral', display: 'Mistral', params: '7B', context: '8K', desc: 'Fast, highly capable model excellent for concise and accurate summarization.' },
+    { name: 'phi3', display: 'Phi-3 Mini', params: '3.8B', context: '128K', desc: 'Lightweight, high-quality model perfect for summarizing on low resources.' },
+    { name: 'gemma2', display: 'Gemma 2', params: '9B', context: '8K', desc: 'Google\'s high-performing model with strong reasoning and summarizing abilities.' },
+    { name: 'qwen2', display: 'Qwen 2', params: '7B', context: '32K', desc: 'Alibaba\'s highly multilingual model, great at summarizing cross-lingual content.' },
+    { name: 'llava', display: 'LLaVA', params: '7B', context: '4K', desc: 'Vision-language model capable of understanding and summarizing complex images.' },
+    { name: 'moondream', display: 'Moondream 2', params: '1.8B', context: '4K', desc: 'Tiny, highly efficient vision model for extracting info from images.' },
+];
 
 export default function ModelManager({ onOllamaStatus }) {
-    const [models, setModels] = useState([]);
-    const [isLoading, setIsLoading] = useState(false);
-    const [pullInput, setPullInput] = useState('');
-    const [activePull, setActivePull] = useState(null); // { modelName, progress, total, completed }
+    const [installedModels, setInstalledModels] = useState([]);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [activePull, setActivePull] = useState(null); // { modelName, status, total, completed }
+    const [customPull, setCustomPull] = useState('');
+    const [activeModel, setActiveModel] = useState(() => localStorage.getItem('activeModel') || '');
+
+    useEffect(() => {
+        if (activeModel) {
+            localStorage.setItem('activeModel', activeModel);
+        }
+    }, [activeModel]);
 
     const fetchModels = async () => {
-        setIsLoading(true);
         try {
             const res = await fetch('/api/models');
-            if (!res.ok) throw new Error('Failed to fetch');
-            const data = await res.json();
-            setModels(data.models || []);
-            if (onOllamaStatus) onOllamaStatus('ONLINE');
+            if (res.ok) {
+                const data = await res.json();
+                setInstalledModels(data.models || []);
+                if (onOllamaStatus) onOllamaStatus('ONLINE');
+            }
         } catch (err) {
-            console.error(err);
+            console.error('Failed to fetch installed models', err);
             if (onOllamaStatus) onOllamaStatus('OFFLINE');
-        } finally {
-            setIsLoading(false);
         }
     };
 
     useEffect(() => {
         fetchModels();
         
-        // Setup WebSocket listener specifically for MODEL_PROGRESS
         let ws;
         const connectWs = () => {
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -44,18 +59,17 @@ export default function ModelManager({ onOllamaStatus }) {
                             completed: progress.completed || 0
                         });
                         
-                        if (progress.status === 'success') {
+                        if (progress.status === 'success' || progress.status === 'cancelled') {
                             setTimeout(() => {
                                 setActivePull(null);
                                 fetchModels();
-                            }, 2000);
+                            }, 1000);
                         }
                     }
                 } catch (e) {
                     // Ignore
                 }
             };
-            
             ws.onclose = () => setTimeout(connectWs, 3000);
         };
         
@@ -63,19 +77,16 @@ export default function ModelManager({ onOllamaStatus }) {
         return () => { if (ws) ws.close(); };
     }, []);
 
-    const handlePull = async (e) => {
-        e.preventDefault();
-        if (!pullInput.trim() || activePull) return;
-
-        const modelToPull = pullInput.trim();
-        setActivePull({ modelName: modelToPull, status: 'Initializing...', total: 100, completed: 0 });
-        setPullInput('');
-
+    const handlePull = async (modelName) => {
+        if (!modelName.trim() || activePull) return;
+        setActivePull({ modelName, status: 'Initializing...', total: 100, completed: 0 });
+        if (modelName === customPull) setCustomPull('');
+        
         try {
             await fetch('/api/pull', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ modelName: modelToPull })
+                body: JSON.stringify({ modelName })
             });
         } catch (err) {
             console.error('Failed to initiate pull', err);
@@ -83,102 +94,190 @@ export default function ModelManager({ onOllamaStatus }) {
         }
     };
 
-    const formatBytes = (bytes) => {
-        if (!bytes || bytes === 0) return '0 B';
-        const k = 1024;
-        const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    const handleCancelPull = async (modelName) => {
+        try {
+            await fetch('/api/pull/cancel', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ modelName })
+            });
+        } catch (err) {
+            console.error('Failed to cancel pull', err);
+        }
+    };
+
+    const handleDelete = async (modelName) => {
+        if (!confirm(`Are you sure you want to delete ${modelName}?`)) return;
+        try {
+            await fetch('/api/delete', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ modelName })
+            });
+            fetchModels();
+            if (activeModel === modelName) {
+                setActiveModel('');
+            }
+        } catch (err) {
+            console.error('Failed to delete model', err);
+        }
+    };
+
+    const filteredCatalog = CATALOG.filter(m => 
+        m.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+        m.display.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    const isInstalled = (name) => installedModels.some(m => m.name === name || m.name === `${name}:latest`);
+
+    const renderDownloadButton = (modelName) => {
+        const isPulling = activePull?.modelName === modelName;
+        const installed = isInstalled(modelName);
+
+        if (installed) {
+            return (
+                <button onClick={() => handleDelete(modelName)} className="p-2 rounded-full border border-border text-muted hover:text-error hover:border-error hover:bg-error/10 transition-colors" title="Delete Model">
+                    <Trash2 className="size-4" />
+                </button>
+            );
+        }
+
+        if (isPulling) {
+            const percentage = activePull.total > 0 ? (activePull.completed / activePull.total) * 100 : 0;
+            const radius = 14;
+            const circumference = 2 * Math.PI * radius;
+            const offset = circumference - (percentage / 100) * circumference;
+
+            return (
+                <button onClick={() => handleCancelPull(modelName)} className="relative size-8 flex items-center justify-center group cursor-pointer" title="Cancel Download">
+                    <svg className="absolute inset-0 size-full rotate-[-90deg]">
+                        <circle cx="16" cy="16" r={radius} className="stroke-border fill-none" strokeWidth="2" />
+                        <circle 
+                            cx="16" 
+                            cy="16" 
+                            r={radius} 
+                            className="stroke-success fill-none transition-all duration-300 ease-out" 
+                            strokeWidth="2"
+                            strokeDasharray={circumference}
+                            strokeDashoffset={offset}
+                        />
+                    </svg>
+                    <Download className="size-3 text-success animate-pulse group-hover:hidden" />
+                    <X className="size-3 text-error hidden group-hover:block" />
+                </button>
+            );
+        }
+
+        return (
+            <button 
+                onClick={() => handlePull(modelName)} 
+                disabled={activePull !== null}
+                className="p-2 rounded-full border border-border text-muted hover:text-accent hover:border-accent hover:bg-accent/10 transition-colors disabled:opacity-50" 
+                title="Download Model"
+            >
+                <Download className="size-4" />
+            </button>
+        );
     };
 
     return (
-        <div className="flex flex-col h-full bg-background">
-            <div className="flex items-center justify-between p-4 border-b border-border bg-surface shrink-0">
-                <div className="flex items-center gap-3">
-                    <BrainCircuit className="size-5 text-accent" />
-                    <span className="font-bold text-main font-heading tracking-wide">AI Models</span>
-                </div>
-                <button 
-                    onClick={fetchModels}
-                    disabled={isLoading}
-                    className="p-1.5 rounded bg-surface border border-border text-muted hover:text-main hover:bg-surface-hover transition-colors disabled:opacity-50"
-                >
-                    <RefreshCw className={`size-4 ${isLoading ? 'animate-spin' : ''}`} />
-                </button>
+        <div className="flex flex-col h-full bg-surface text-main">
+            {/* Top Header */}
+            <div className="flex items-center gap-3 p-4 border-b border-border bg-surface shrink-0">
+                <BrainCircuit className="size-5 text-accent" />
+                <span className="font-bold font-heading tracking-wide">Model Manager</span>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-6">
-                
-                {/* Pull New Model */}
-                <div className="flex flex-col gap-3">
-                    <h3 className="text-xs font-bold text-muted uppercase tracking-wide">Install New Model</h3>
-                    <form onSubmit={handlePull} className="flex gap-2">
-                        <input
-                            type="text"
-                            value={pullInput}
-                            onChange={(e) => setPullInput(e.target.value)}
-                            disabled={activePull !== null}
-                            placeholder="e.g. llama3, mistral"
-                            className="flex-1 bg-surface border border-border rounded-md px-3 py-2 text-sm text-main placeholder-muted focus:outline-none focus:border-accent"
-                        />
-                        <button
-                            type="submit"
-                            disabled={!pullInput.trim() || activePull !== null}
-                            className="bg-accent text-surface font-bold text-sm px-4 rounded-md hover:bg-accent-hover transition-colors disabled:opacity-50 flex items-center gap-2"
-                        >
-                            <Download className="size-4" />
-                            Pull
-                        </button>
-                    </form>
-                    
-                    {/* Progress Bar */}
-                    {activePull && (
-                        <div className="flex flex-col gap-2 p-3 rounded-md border border-border bg-surface-hover">
-                            <div className="flex justify-between items-center text-xs">
-                                <span className="font-bold text-main">Downloading {activePull.modelName}...</span>
-                                <span className="text-muted">{activePull.status}</span>
-                            </div>
-                            <div className="h-2 w-full bg-surface rounded-full overflow-hidden border border-border">
-                                <div 
-                                    className="h-full bg-accent transition-all duration-300 ease-out" 
-                                    style={{ width: `${activePull.total > 0 ? (activePull.completed / activePull.total) * 100 : 0}%` }}
-                                />
-                            </div>
-                            {activePull.total > 0 && (
-                                <div className="flex justify-between text-xs text-muted font-mono">
-                                    <span>{formatBytes(activePull.completed)}</span>
-                                    <span>{formatBytes(activePull.total)}</span>
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </div>
-
-                {/* Installed Models */}
-                <div className="flex flex-col gap-3">
-                    <h3 className="text-xs font-bold text-muted uppercase tracking-wide">Installed Models ({models.length})</h3>
-                    {models.length === 0 ? (
-                        <div className="text-sm text-muted italic p-4 border border-dashed border-border rounded-lg text-center">
-                            No models installed on this server.
+            {/* Active Model Banner */}
+            <div className="p-4 border-b border-border bg-surface-hover shrink-0 flex items-center justify-between">
+                <div className="flex flex-col">
+                    <span className="text-xs font-bold uppercase tracking-wide text-muted">Active System Model</span>
+                    {activeModel ? (
+                        <div className="flex items-center gap-2 mt-1">
+                            <CheckCircle className="size-4 text-success" />
+                            <span className="font-bold text-main">{activeModel}</span>
                         </div>
                     ) : (
-                        <div className="flex flex-col gap-2">
-                            {models.map(model => (
-                                <div key={model.digest} className="flex items-center justify-between p-3 rounded-lg border border-border bg-surface hover:border-accent/30 transition-colors">
-                                    <div className="flex items-center gap-3">
-                                        <Database className="size-5 text-muted" />
-                                        <div className="flex flex-col">
-                                            <span className="font-bold text-main text-sm">{model.name}</span>
-                                            <span className="text-xs text-muted font-mono">{formatBytes(model.size)}</span>
-                                        </div>
-                                    </div>
-                                    <button className="text-xs font-bold uppercase text-accent bg-accent/10 px-2 py-1 rounded border border-accent/20 flex items-center gap-1">
-                                        <CheckCircle className="size-3" /> Ready
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
+                        <span className="text-sm font-medium text-error mt-1">No model selected</span>
                     )}
+                </div>
+            </div>
+
+            {/* Search Bar */}
+            <div className="p-4 border-b border-border shrink-0">
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted" />
+                    <input 
+                        type="text" 
+                        placeholder="Search Ollama Hub catalog..." 
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full pl-9 pr-4 py-2 bg-background border border-border rounded-md text-sm font-medium focus:outline-none focus:border-accent placeholder-muted transition-colors"
+                    />
+                </div>
+            </div>
+
+            {/* Catalog List */}
+            <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
+                {filteredCatalog.map(model => (
+                    <div key={model.name} className={`p-4 rounded-lg border ${activeModel === model.name ? 'border-success bg-success/5' : 'border-border bg-background'} transition-colors flex flex-col gap-3`}>
+                        <div className="flex justify-between items-start">
+                            <div className="flex flex-col">
+                                <span className="font-bold text-main">{model.display}</span>
+                                <span className="text-xs text-muted font-mono">{model.name}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                {isInstalled(model.name) && activeModel !== model.name && (
+                                    <button 
+                                        onClick={() => setActiveModel(model.name)}
+                                        className="text-[10px] font-bold uppercase tracking-wide px-2 py-1 bg-surface-hover border border-border rounded hover:bg-success hover:text-surface hover:border-success transition-colors"
+                                    >
+                                        Set Active
+                                    </button>
+                                )}
+                                <a 
+                                    href={`https://ollama.com/library/${model.name.split(':')[0]}`} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="p-2 rounded-full border border-border text-muted hover:text-main hover:bg-surface-hover transition-colors"
+                                    title="View on Ollama Hub"
+                                >
+                                    <ExternalLink className="size-4" />
+                                </a>
+                                {renderDownloadButton(model.name)}
+                            </div>
+                        </div>
+                        <p className="text-xs text-muted">{model.desc}</p>
+                        <div className="flex items-center gap-3">
+                            <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 bg-surface-hover border border-border rounded text-muted">
+                                {model.params} Params
+                            </span>
+                            <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 bg-surface-hover border border-border rounded text-muted">
+                                {model.context} Context
+                            </span>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            {/* Custom Pull Action */}
+            <div className="p-4 border-t border-border shrink-0 flex flex-col gap-2">
+                <span className="text-xs font-bold uppercase tracking-wide text-muted">Pull Custom Tag</span>
+                <div className="flex gap-2">
+                    <input 
+                        type="text" 
+                        value={customPull}
+                        onChange={(e) => setCustomPull(e.target.value)}
+                        placeholder="e.g. gemma2:2b"
+                        className="flex-1 bg-background border border-border rounded-md px-3 py-2 text-sm font-medium focus:outline-none focus:border-accent placeholder-muted"
+                    />
+                    <button 
+                        onClick={() => handlePull(customPull)}
+                        disabled={!customPull.trim() || activePull !== null}
+                        className="bg-accent hover:bg-accent-hover text-surface px-4 rounded-md font-bold text-sm transition-colors disabled:opacity-50"
+                    >
+                        Pull
+                    </button>
                 </div>
             </div>
         </div>

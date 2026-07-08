@@ -89,7 +89,7 @@ export default function LogViewer() {
     return (
         <div className="flex flex-col h-full bg-background font-mono text-sm">
             {/* Toolbar */}
-            <div className="flex items-center justify-between p-3 border-b border-border bg-surface shrink-0">
+            <div className="flex items-center justify-between p-4 border-b border-border bg-surface shrink-0">
                 <div className="flex items-center gap-3">
                     <Terminal className="size-5 text-muted" />
                     <span className="font-bold text-main font-heading tracking-wide">Live Logs</span>

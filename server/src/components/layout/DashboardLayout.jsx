@@ -1,108 +1,76 @@
 import { useState, useEffect } from 'react';
-import { Terminal, Settings, Server, Database, BrainCircuit, Activity } from 'lucide-react';
+import { Server, Database, BrainCircuit, Activity, Monitor } from 'lucide-react';
 import LogViewer from '../logging/LogViewer';
 import ModelManager from '../ai/ModelManager';
 
 export default function DashboardLayout() {
-    const [activeTab, setActiveTab] = useState('DASHBOARD');
-    const [serverStatus, setServerStatus] = useState({
-        api: 'ONLINE',
-        db: 'DISCONNECTED',
-        ollama: 'DISCONNECTED'
-    });
+    const [status, setStatus] = useState({ postgres: false, ollama: false, client: false });
 
     useEffect(() => {
-        // Simple health check polling
-        const checkHealth = async () => {
+        const fetchStatus = async () => {
             try {
-                const res = await fetch('/api/health');
+                const res = await fetch('/api/status');
                 if (res.ok) {
-                    setServerStatus(prev => ({ ...prev, api: 'ONLINE' }));
+                    const data = await res.json();
+                    setStatus(data);
                 }
             } catch (err) {
-                setServerStatus(prev => ({ ...prev, api: 'OFFLINE' }));
+                // If API is down, everything is offline
+                setStatus({ postgres: false, ollama: false, client: false });
             }
         };
 
-        const interval = setInterval(checkHealth, 5000);
-        checkHealth();
+        fetchStatus();
+        const interval = setInterval(fetchStatus, 5000);
         return () => clearInterval(interval);
     }, []);
 
     return (
-        <div className="flex h-screen w-full bg-background text-main overflow-hidden font-body">
-            
-            {/* Sidebar / Navigation */}
-            <aside className="w-16 md:w-64 flex-shrink-0 border-r border-border bg-surface flex flex-col transition-all duration-300">
-                <div className="h-16 flex items-center justify-center md:justify-start md:px-6 border-b border-border">
-                    <Server className="size-6 text-accent" />
-                    <span className="hidden md:block ml-3 font-heading font-bold text-lg tracking-wide text-main truncate">
-                        P-RECORDS HUB
-                    </span>
-                </div>
-                
-                <nav className="flex-1 py-4 flex flex-col gap-2 px-2 md:px-4">
-                    <button 
-                        onClick={() => setActiveTab('DASHBOARD')}
-                        className={`flex items-center p-3 rounded-lg transition-colors ${activeTab === 'DASHBOARD' ? 'bg-accent/10 text-accent border border-accent/20' : 'text-muted hover:bg-surface-hover hover:text-main'}`}
-                    >
-                        <Activity className="size-5 flex-shrink-0" />
-                        <span className="hidden md:block ml-3 font-semibold text-sm">Live Dashboard</span>
-                    </button>
-                    <button 
-                        onClick={() => setActiveTab('MODELS')}
-                        className={`flex items-center p-3 rounded-lg transition-colors ${activeTab === 'MODELS' ? 'bg-accent/10 text-accent border border-accent/20' : 'text-muted hover:bg-surface-hover hover:text-main'}`}
-                    >
-                        <BrainCircuit className="size-5 flex-shrink-0" />
-                        <span className="hidden md:block ml-3 font-semibold text-sm">AI Management</span>
-                    </button>
-                    <button 
-                        onClick={() => setActiveTab('DATABASE')}
-                        className={`flex items-center p-3 rounded-lg transition-colors ${activeTab === 'DATABASE' ? 'bg-accent/10 text-accent border border-accent/20' : 'text-muted hover:bg-surface-hover hover:text-main'}`}
-                    >
-                        <Database className="size-5 flex-shrink-0" />
-                        <span className="hidden md:block ml-3 font-semibold text-sm">Database</span>
-                    </button>
-                </nav>
-
-                {/* Status Indicators */}
-                <div className="p-4 border-t border-border hidden md:flex flex-col gap-3">
-                    <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wide">
-                        <span className="text-muted flex items-center gap-2"><Server className="size-3.5"/> Hub API</span>
-                        <span className={serverStatus.api === 'ONLINE' ? 'text-success-text' : 'text-error-text'}>{serverStatus.api}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wide">
-                        <span className="text-muted flex items-center gap-2"><Database className="size-3.5"/> Postgres</span>
-                        <span className={serverStatus.db === 'ONLINE' ? 'text-success-text' : 'text-error-text'}>{serverStatus.db}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wide">
-                        <span className="text-muted flex items-center gap-2"><BrainCircuit className="size-3.5"/> Ollama</span>
-                        <span className={serverStatus.ollama === 'ONLINE' ? 'text-success-text' : 'text-muted'}>{serverStatus.ollama}</span>
-                    </div>
-                </div>
-            </aside>
-
-            {/* Main Content Area (2-pane split) */}
-            <main className="flex-1 flex flex-col overflow-hidden bg-background">
+        <div className="flex h-screen w-screen overflow-hidden bg-background text-main">
+            {/* Main Content Area */}
+            <main className="flex-1 flex flex-col min-w-0 h-full">
                 {/* Header */}
-                <header className="h-16 flex items-center px-6 border-b border-border bg-surface shrink-0 justify-between">
-                    <h1 className="font-heading font-bold text-xl text-main capitalize">{activeTab.toLowerCase().replace('_', ' ')}</h1>
-                    <button className="p-2 rounded-md hover:bg-surface-hover text-muted hover:text-main transition-colors">
-                        <Settings className="size-5" />
-                    </button>
+                <header className="h-16 shrink-0 border-b border-border bg-surface flex items-center justify-between px-4">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-accent/10 text-accent rounded-lg">
+                            <Server className="size-5" />
+                        </div>
+                        <h1 className="text-lg font-bold font-heading tracking-wide">Server Node Hub</h1>
+                    </div>
+
+                    {/* Global Status Indicators */}
+                    <div className="flex items-center gap-6">
+                        <div className="flex items-center gap-2">
+                            <Database className="size-4 text-muted" />
+                            <span className="text-sm font-medium text-main">Postgres</span>
+                            <div className={`size-2 rounded-full ${status.postgres ? 'bg-success-text' : 'bg-error-text'}`} />
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <BrainCircuit className="size-4 text-muted" />
+                            <span className="text-sm font-medium text-main">Ollama</span>
+                            <div className={`size-2 rounded-full ${status.ollama ? 'bg-success-text' : 'bg-error-text'}`} />
+                        </div>
+                        <div className="flex items-center gap-2 pl-4 border-l border-border">
+                            <Monitor className="size-4 text-muted" />
+                            <span className="text-sm font-medium text-main">Client</span>
+                            <div className={`size-2 rounded-full ${status.client ? 'bg-success-text' : 'bg-error-text'}`} />
+                        </div>
+                    </div>
                 </header>
-                
-                {/* 2-Pane Content */}
-                <div className="flex-1 flex flex-col lg:flex-row overflow-hidden p-4 gap-4">
-                    {/* Left Pane: Logging (Takes more space) */}
-                    <div className="flex-[2] min-w-0 bg-surface border border-border rounded-xl shadow-sm overflow-hidden flex flex-col">
+
+                {/* 2-Pane Content Grid */}
+                <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
+                    
+                    {/* Left Pane: Log Viewer (60% width roughly, col-span-7) */}
+                    <div className="lg:col-span-7 xl:col-span-8 flex flex-col min-h-0 border-r border-border">
                         <LogViewer />
                     </div>
 
-                    {/* Right Pane: Tools / Management */}
-                    <div className="flex-[1] min-w-[320px] bg-surface border border-border rounded-xl shadow-sm overflow-hidden flex flex-col">
-                        <ModelManager onOllamaStatus={(status) => setServerStatus(prev => ({...prev, ollama: status}))} />
+                    {/* Right Pane: Model Manager & Actions (40% width roughly, col-span-5) */}
+                    <div className="lg:col-span-5 xl:col-span-4 flex flex-col min-h-0 bg-surface">
+                        <ModelManager />
                     </div>
+                    
                 </div>
             </main>
         </div>

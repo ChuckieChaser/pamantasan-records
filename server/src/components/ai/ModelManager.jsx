@@ -2,14 +2,11 @@ import { useState, useEffect } from 'react';
 import { BrainCircuit, Search, Download, Trash2, ExternalLink, CheckCircle, Database, X, AlertTriangle } from 'lucide-react';
 
 const CATALOG = [
-    { name: 'llama3.1', display: 'Llama 3.1', params: '8B', context: '128K', desc: 'Highly proficient in text summarization, reasoning, and instruction following.' },
-    { name: 'llama3.2-vision', display: 'Llama 3.2 Vision', params: '11B', context: '128K', desc: 'Multimodal model excellent at understanding images and summarizing visual text.' },
-    { name: 'mistral', display: 'Mistral', params: '7B', context: '8K', desc: 'Fast, highly capable model excellent for concise and accurate summarization.' },
-    { name: 'phi3', display: 'Phi-3 Mini', params: '3.8B', context: '128K', desc: 'Lightweight, high-quality model perfect for summarizing on low resources.' },
-    { name: 'gemma2', display: 'Gemma 2', params: '9B', context: '8K', desc: 'Google\'s high-performing model with strong reasoning and summarizing abilities.' },
-    { name: 'qwen2', display: 'Qwen 2', params: '7B', context: '32K', desc: 'Alibaba\'s highly multilingual model, great at summarizing cross-lingual content.' },
-    { name: 'llava', display: 'LLaVA', params: '7B', context: '4K', desc: 'Vision-language model capable of understanding and summarizing complex images.' },
-    { name: 'moondream', display: 'Moondream 2', params: '1.8B', context: '4K', desc: 'Tiny, highly efficient vision model for extracting info from images.' },
+    { name: 'llama3.1', display: 'Llama 3.1', params: '8B', context: '128K', desc: 'Highly proficient text summarizer & reasoning engine.' },
+    { name: 'llama3.2-vision', display: 'Llama 3.2 Vision', params: '11B', context: '128K', desc: 'Multimodal model excellent at understanding images.' },
+    { name: 'mistral', display: 'Mistral', params: '7B', context: '8K', desc: 'Fast, highly capable model for concise summarization.' },
+    { name: 'phi3', display: 'Phi-3 Mini', params: '3.8B', context: '128K', desc: 'Lightweight, tiny model perfect for low resources.' },
+    { name: 'llava', display: 'LLaVA', params: '7B', context: '4K', desc: 'Vision-language model capable of analyzing images.' }
 ];
 
 export default function ModelManager({ onOllamaStatus }) {
@@ -43,6 +40,9 @@ export default function ModelManager({ onOllamaStatus }) {
         fetchModels();
         
         let ws;
+        let reconnectTimer;
+        let isMounted = true;
+
         const connectWs = () => {
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             ws = new WebSocket(`${protocol}//${window.location.host}/logs`);
@@ -79,11 +79,18 @@ export default function ModelManager({ onOllamaStatus }) {
                     // Ignore
                 }
             };
-            ws.onclose = () => setTimeout(connectWs, 3000);
+            ws.onclose = () => {
+                if (!isMounted) return;
+                reconnectTimer = setTimeout(connectWs, 3000);
+            };
         };
         
         connectWs();
-        return () => { if (ws) ws.close(); };
+        return () => { 
+            isMounted = false;
+            clearTimeout(reconnectTimer);
+            if (ws) ws.close(); 
+        };
     }, []);
 
     const handlePull = async (modelName) => {
@@ -148,6 +155,14 @@ export default function ModelManager({ onOllamaStatus }) {
 
     const isInstalled = (name) => installedModels.some(m => m.name === name || m.name === `${name}:latest`);
 
+    const formatBytes = (bytes) => {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    };
+
     const renderDownloadButton = (modelName) => {
         const activePullState = activePulls[modelName];
         const isPulling = !!activePullState;
@@ -162,14 +177,19 @@ export default function ModelManager({ onOllamaStatus }) {
         }
 
         if (isPulling) {
-            const percentage = activePullState.total > 0 ? (activePullState.completed / activePullState.total) * 100 : 0;
+            const hasData = activePullState.total > 0;
+            const percentage = hasData ? (activePullState.completed / activePullState.total) * 100 : 0;
             const radius = 14;
             const circumference = 2 * Math.PI * radius;
-            const offset = circumference - (percentage / 100) * circumference;
+            const offset = hasData ? circumference - (percentage / 100) * circumference : circumference * 0.25;
+
+            const titleText = hasData 
+                ? `${activePullState.status}: ${percentage.toFixed(1)}% (${formatBytes(activePullState.completed)} / ${formatBytes(activePullState.total)})`
+                : `${activePullState.status}...`;
 
             return (
-                <button onClick={() => handleCancelPull(modelName)} className="relative size-8 flex items-center justify-center group cursor-pointer" title="Cancel Download">
-                    <svg className="absolute inset-0 size-full rotate-[-90deg]">
+                <button onClick={() => handleCancelPull(modelName)} className="relative size-8 flex items-center justify-center group cursor-pointer" title={`Cancel Download - ${titleText}`}>
+                    <svg className={`absolute inset-0 size-full rotate-[-90deg] ${!hasData ? 'animate-spin' : ''}`}>
                         <circle cx="16" cy="16" r={radius} className="stroke-border fill-none" strokeWidth="2" />
                         <circle 
                             cx="16" 
@@ -207,18 +227,22 @@ export default function ModelManager({ onOllamaStatus }) {
             </div>
 
             {/* Active Model Banner */}
-            <div className="p-6 border-b border-border bg-gradient-to-r from-surface to-surface-hover shrink-0 flex items-center justify-between">
-                <div className="flex flex-col gap-1">
-                    <span className="text-xs font-bold uppercase tracking-wider text-muted">Active System Model</span>
+            <div className="p-6 border-b border-border bg-gradient-to-br from-surface to-surface-hover shrink-0 flex items-center justify-between shadow-inner relative overflow-hidden">
+                <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
+                <div className="flex flex-col gap-2 relative z-10">
+                    <div className="flex items-center gap-2">
+                        <BrainCircuit className="size-4 text-accent animate-pulse" />
+                        <span className="text-xs font-bold uppercase tracking-wider text-accent/80">Active System Model</span>
+                    </div>
                     {activeModel ? (
-                        <div className="flex items-center gap-3">
-                            <CheckCircle className="size-5 text-success drop-shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
+                        <div className="flex items-center gap-3 bg-background/50 py-2 px-4 rounded-lg border border-border backdrop-blur-sm">
+                            <CheckCircle className="size-5 text-success drop-shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
                             <span className="text-xl font-bold font-heading text-main tracking-wide">{activeModel}</span>
                         </div>
                     ) : (
-                        <div className="flex items-center gap-2 mt-1 px-3 py-1 bg-error/10 border border-error/20 rounded-md w-fit">
+                        <div className="flex items-center gap-2 mt-1 px-4 py-2 bg-error/10 border border-error/20 rounded-lg w-fit backdrop-blur-sm">
                             <AlertTriangle className="size-4 text-error" />
-                            <span className="text-sm font-bold text-error">No model selected</span>
+                            <span className="text-sm font-bold text-error">No model selected for processing requests!</span>
                         </div>
                     )}
                 </div>
@@ -294,7 +318,7 @@ export default function ModelManager({ onOllamaStatus }) {
                     />
                     <button 
                         onClick={() => handlePull(customPull)}
-                        disabled={!customPull.trim() || activePull !== null}
+                        disabled={!customPull.trim() || !!activePulls[customPull]}
                         className="bg-accent hover:bg-accent-hover text-surface px-4 rounded-md font-bold text-sm transition-colors disabled:opacity-50"
                     >
                         Pull

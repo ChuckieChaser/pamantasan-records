@@ -56,7 +56,7 @@ export default function DashboardLayout() {
                             <span className="text-sm font-medium text-main">Ollama</span>
                             <div className={`size-2 rounded-full ${status.ollama ? 'bg-success-text' : 'bg-error-text'}`} />
                         </div>
-                        <div className="flex items-center gap-2 pl-4 border-l border-border">
+                        <div className="flex items-center gap-2">
                             <Monitor className="size-4 text-muted" />
                             <span className="text-sm font-medium text-main">Client</span>
                             <div className={`size-2 rounded-full ${status.client ? 'bg-success-text' : 'bg-error-text'}`} />

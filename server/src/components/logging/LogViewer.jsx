@@ -9,6 +9,7 @@ export default function LogViewer() {
     useEffect(() => {
         let ws;
         let reconnectTimer;
+        let isMounted = true;
 
         const connect = () => {
             setWsStatus('CONNECTING');
@@ -38,19 +39,23 @@ export default function LogViewer() {
             };
 
             ws.onclose = () => {
+                if (!isMounted) return;
                 setWsStatus('DISCONNECTED');
                 // Reconnect after 3 seconds
                 reconnectTimer = setTimeout(connect, 3000);
             };
 
             ws.onerror = () => {
-                ws.close();
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.close();
+                }
             };
         };
 
         connect();
 
         return () => {
+            isMounted = false;
             clearTimeout(reconnectTimer);
             if (ws) ws.close();
         };
@@ -90,13 +95,13 @@ export default function LogViewer() {
         }
     };
 
-    const getColor = (level) => {
+    const getBadgeStyle = (level) => {
         switch (level) {
-            case 'INFO': return 'text-blue-400';
-            case 'SUCCESS': return 'text-emerald-400';
-            case 'WARNING': return 'text-amber-400';
-            case 'ERROR': return 'text-red-400';
-            default: return 'text-main';
+            case 'INFO': return 'bg-blue-500/10 text-blue-500 border-blue-500/20';
+            case 'SUCCESS': return 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20';
+            case 'WARNING': return 'bg-amber-500/10 text-amber-500 border-amber-500/20';
+            case 'ERROR': return 'bg-red-500/10 text-red-500 border-red-500/20';
+            default: return 'bg-surface-hover text-muted border-border';
         }
     };
 
@@ -115,17 +120,19 @@ export default function LogViewer() {
                 <div className="flex items-center gap-2">
                     <button 
                         onClick={refreshLogs} 
-                        className="p-1.5 rounded bg-surface-hover text-muted hover:text-main hover:bg-accent/10 transition-colors"
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wide border border-border bg-surface-hover text-muted hover:text-main hover:bg-accent/10 hover:border-accent/20 transition-all"
                         title="Refresh Connection"
                     >
-                        <RefreshCw className="size-4" />
+                        <RefreshCw className="size-3.5" />
+                        Refresh
                     </button>
                     <button 
                         onClick={clearLogs} 
-                        className="p-1.5 rounded bg-surface-hover text-muted hover:text-error hover:bg-error/10 transition-colors"
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wide border border-border bg-surface-hover text-muted hover:text-error hover:bg-error/10 hover:border-error/20 transition-all"
                         title="Clear Logs"
                     >
-                        <Trash2 className="size-4" />
+                        <Trash2 className="size-3.5" />
+                        Clear
                     </button>
                 </div>
             </div>
@@ -141,19 +148,28 @@ export default function LogViewer() {
                     </div>
                 ) : (
                     logs.map((log) => (
-                        <div key={log.id} className="flex items-start gap-3 hover:bg-surface-hover/50 p-1 -mx-1 rounded transition-colors group">
-                            <span className="text-muted shrink-0 tabular-nums">
+                        <div key={log.id} className="flex items-start gap-3 hover:bg-surface-hover/70 p-2 -mx-2 rounded transition-colors group">
+                            <span className="text-muted shrink-0 tabular-nums text-xs mt-0.5">
                                 {new Date(log.timestamp).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute:'2-digit', second:'2-digit' })}
                             </span>
-                            <div className="shrink-0 mt-0.5">
-                                {getIcon(log.level)}
+                            <div className="shrink-0">
+                                <span className={`flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase border ${getBadgeStyle(log.level)}`}>
+                                    {getIcon(log.level)}
+                                    {log.level}
+                                </span>
                             </div>
-                            <span className={`shrink-0 font-bold w-20 ${getColor(log.level)}`}>
-                                [{log.source}]
-                            </span>
-                            <span className="text-main break-all whitespace-pre-wrap">
-                                {log.message}
-                            </span>
+                            <div className="flex flex-col gap-1 min-w-0 flex-1">
+                                <span className={`text-sm break-words ${
+                                    log.level === 'ERROR' ? 'text-red-400' :
+                                    log.level === 'WARNING' ? 'text-amber-400' :
+                                    log.level === 'SUCCESS' ? 'text-emerald-400' : 'text-main'
+                                }`}>
+                                    {log.message}
+                                </span>
+                                {log.context && (
+                                    <span className="text-[10px] font-mono text-muted/70 uppercase truncate">{log.context}</span>
+                                )}
+                            </div>
                         </div>
                     ))
                 )}

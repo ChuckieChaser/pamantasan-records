@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuthentication, useDocument, useDocumentVersion } from '../stores';
 import { DOCUMENTS_STATUS, USERS_ROLE } from '../constants';
 import DocumentBrowser from '../components/documents/DocumentBrowser';
@@ -8,6 +9,12 @@ import DocumentBrowser from '../components/documents/DocumentBrowser';
 // ==============================================================================
 
 export default function Archives() {
+    const location = useLocation();
+    const navigate = useNavigate();
+    
+    const searchParams = new URLSearchParams(location.search);
+    const currentFolderId = searchParams.get('folder') || null;
+
     const { user } = useAuthentication();
     const { documents, activeDocument, getAll: getDocuments, selectActiveDocument, deselectActiveDocument } = useDocument();
     const { documentVersions, getAll: getDocumentVersions } = useDocumentVersion();
@@ -24,12 +31,23 @@ export default function Archives() {
     // --- Derived Data ---
     const archivedDocs = useMemo(() => {
         if (!user || (user.role !== USERS_ROLE.ADMINISTRATOR && user.role !== USERS_ROLE.COORDINATOR)) {
-            return []; // Only Admin/Coordinator should see the Archives page typically, based on routes.
+            return [];
         }
         return documents
-            .filter(d => d.status === DOCUMENTS_STATUS.ARCHIVED)
+            .filter(d => d.status === DOCUMENTS_STATUS.ARCHIVED && d.parent_id === currentFolderId)
             .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
-    }, [documents, user]);
+    }, [documents, user, currentFolderId]);
+
+    const currentPathSegments = useMemo(() => {
+        if (!currentFolderId) return [];
+        const folderChain = [];
+        let current = documents.find(d => d.id === currentFolderId);
+        while (current) {
+            folderChain.unshift(current.name);
+            current = documents.find(d => d.id === current.parent_id);
+        }
+        return folderChain;
+    }, [documents, currentFolderId]);
 
     // --- Handlers ---
     const handleDocumentClick = (id) => {
@@ -37,6 +55,13 @@ export default function Archives() {
             deselectActiveDocument();
         } else {
             selectActiveDocument(id);
+        }
+    };
+
+    const handleDocumentDoubleClick = (id) => {
+        const doc = documents.find(d => d.id === id);
+        if (doc?.is_folder) {
+            navigate(`/archives?folder=${doc.id}`);
         }
     };
 
@@ -49,12 +74,13 @@ export default function Archives() {
 
             {/* --- Archived Documents --- */}
             <DocumentBrowser
-                title="Archived Documents"
+                title={currentFolderId ? `Archived Folder: ${currentPathSegments[currentPathSegments.length - 1]}` : "Archived Documents"}
                 description="Documents that have been archived and are no longer in active circulation."
                 documents={archivedDocs}
                 documentVersions={documentVersions}
                 activeDocumentId={activeDocument?.id}
                 onDocumentClick={handleDocumentClick}
+                onDocumentDoubleClick={handleDocumentDoubleClick}
             />
         </div>
     );

@@ -39,6 +39,7 @@ CREATE TRIGGER set_timestamp_coordinator_requests
 
 -- --- Row Level Security ---
 ALTER TABLE coordinator_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE coordinator_requests FORCE ROW LEVEL SECURITY;
 
 CREATE POLICY coordinator_requests_select_access ON coordinator_requests
     FOR SELECT USING (

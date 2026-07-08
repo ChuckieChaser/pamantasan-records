@@ -1,8 +1,8 @@
 import { useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Search, PanelRight } from 'lucide-react';
 
-import { useAuthentication, useNotification } from '../../stores';
+import { useAuthentication, useNotification, useDocument } from '../../stores';
 import { IconButton, InputField, NotificationMenu, Breadcrumb } from '../ui';
 
 // ==============================================================================
@@ -12,9 +12,11 @@ import { IconButton, InputField, NotificationMenu, Breadcrumb } from '../ui';
 // --- Topbar: layout panel → flush, no border radius, border-b only ---
 const Topbar = ({ onToggleInspector, isInspectorOpen }) => {
     const location = useLocation();
+    const navigate = useNavigate();
 
     const { user } = useAuthentication();
     const { notifications, unreadCount, getGroupedByRecipientId } = useNotification();
+    const { documents } = useDocument();
 
     // --- Load notifications when the authenticated user changes ---
     useEffect(() => {
@@ -22,7 +24,32 @@ const Topbar = ({ onToggleInspector, isInspectorOpen }) => {
     }, [user?.id, getGroupedByRecipientId]);
 
     // --- Breadcrumb computation ---
-    const pathSegments = location.pathname.split('/').filter((segment) => segment !== '');
+    const searchParams = new URLSearchParams(location.search);
+    const folderId = searchParams.get('folder');
+    
+    let pathSegments = [];
+    if (location.pathname.startsWith('/documents') || location.pathname.startsWith('/archives')) {
+        const basePath = location.pathname.startsWith('/documents') ? '/documents' : '/archives';
+        const baseLabel = location.pathname.startsWith('/documents') ? 'documents' : 'archives';
+        
+        pathSegments.push({ label: baseLabel, onClick: () => navigate(basePath) });
+        
+        if (folderId && documents.length > 0) {
+            const folderChain = [];
+            let current = documents.find(d => d.id === folderId);
+            while (current) {
+                const id = current.id;
+                folderChain.unshift({
+                    label: current.name,
+                    onClick: () => navigate(`${basePath}?folder=${id}`)
+                });
+                current = documents.find(d => d.id === current.parent_id);
+            }
+            pathSegments.push(...folderChain);
+        }
+    } else {
+        pathSegments = location.pathname.split('/').filter((segment) => segment !== '').map(s => ({ label: s }));
+    }
 
     // --- Shape notifications for the menu component ---
     const notificationItems = notifications.map((notification) => {

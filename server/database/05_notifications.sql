@@ -38,6 +38,7 @@ CREATE TRIGGER set_timestamp_notifications
 
 -- --- Row Level Security ---
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notifications FORCE ROW LEVEL SECURITY;
 
 CREATE POLICY notifications_select_access ON notifications
     FOR SELECT USING (

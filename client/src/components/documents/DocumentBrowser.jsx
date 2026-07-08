@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Search, ArrowUpDown, ArrowUp, ArrowDown, Filter, LayoutGrid, List } from 'lucide-react';
+import { Search, ArrowUpDown, ArrowUp, ArrowDown, Filter, LayoutGrid, List, Plus } from 'lucide-react';
 import { Card } from '../ui/Containers';
 import { Badge } from '../ui/Badges';
 import { InputField } from '../ui/Textfields';
-import { IconButton } from '../ui/Buttons';
+import { IconButton, PrimaryButton } from '../ui/Buttons';
 import { getFileIcon } from '../ui/FileIcon';
 import { FilterMenu } from '../ui/Menus';
 import DocumentCard from './DocumentCard';
@@ -44,9 +44,12 @@ const renderSortIcon = (col, currentSortCol, currentSortState, type = 'ARROW') =
  *   documentVersions — Array of all document versions (to resolve latestVersion)
  *   activeDocumentId — Currently selected document id
  *   onDocumentClick  — (id) => void
+ *   onDocumentDoubleClick — (id) => void
  *   customStatus     — { header: string, render: (doc) => ReactNode }
+ *   canAddDocuments  — boolean
+ *   onAddDocuments   — () => void
  */
-export default function DocumentBrowser({ title, description, documents, documentVersions, activeDocumentId, onDocumentClick, customStatus }) {
+export default function DocumentBrowser({ title, description, documents, documentVersions, activeDocumentId, onDocumentClick, onDocumentDoubleClick, customStatus, canAddDocuments, onAddDocuments }) {
     const [filter, setFilter] = useState('');
     const [selectedStatuses, setSelectedStatuses] = useState([]);
     const [sortCol, setSortCol] = useState('DATE');
@@ -139,6 +142,11 @@ export default function DocumentBrowser({ title, description, documents, documen
                             onChange={(e) => setFilter(e.target.value)}
                         />
                     </div>
+                    {canAddDocuments && (
+                        <PrimaryButton icon={Plus} size="medium" onClick={onAddDocuments}>
+                            Add Documents
+                        </PrimaryButton>
+                    )}
                     <FilterMenu groups={filterGroups} />
                     <div className="flex items-center rounded-md border border-border bg-surface p-1">
                         <IconButton icon={List} size="small" active={view === 'TABLE'} onClick={() => setView('TABLE')} />
@@ -162,6 +170,7 @@ export default function DocumentBrowser({ title, description, documents, documen
                                     latestVersion={latestVersion}
                                     isSelected={activeDocumentId === doc.id}
                                     onClick={() => onDocumentClick(doc.id)}
+                                    onDoubleClick={() => onDocumentDoubleClick && onDocumentDoubleClick(doc.id)}
                                 />
                             );
                         })}
@@ -209,6 +218,7 @@ export default function DocumentBrowser({ title, description, documents, documen
                                             key={doc.id}
                                             className={`cursor-pointer transition-colors duration-200 hover:bg-surface-hover ${isSelected ? 'bg-surface-hover' : ''}`}
                                             onClick={() => onDocumentClick(doc.id)}
+                                            onDoubleClick={() => onDocumentDoubleClick && onDocumentDoubleClick(doc.id)}
                                         >
                                             <td className="px-4 py-4">
                                                 <div className="flex items-center gap-3">

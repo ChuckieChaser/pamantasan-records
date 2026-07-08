@@ -25,6 +25,7 @@ CREATE TRIGGER set_timestamp_departments
 
 -- --- Row Level Security ---
 ALTER TABLE departments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE departments FORCE ROW LEVEL SECURITY;
 
 CREATE POLICY departments_select_access ON departments
     FOR SELECT USING (

@@ -30,6 +30,7 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_data ON audit_logs USING GIN (data);
 
 -- --- Row Level Security ---
 ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE audit_logs FORCE ROW LEVEL SECURITY;
 
 CREATE POLICY audit_logs_select_access ON audit_logs
     FOR SELECT USING (

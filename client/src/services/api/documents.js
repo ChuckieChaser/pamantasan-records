@@ -15,6 +15,9 @@ export const documentsApi = {
         apiClient.post(`/documents/${docId}/upload`, formData, {
             headers: { 'Content-Type': 'multipart/form-data' },
         }).then(r => r.data),
+    revert:           (docId, data)  => apiClient.post(`/documents/${docId}/revert`, data).then(r => r.data),
+    download:         (id)           => apiClient.get(`/documents/${id}/download`, { responseType: 'blob' }).then(r => r.data),
+    downloadZip:      (id)           => apiClient.get(`/documents/${id}/download-zip`, { responseType: 'blob' }).then(r => r.data),
 
     // --- Shares ---
     getShares:        ()             => apiClient.get('/documents/shares/all').then(r => r.data),

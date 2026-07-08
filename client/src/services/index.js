@@ -38,6 +38,7 @@ export const documentVersionsService        = {
     getByDocumentId: (docId)       => documentsApi.getVersions(docId),
     create:          (docId, form) => documentsApi.upload(docId, form),
     update:          ()            => Promise.resolve(), // Versions are immutable
+    revert:          (docId, data) => documentsApi.revert(docId, data),
 };
 export const documentRequestsService        = {
     getAll:              (params)  => documentsApi.getRequests(params),

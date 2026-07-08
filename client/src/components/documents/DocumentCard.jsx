@@ -7,11 +7,12 @@ import { getFileIcon } from '../ui/FileIcon';
 // ==============================================================================
 
 // --- DocumentCard: single card in the grid card view for any document browser ---
-export default function DocumentCard({ document, latestVersion, isSelected, onClick }) {
+export default function DocumentCard({ document, latestVersion, isSelected, onClick, onDoubleClick }) {
     return (
         <Card
             className={`cursor-pointer transition-colors duration-200 ${isSelected ? 'border-accent bg-surface-hover ring-1 ring-accent' : 'hover:border-accent'}`}
             onClick={onClick}
+            onDoubleClick={onDoubleClick}
         >
             <CardBody className="flex min-w-0 flex-col gap-3 p-4">
                 <div className="flex min-w-0 items-center gap-3">

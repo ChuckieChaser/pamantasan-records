@@ -6,16 +6,30 @@ import { ChevronRight } from 'lucide-react';
 
 export const Breadcrumb = ({ segments = [], className = '' }) => {
     return (
-        <div className={`flex items-center gap-2 text-sm font-medium capitalize text-muted ${className}`}>
+        <div className={`flex items-center gap-2 text-sm font-medium text-muted ${className}`}>
             {segments.length === 0 ? (
-                <span className="text-main">Home</span>
+                <span className="text-main capitalize">Home</span>
             ) : (
                 segments.map((segment, index) => {
                     const isLast = index === segments.length - 1;
+                    const label = typeof segment === 'string' ? segment : segment.label;
+                    const onClick = typeof segment === 'string' ? undefined : segment.onClick;
+                    
                     return (
-                        <div key={segment} className="flex items-center gap-2">
+                        <div key={`${label}-${index}`} className="flex items-center gap-2">
                             {index > 0 && <ChevronRight className="size-4 shrink-0 text-border" />}
-                            <span className={isLast ? 'text-main' : 'text-muted'}>{segment}</span>
+                            {onClick && !isLast ? (
+                                <button
+                                    onClick={onClick}
+                                    className="hover:text-accent transition-colors capitalize"
+                                >
+                                    {label}
+                                </button>
+                            ) : (
+                                <span className={`${isLast ? 'text-main' : 'text-muted'} capitalize`}>
+                                    {label}
+                                </span>
+                            )}
                         </div>
                     );
                 })

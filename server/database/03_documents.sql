@@ -42,6 +42,7 @@ CREATE TRIGGER set_timestamp_documents
 
 -- --- Row Level Security ---
 ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE documents FORCE ROW LEVEL SECURITY;
 
 CREATE POLICY documents_select_access ON documents
     FOR SELECT USING (
@@ -170,6 +171,7 @@ CREATE TRIGGER set_timestamp_document_versions
 
 -- --- Row Level Security ---
 ALTER TABLE document_versions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE document_versions FORCE ROW LEVEL SECURITY;
 
 CREATE POLICY document_versions_select_access ON document_versions
     FOR SELECT USING (
@@ -212,6 +214,7 @@ CREATE TRIGGER set_timestamp_document_requests
 
 -- --- Row Level Security ---
 ALTER TABLE document_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE document_requests FORCE ROW LEVEL SECURITY;
 
 CREATE POLICY document_requests_select_access ON document_requests
     FOR SELECT USING (
@@ -266,6 +269,7 @@ CREATE INDEX IF NOT EXISTS idx_document_request_messages_thread ON document_requ
 
 -- --- Row Level Security ---
 ALTER TABLE document_request_messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE document_request_messages FORCE ROW LEVEL SECURITY;
 
 CREATE POLICY document_request_messages_select_access ON document_request_messages
     FOR SELECT USING (
@@ -317,6 +321,7 @@ CREATE INDEX IF NOT EXISTS idx_document_shares_ticket_routing ON document_shares
 
 -- --- Row Level Security ---
 ALTER TABLE document_shares ENABLE ROW LEVEL SECURITY;
+ALTER TABLE document_shares FORCE ROW LEVEL SECURITY;
 
 CREATE POLICY document_shares_select_access ON document_shares
     FOR SELECT USING (

@@ -11,6 +11,7 @@ import DepartmentInspector from '../components/management/DepartmentInspector';
 import UserInspector from '../components/management/UserInspector';
 import CoordinatorRequestInspector from '../components/management/CoordinatorRequestInspector';
 import DocumentRequestInspector from '../components/management/DocumentRequestInspector';
+import ViewDocumentModal from '../components/documents/ViewDocumentModal';
 
 // ==============================================================================
 // SECTION 1: LAYOUT
@@ -99,6 +100,9 @@ export default function MainLayout() {
                     )}
                 </>
             )}
+
+            {/* Global View Modal */}
+            <ViewDocumentModal />
         </div>
     );
 }

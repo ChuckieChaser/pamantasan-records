@@ -1,12 +1,14 @@
 import { useState, useMemo, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { documentsApi } from '../../services/api/documents';
 import {
     FileText, Sparkles, X, Building2, User, Users,
     Share2, Archive, Eye, Download, MessageSquare, RotateCcw,
     CheckCircle, XCircle, UploadCloud, EyeOff, RefreshCcw, Tag, Calendar, Search, Activity
 } from 'lucide-react';
-import { useAuthentication, useDocument, useDocumentVersion, useDocumentShare, useUser, useDepartment } from '../../stores';
+import { useAuthentication, useDocument, useDocumentVersion, useDocumentShare, useUser, useDepartment, useDocumentViewer } from '../../stores';
 import { USERS_ROLE, DOCUMENTS_STATUS } from '../../constants';
-import { IconButton, PrimaryButton, SecondaryButton, DestructiveButton, getFileIcon, Modal, TextArea, SelectField, InputField } from '../ui';
+import { IconButton, PrimaryButton, SecondaryButton, DestructiveButton, getFileIcon, Modal, TextArea, SelectField, InputField, ConfirmActionModal } from '../ui';
 import DefaultAvatar from '../../assets/avatar.png';
 
 // ==============================================================================
@@ -35,9 +37,12 @@ const INSPECTOR_TABS = Object.freeze({
 // ==============================================================================
 
 const Inspector = ({ document, auditLog, onClose }) => {
+    const location = useLocation();
+    const navigate = useNavigate();
+
     const { user } = useAuthentication();
-    const { update: updateDocument } = useDocument();
-    const { documentVersions, create: createVersion } = useDocumentVersion();
+    const { update: updateDocument, delete: deleteDocument } = useDocument();
+    const { documentVersions, create: createVersion, revert: revertVersion } = useDocumentVersion();
     const { documentShares, create: createShare, delete: deleteShare } = useDocumentShare();
     const { users, getAll: getUsers } = useUser();
     const { departments, getAll: getDepartments } = useDepartment();
@@ -50,12 +55,15 @@ const Inspector = ({ document, auditLog, onClose }) => {
         if (departments.length === 0) getDepartments();
     }, [users.length, departments.length, getUsers, getDepartments]);
 
+    const { openViewer } = useDocumentViewer();
+
     // --- Modal States ---
-    const [isViewModalOpen, setIsViewModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isRevertModalOpen, setIsRevertModalOpen] = useState(false);
     const [isArchiveModalOpen, setIsArchiveModalOpen] = useState(false);
     const [isApproveModalOpen, setIsApproveModalOpen] = useState(false);
+    const [isUnarchiveModalOpen, setIsUnarchiveModalOpen] = useState(false);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     
     // --- Edit State ---
     const [editName, setEditName] = useState('');
@@ -80,17 +88,30 @@ const Inspector = ({ document, auditLog, onClose }) => {
     }, [users, user]);
 
     // --- Handlers ---
-    const handleDownload = () => {
+    const handleDownload = async () => {
         if (!document) return;
-        const blob = new Blob([`Mock file content for ${document.name}`], { type: 'text/plain' });
-        const url = window.URL.createObjectURL(blob);
-        const a = window.document.createElement('a');
-        a.href = url;
-        a.download = document.name;
-        window.document.body.appendChild(a);
-        a.click();
-        window.document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
+        try {
+            let blob;
+            let filename;
+            if (document.is_folder) {
+                blob = await documentsApi.downloadZip(document.id);
+                filename = `${document.name}.zip`;
+            } else {
+                blob = await documentsApi.download(document.id);
+                filename = document.name;
+            }
+            
+            const url = window.URL.createObjectURL(blob);
+            const a = window.document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            window.document.body.appendChild(a);
+            a.click();
+            window.document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Failed to download', error);
+        }
     };
 
     const handleCommentSubmit = async () => {
@@ -124,6 +145,15 @@ const Inspector = ({ document, auditLog, onClose }) => {
                 change_summary: `Reverted to version ${targetVersion.version}`,
             });
             setIsRevertModalOpen(false);
+        } catch (error) {
+            console.error('Failed to revert version', error);
+        }
+    };
+
+    const handleRevertSubmit = async () => {
+        if (!activeVersionId || !document) return;
+        try {
+            await revertVersion(document.id, activeVersionId, user.id);
         } catch (error) {
             console.error('Failed to revert version', error);
         }
@@ -312,6 +342,9 @@ const Inspector = ({ document, auditLog, onClose }) => {
                 await updateDocument(document.id, { status: DOCUMENTS_STATUS.PENDING_DIRECTOR });
             } else if (destructiveAction === 'REJECT') {
                 await updateDocument(document.id, { status: DOCUMENTS_STATUS.UPLOADED, rejection_reason: 'Rejected by officer' });
+            } else if (destructiveAction === 'DELETE') {
+                await deleteDocument(document.id);
+                onClose();
             }
             setDestructiveAction(null);
         } catch (error) {
@@ -367,10 +400,20 @@ const Inspector = ({ document, auditLog, onClose }) => {
         const primaryDestructiveActions = [];
 
         // Base actions available to all roles
-        secondaryActions.push(
-            <SecondaryButton key="view" size="small" icon={Eye} className="flex-1 justify-center" onClick={() => setIsViewModalOpen(true)}>View</SecondaryButton>,
-            <SecondaryButton key="download" size="small" icon={Download} className="flex-1 justify-center" onClick={handleDownload}>Download</SecondaryButton>
-        );
+        if (document.is_folder) {
+            secondaryActions.push(
+                <SecondaryButton key="open" size="small" icon={Eye} className="flex-1 justify-center" onClick={() => {
+                    const basePath = location.pathname.startsWith('/archives') ? '/archives' : '/documents';
+                    navigate(`${basePath}?folder=${document.id}`);
+                }}>Open</SecondaryButton>,
+                <SecondaryButton key="download" size="small" icon={Download} className="flex-1 justify-center" onClick={handleDownload}>Download ZIP</SecondaryButton>
+            );
+        } else {
+            secondaryActions.push(
+                <SecondaryButton key="view" size="small" icon={Eye} className="flex-1 justify-center" onClick={() => openViewer(document)}>View</SecondaryButton>,
+                <SecondaryButton key="download" size="small" icon={Download} className="flex-1 justify-center" onClick={handleDownload}>Download</SecondaryButton>
+            );
+        }
 
         if (role === USERS_ROLE.ADMINISTRATOR || role === USERS_ROLE.COORDINATOR) {
             secondaryActions.push(
@@ -395,7 +438,8 @@ const Inspector = ({ document, auditLog, onClose }) => {
                 );
             } else if (status === DOCUMENTS_STATUS.ARCHIVED) {
                 primaryDestructiveActions.push(
-                    <PrimaryButton key="unarchive" size="small" icon={RotateCcw} className="flex-1 justify-center" onClick={() => updateDocument(document.id, { status: DOCUMENTS_STATUS.PUBLISHED })}>Unarchive</PrimaryButton>
+                    <PrimaryButton key="unarchive" size="small" icon={RotateCcw} className="flex-1 justify-center" onClick={() => setIsUnarchiveModalOpen(true)}>Unarchive</PrimaryButton>,
+                    <DestructiveButton key="delete" size="small" icon={XCircle} className="flex-1 justify-center" onClick={() => setDestructiveAction('DELETE')}>Delete</DestructiveButton>
                 );
             }
         } else if (role === USERS_ROLE.OFFICER) {
@@ -473,17 +517,19 @@ const Inspector = ({ document, auditLog, onClose }) => {
                         >
                             Metadata
                         </button>
-                        <button
-                            className={`flex-1 py-3 text-xs font-bold uppercase transition-colors ${activeTab === INSPECTOR_TABS.VERSIONS ? 'border-b-2 border-accent text-accent' : 'text-muted hover:text-main'}`}
-                            onClick={() => setActiveTab(INSPECTOR_TABS.VERSIONS)}
-                        >
-                            Versions ({docVersions.length})
-                        </button>
+                        {!document.is_folder && (
+                            <button
+                                className={`flex-1 py-3 text-xs font-bold uppercase transition-colors ${activeTab === INSPECTOR_TABS.VERSIONS ? 'border-b-2 border-accent text-accent' : 'text-muted hover:text-main'}`}
+                                onClick={() => setActiveTab(INSPECTOR_TABS.VERSIONS)}
+                            >
+                                Versions ({docVersions.length})
+                            </button>
+                        )}
                     </div>
 
                     {/* --- Tab Content --- */}
                     <div className="flex-1 overflow-y-auto p-4">
-                        {activeTab === INSPECTOR_TABS.METADATA ? (
+                        {activeTab === INSPECTOR_TABS.METADATA || document.is_folder ? (
                             <div className="flex flex-col gap-6">
                                 {/* Status */}
                                 <div>
@@ -859,14 +905,6 @@ const Inspector = ({ document, auditLog, onClose }) => {
             )}
 
             {/* --- Modals --- */}
-            <Modal isOpen={isViewModalOpen} onClose={() => setIsViewModalOpen(false)} title={`Viewing: ${document?.name || 'Document'}`} className="w-full max-w-4xl h-[80vh]">
-                <div className="flex-1 bg-surface-hover p-8 m-4 rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center overflow-y-auto">
-                    <FileText className="size-16 text-muted mb-4 opacity-50" />
-                    <p className="text-muted text-center max-w-md leading-relaxed">
-                        This is a placeholder for the actual document content. In a real application, a PDF viewer, image renderer, or file previewer would be embedded here to display the contents of <strong className="text-main">{document?.name}</strong>.
-                    </p>
-                </div>
-            </Modal>
 
             <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title={`Edit Document`} className={`w-full ${docShares.length > 0 ? 'max-w-4xl' : 'max-w-xl'}`}>
                 <div className={`grid ${docShares.length > 0 ? 'grid-cols-2' : 'grid-cols-1'} gap-6 p-6`}>
@@ -993,40 +1031,55 @@ const Inspector = ({ document, auditLog, onClose }) => {
                 )}
             </Modal>
 
-            <Modal isOpen={isRevertModalOpen} onClose={() => setIsRevertModalOpen(false)} title="Confirm Revert" className="w-full max-w-sm">
-                <div className="p-4 flex flex-col gap-4">
-                    <p className="text-sm text-muted">
-                        Are you sure you want to revert <strong className="text-main">{document?.name}</strong> to the selected version? This action will set the selected version as the active one.
-                    </p>
-                    <div className="flex justify-end gap-3 pt-2">
-                        <SecondaryButton onClick={() => setIsRevertModalOpen(false)}>Cancel</SecondaryButton>
-                        <PrimaryButton onClick={handleRevertSubmit}>Confirm Revert</PrimaryButton>
-                    </div>
-                </div>
-            </Modal>
-            <Modal isOpen={isArchiveModalOpen} onClose={() => setIsArchiveModalOpen(false)} title="Confirm Archive" className="w-full max-w-sm">
-                <div className="p-4 flex flex-col gap-4">
-                    <p className="text-sm text-muted">
-                        Are you sure you want to archive <strong className="text-main">{document?.name}</strong>? This will move the document out of the active pipelines.
-                    </p>
-                    <div className="flex justify-end gap-3 pt-2">
-                        <SecondaryButton onClick={() => setIsArchiveModalOpen(false)}>Cancel</SecondaryButton>
-                        <DestructiveButton onClick={handleArchiveSubmit}>Confirm Archive</DestructiveButton>
-                    </div>
-                </div>
-            </Modal>
+            <ConfirmActionModal
+                isOpen={isRevertModalOpen}
+                onClose={() => setIsRevertModalOpen(false)}
+                title="Confirm Revert"
+                description={`Are you sure you want to revert ${document?.name} to the selected version? This action will set the selected version as the active one.`}
+                confirmText="Confirm Revert"
+                onConfirm={handleRevertSubmit}
+                isDestructive={false}
+            />
 
-            <Modal isOpen={isApproveModalOpen} onClose={() => setIsApproveModalOpen(false)} title="Confirm Approval" className="w-full max-w-sm">
-                <div className="p-4 flex flex-col gap-4">
-                    <p className="text-sm text-muted">
-                        Are you sure you want to approve <strong className="text-main">{document?.name}</strong>? This will forward the document to the Director for publication.
-                    </p>
-                    <div className="flex justify-end gap-3 pt-2">
-                        <SecondaryButton onClick={() => setIsApproveModalOpen(false)}>Cancel</SecondaryButton>
-                        <PrimaryButton onClick={handleApproveSubmit}>Confirm Approval</PrimaryButton>
-                    </div>
-                </div>
-            </Modal>
+            <ConfirmActionModal
+                isOpen={isArchiveModalOpen}
+                onClose={() => setIsArchiveModalOpen(false)}
+                title="Confirm Archive"
+                description={`Are you sure you want to archive ${document?.name}? This will move the document out of the active pipelines.`}
+                confirmText="Confirm Archive"
+                onConfirm={handleArchiveSubmit}
+                isDestructive={true}
+            />
+
+            <ConfirmActionModal
+                isOpen={isApproveModalOpen}
+                onClose={() => setIsApproveModalOpen(false)}
+                title="Confirm Approval"
+                description={`Are you sure you want to approve ${document?.name}? This will forward the document to the Director for publication.`}
+                confirmText="Confirm Approval"
+                onConfirm={handleApproveSubmit}
+                isDestructive={false}
+            />
+
+            <ConfirmActionModal
+                isOpen={isUnarchiveModalOpen}
+                onClose={() => setIsUnarchiveModalOpen(false)}
+                title="Confirm Unarchive"
+                description={`Are you sure you want to unarchive ${document?.name}? It will be restored to its original uploaded state.`}
+                confirmText="Confirm Unarchive"
+                onConfirm={() => updateDocument(document.id, { status: DOCUMENTS_STATUS.UPLOADED })}
+                isDestructive={false}
+            />
+
+            <ConfirmActionModal
+                isOpen={!!destructiveAction}
+                onClose={() => setDestructiveAction(null)}
+                title={`Confirm ${destructiveAction === 'REJECT' ? 'Rejection' : destructiveAction?.charAt(0) + destructiveAction?.slice(1).toLowerCase()}`}
+                description={`Are you sure you want to ${destructiveAction?.toLowerCase()} ${document?.name}?`}
+                confirmText={`Confirm`}
+                onConfirm={handleDestructiveSubmit}
+                isDestructive={true}
+            />
 
             <Modal isOpen={isShareModalOpen} onClose={() => setIsShareModalOpen(false)} title={`Share Document`} className="w-full max-w-4xl">
                 <div className="grid grid-cols-2 gap-6 p-6">

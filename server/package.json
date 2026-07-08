@@ -12,6 +12,7 @@
     },
     "dependencies": {
         "@tailwindcss/vite": "^4.3.2",
+        "archiver": "^8.0.0",
         "concurrently": "^10.0.3",
         "cors": "^2.8.6",
         "dotenv": "^17.4.2",

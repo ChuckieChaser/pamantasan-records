@@ -18,3 +18,5 @@ export * from './coordinator/useCoordinator';
 export * from './notification/useNotification';
 
 export * from './audit/useAudit';
+
+export * from './layout/useDocumentViewer';

@@ -49,6 +49,7 @@ CREATE TRIGGER set_timestamp_users
 
 -- --- Row Level Security ---
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE users FORCE ROW LEVEL SECURITY;
 
 CREATE POLICY users_select_access ON users
     FOR SELECT USING (is_any_role());
@@ -91,6 +92,7 @@ CREATE TRIGGER set_timestamp_user_credentials
 
 -- --- Row Level Security ---
 ALTER TABLE user_credentials ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_credentials FORCE ROW LEVEL SECURITY;
 
 CREATE POLICY user_credentials_select_access ON user_credentials
     FOR SELECT USING (is_system_role());
@@ -132,6 +134,7 @@ CREATE TRIGGER set_timestamp_user_settings
 
 -- --- Row Level Security ---
 ALTER TABLE user_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_settings FORCE ROW LEVEL SECURITY;
 
 CREATE POLICY user_settings_select_access ON user_settings
     FOR SELECT USING (
@@ -174,6 +177,7 @@ CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);
 
 -- --- Row Level Security ---
 ALTER TABLE user_sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_sessions FORCE ROW LEVEL SECURITY;
 
 CREATE POLICY user_sessions_select_access ON user_sessions
     FOR SELECT USING (

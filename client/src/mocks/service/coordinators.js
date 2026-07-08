@@ -1,5 +1,6 @@
-import { coordinatorRequestsData } from '../data';
-import { COORDINATOR_REQUESTS_STATUS } from '../../constants';
+import { coordinatorRequestsData, usersData } from '../data';
+import { COORDINATOR_REQUESTS_STATUS, AUDIT_LOGS_ENTITY_TYPE, AUDIT_LOGS_ACTION, COORDINATOR_REQUESTS_ACTION, USERS_STATUS } from '../../constants';
+import { logAudit } from './audits';
 
 const DELAY_MS = 500;
 
@@ -60,6 +61,7 @@ export const mockCoordinatorRequestsService = {
                 };
 
                 coordinatorRequestsData.push(coordinatorRequest);
+                logAudit(AUDIT_LOGS_ENTITY_TYPE.COORDINATOR_REQUEST, coordinatorRequest.id, AUDIT_LOGS_ACTION.CREATED, coordinatorRequest);
                 resolve(coordinatorRequest);
             }, DELAY_MS);
         });
@@ -76,6 +78,28 @@ export const mockCoordinatorRequestsService = {
                     updated_at: new Date().toISOString(),
                 };
 
+                let action = AUDIT_LOGS_ACTION.UPDATED;
+                if (data.status) {
+                    if (data.status === COORDINATOR_REQUESTS_STATUS.APPROVED) {
+                        action = AUDIT_LOGS_ACTION.APPROVED;
+                        // Execute side-effect of approval
+                        const request = coordinatorRequestsData[index];
+                        if (request.action === COORDINATOR_REQUESTS_ACTION.USER_SUSPEND) {
+                            const userIndex = usersData.findIndex(u => u.id === request.data.user_id);
+                            if (userIndex !== -1) {
+                                usersData[userIndex].status = USERS_STATUS.SUSPENDED;
+                                usersData[userIndex].updated_at = new Date().toISOString();
+                                logAudit(AUDIT_LOGS_ENTITY_TYPE.USER, usersData[userIndex].id, AUDIT_LOGS_ACTION.SUSPENDED, usersData[userIndex]);
+                            }
+                        }
+                        // Other actions (USER_CREATE, DEPARTMENT_CREATE) can be added here
+                    } else if (data.status === COORDINATOR_REQUESTS_STATUS.REJECTED) {
+                        action = AUDIT_LOGS_ACTION.REJECTED;
+                    }
+                }
+
+                logAudit(AUDIT_LOGS_ENTITY_TYPE.COORDINATOR_REQUEST, id, action, data);
+
                 resolve(coordinatorRequestsData[index]);
             }, DELAY_MS);
         });
@@ -87,6 +111,7 @@ export const mockCoordinatorRequestsService = {
                 if (index === -1) return reject(new Error('Coordinator request not found'));
 
                 coordinatorRequestsData.splice(index, 1);
+                logAudit(AUDIT_LOGS_ENTITY_TYPE.COORDINATOR_REQUEST, id, AUDIT_LOGS_ACTION.DELETED);
                 resolve({ success: true });
             }, DELAY_MS);
         });

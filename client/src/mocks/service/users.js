@@ -1,5 +1,6 @@
 import { usersData, userCredentialsData, userSettingsData, userSessionsData } from '../data';
-import { USERS_STATUS, USER_SETTINGS_THEME, USER_SETTINGS_NOTIFICATION } from '../../constants';
+import { USERS_STATUS, USER_SETTINGS_THEME, USER_SETTINGS_NOTIFICATION, AUDIT_LOGS_ENTITY_TYPE, AUDIT_LOGS_ACTION } from '../../constants';
+import { logAudit } from './audits';
 
 const DELAY_MS = 500;
 
@@ -59,6 +60,7 @@ export const mockUsersService = {
                 };
 
                 usersData.push(user);
+                logAudit(AUDIT_LOGS_ENTITY_TYPE.USER, user.id, AUDIT_LOGS_ACTION.CREATED, user);
                 resolve(user);
             }, DELAY_MS);
         });
@@ -74,6 +76,14 @@ export const mockUsersService = {
                     ...data,
                     updated_at: new Date().toISOString(),
                 };
+
+                let action = AUDIT_LOGS_ACTION.UPDATED;
+                if (data.status) {
+                    if (data.status === USERS_STATUS.SUSPENDED) action = AUDIT_LOGS_ACTION.SUSPENDED;
+                    // Note: If you have an UNSUSPENDED action, you could map it here.
+                }
+
+                logAudit(AUDIT_LOGS_ENTITY_TYPE.USER, id, action, data);
 
                 resolve(usersData[index]);
             }, DELAY_MS);
@@ -205,6 +215,7 @@ export const mockUserSessionsService = {
                 if (index === -1) return reject(new Error('Session not found'));
 
                 userSessionsData.splice(index, 1);
+                logAudit(AUDIT_LOGS_ENTITY_TYPE.USER, id, AUDIT_LOGS_ACTION.DELETED);
                 resolve({ success: true });
             }, DELAY_MS);
         });

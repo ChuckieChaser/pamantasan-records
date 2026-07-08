@@ -107,7 +107,14 @@ CREATE POLICY documents_update_access ON documents
     )
     WITH CHECK (
         is_system_role()
-        OR is_administrator_role()
+        OR (
+            is_administrator_role()
+            AND (
+                status != 'ARCHIVED'
+                OR NOT EXISTS (SELECT 1 FROM document_shares ds WHERE ds.document_id = id)
+                OR EXISTS (SELECT 1 FROM documents d WHERE d.id = id AND d.status = 'ATTACHMENT')
+            )
+        )
         OR (
             EXISTS (
                 SELECT 1 FROM document_shares ds
@@ -132,6 +139,8 @@ CREATE TABLE IF NOT EXISTS document_versions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     document_id UUID NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
     uploader_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    approver_id UUID REFERENCES users(id) ON DELETE RESTRICT,
+    publisher_id UUID REFERENCES users(id) ON DELETE RESTRICT,
     rejecter_id UUID REFERENCES users(id) ON DELETE RESTRICT,
 
     version INT NOT NULL DEFAULT 1,
@@ -144,13 +153,20 @@ CREATE TABLE IF NOT EXISTS document_versions (
     rejection_reason TEXT NULL,
 
     created_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    rejected_at timestamptz DEFAULT NULL,
+    updated_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT uq_document_versions_document_id_version UNIQUE (document_id, version),
     CONSTRAINT chk_document_versions_version CHECK (version > 0)
 );
 
 CREATE INDEX IF NOT EXISTS idx_document_versions_document_id ON document_versions(document_id);
+
+-- --- Triggers ---
+DROP TRIGGER IF EXISTS set_timestamp_document_versions ON document_versions;
+CREATE TRIGGER set_timestamp_document_versions
+    BEFORE UPDATE ON document_versions
+    FOR EACH ROW
+    EXECUTE FUNCTION trigger_set_timestamp();
 
 -- --- Row Level Security ---
 ALTER TABLE document_versions ENABLE ROW LEVEL SECURITY;
@@ -325,7 +341,7 @@ CREATE POLICY document_shares_insert_access ON document_shares
         is_system_role()
         OR is_administrator_role()
         OR (
-            (is_director_role() OR is_officer_role())
+            is_director_role()
             AND department_id = get_user_current_department_id()
         )
     );
@@ -353,7 +369,7 @@ CREATE POLICY document_shares_delete_access ON document_shares
         is_system_role()
         OR is_administrator_role()
         OR (
-            (is_director_role() OR is_officer_role())
+            is_director_role()
             AND department_id = get_user_current_department_id()
         )
     );

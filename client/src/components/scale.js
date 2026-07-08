@@ -1,51 +1,69 @@
-// --- Global Sizes ---
+// ==============================================================================
+// SECTION 1: GLOBAL SCALE
+// ==============================================================================
+
+// --- Text + Padding (Buttons, Textfields) ---
 export const UI_SIZES = {
-    small: 'h-8 px-3 text-sm',
+    small: 'h-8 px-3 text-xs',
     medium: 'h-10 px-4 text-sm',
-    large: 'h-12 px-6 text-base',
+    large: 'h-12 px-6 text-sm',
 };
 
+// --- Inline Icon Sizes ---
 export const ICON_SIZES = {
     small: 'size-4',
     medium: 'size-5',
     large: 'size-6',
 };
 
-// --- Button Specific Classes ---
+// ==============================================================================
+// SECTION 2: COMPONENT-SPECIFIC SCALE
+// ==============================================================================
+
+// --- Icon Button (square hit area) ---
 export const ICON_BUTTON_SIZES = {
     small: 'size-8',
     medium: 'size-10',
     large: 'size-12',
 };
 
-export const TRACK_SWITCH_SIZES = {
-    small: 'w-8 h-5 p-0.5',
-    medium: 'w-11 h-6 p-1',
-    large: 'w-14 h-8 p-1',
+// --- Image Button (avatar, logo) ---
+export const IMAGE_BUTTON_SIZES = {
+    small: 'size-8',
+    medium: 'size-10',
+    large: 'size-12',
 };
 
+// --- Switch Track ---
+export const TRACK_SWITCH_SIZES = {
+    small: 'w-8 h-4 p-1',
+    medium: 'w-10 h-6 p-1',
+    large: 'w-12 h-8 p-1',
+};
+
+// --- Switch Thumb ---
 export const THUMB_SWITCH_SIZES = {
-    small: 'size-4',
+    small: 'size-2',
     medium: 'size-4',
     large: 'size-6',
 };
 
 export const THUMB_SWITCH_TRANSLATE = {
-    small: 'translate-x-3',
-    medium: 'translate-x-5',
-    large: 'translate-x-6',
+    small: 'translate-x-4',
+    medium: 'translate-x-4',
+    large: 'translate-x-4',
 };
 
-// --- Textfield Specific Classes ---
+// --- Textarea Padding ---
 export const TEXTAREA_SIZES = {
-    small: 'py-2 px-3 text-sm',
+    small: 'py-2 px-3 text-xs',
     medium: 'py-3 px-4 text-sm',
-    large: 'py-4 px-6 text-base',
+    large: 'py-4 px-6 text-sm',
 };
 
-// --- Badge Specific Classes ---
+// --- Badge ---
 export const BADGE_SIZES = {
-    small: 'h-5 px-2 text-xs',
-    medium: 'h-6 px-3 text-xs',
-    large: 'h-8 px-4 text-sm',
+    small: 'h-6 px-2 text-xs',
+    medium: 'h-8 px-3 text-xs',
+    large: 'h-10 px-4 text-sm',
 };

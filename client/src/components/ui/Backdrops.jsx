@@ -7,5 +7,5 @@ export const TransparentBackdrop = ({ className = '', ...props }) => {
 };
 
 export const DimBackdrop = ({ className = '', ...props }) => {
-    return <div className={`${BASE_BACKDROP_CLASS} bg-main/20 backdrop-blur-sm transition-all duration-300 ${className}`} {...props} />;
+    return <div className={`${BASE_BACKDROP_CLASS} bg-black/40 backdrop-blur-sm transition-all duration-300 ${className}`} {...props} />;
 };

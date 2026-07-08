@@ -1,4 +1,4 @@
-import { notificationsData } from '../data';
+import { notificationsData, usersData, documentsData } from '../data';
 
 const DELAY_MS = 500;
 
@@ -51,7 +51,18 @@ export const mockNotificationsService = {
                     return accumulator;
                 }, {});
 
-                const groupedNotifications = Object.values(groupedNotificationsMap);
+                const groupedNotifications = Object.values(groupedNotificationsMap).map(notification => {
+                    // Populate actor and entity name for rich notification display
+                    const actor = usersData.find(u => u.id === notification.actors[0]);
+                    const entity = documentsData.find(d => d.id === notification.entity_id);
+
+                    return {
+                        ...notification,
+                        actor_name: actor ? `${actor.first_name} ${actor.last_name}` : 'Someone',
+                        actor_avatar: actor ? actor.avatar_path : null,
+                        entity_name: entity ? entity.name : 'a document'
+                    };
+                });
                 resolve(groupedNotifications);
             }, DELAY_MS);
         });

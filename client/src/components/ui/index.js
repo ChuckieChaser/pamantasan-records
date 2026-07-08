@@ -4,3 +4,6 @@ export * from './Badges';
 export * from './Backdrops';
 export * from './Containers';
 export * from './Menus';
+export * from './Modals';
+export * from './Breadcrumbs';
+export * from './FileIcon';

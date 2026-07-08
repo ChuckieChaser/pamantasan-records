@@ -1,58 +1,98 @@
-import { PrimaryButton, SecondaryButton, DestructiveButton, ImageButton, IconButton, NavigationButton, SwitchButton } from '../components/ui/Buttons';
-import { InputField, PasswordField, SelectField, TextArea } from '../components/ui/Textfields';
-import { Badge } from '../components/ui/Badges';
-import { Box, CheckCircle, Clock, Filter } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { ShieldCheck } from 'lucide-react';
 
-const STATUS_OPTIONS = [
-    { value: 'PUBLISHED', label: 'Published', icon: CheckCircle },
-    { value: 'PENDING', label: 'Pending Review', icon: Clock },
+import { useAuthentication } from '../stores';
+import { PrimaryButton, SecondaryButton } from '../components/ui';
+
+import {
+    ADMINISTRATOR_ID,
+    COORDINATOR_ID,
+    DIRECTOR_ID,
+    OFFICER_ID,
+    MEMBER_ID,
+    HR_MEMBER_ID,
+} from '../mocks/data';
+
+// ==============================================================================
+// SECTION 1: QUICK-ACCESS ROLE CONFIG
+// ==============================================================================
+
+// --- Administrator and Coordinator: primary access (uploaders / managers) ---
+const PRIMARY_ROLES = [
+    { label: 'Login as Administrator', userId: ADMINISTRATOR_ID },
+    { label: 'Login as Coordinator', userId: COORDINATOR_ID },
 ];
 
+// --- Other roles: secondary access (approvers / requesters) ---
+const SECONDARY_ROLES = [
+    { label: 'Login as Director', userId: DIRECTOR_ID },
+    { label: 'Login as Officer', userId: OFFICER_ID },
+    { label: 'Login as Member (CCS)', userId: MEMBER_ID },
+    { label: 'Login as Member (HR)', userId: HR_MEMBER_ID },
+];
+
+// ==============================================================================
+// SECTION 2: PAGE
+// ==============================================================================
+
+// --- Login card: container → rounded-lg + shadow-sm ---
 export default function Login() {
+    const navigate = useNavigate();
+    const { login, isLoading } = useAuthentication();
+
+    const handleLogin = async (userId) => {
+        await login(userId);
+        navigate('/dashboard');
+    };
+
     return (
-        <div className="rounded-lg border border-border bg-surface p-8 text-center shadow-sm">
-            <h1 className="mb-4 text-2xl font-bold">University DMS</h1>
-            <p className="mb-6 text-muted">This is the dummy Login Page.</p>
+        <div className="flex w-full max-w-xs flex-col rounded-lg border border-border bg-surface shadow-sm">
+            {/* --- Identity --- */}
+            <div className="flex flex-col items-center gap-4 text-center p-4 pb-2">
+                {/* --- Icon well: rounded-md (child container) --- */}
+                <div className="flex h-14 w-14 items-center justify-center rounded-md bg-accent-background text-accent">
+                    <ShieldCheck className="size-7" />
+                </div>
+                <div>
+                    <h1 className="text-lg font-bold text-main">Records Management</h1>
+                    <p className="mt-1 text-xs text-muted">Select a role to enter the workspace.</p>
+                </div>
+            </div>
 
-            <InputField leftIcon={Box} placeholder="Email" />
+            {/* --- Primary Roles --- */}
+            <div className="flex flex-col gap-2 p-4 pt-2 pb-2">
+                {PRIMARY_ROLES.map((role) => (
+                    <PrimaryButton
+                        key={role.userId}
+                        size="medium"
+                        disabled={isLoading}
+                        onClick={() => handleLogin(role.userId)}
+                    >
+                        {role.label}
+                    </PrimaryButton>
+                ))}
+            </div>
 
-            <br />
+            {/* --- Divider --- */}
+            <div className="flex items-center gap-3 px-4 py-2">
+                <div className="h-px flex-1 bg-border" />
+                <span className="text-xs text-muted">Other roles</span>
+                <div className="h-px flex-1 bg-border" />
+            </div>
 
-            <PasswordField icon={Box} placeholder="Password" />
-
-            <br />
-
-            <SelectField icon={Filter} placeholder="Select by Status" options={STATUS_OPTIONS} />
-
-            <br />
-
-            <TextArea icon={Box} placeholder="Message" />
-
-            <br />
-
-            <Badge label="Published" variant="success" size="small" />
-            <Badge label="Published" variant="success" size="medium" />
-            <Badge label="Published" variant="success" size="large" />
-
-            <br />
-
-            <Badge label="Pending Director" variant="warning" size="small" />
-            <Badge label="Pending Director" variant="warning" size="medium" />
-            <Badge label="Pending Director" variant="warning" size="large" />
-
-            <br />
-
-            <Badge label="Rejected" variant="error" size="small" />
-            <Badge label="Rejected" variant="error" size="medium" />
-            <Badge label="Rejected" variant="error" size="large" />
-
-            <br />
-
-            <Badge label="Uploaded" variant="neutral" size="small" />
-            <Badge label="Uploaded" variant="neutral" size="medium" />
-            <Badge label="Uploaded" variant="neutral" size="large" />
-
-            <br />
+            {/* --- Secondary Roles --- */}
+            <div className="flex flex-col gap-2 p-4 pt-2">
+                {SECONDARY_ROLES.map((role) => (
+                    <SecondaryButton
+                        key={role.userId}
+                        size="medium"
+                        disabled={isLoading}
+                        onClick={() => handleLogin(role.userId)}
+                    >
+                        {role.label}
+                    </SecondaryButton>
+                ))}
+            </div>
         </div>
     );
 }

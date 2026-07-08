@@ -12,23 +12,8 @@ export const useAuthentication = create((set) => ({
     error: null,
 
     // --- Actions ---
-    bypass: action(set, async () => {
-        const bypassId = import.meta.env.VITE_BYPASS_USER_ID;
-        const user = await usersService.getById(bypassId);
-
-        const userSetting = await userSettingsService.getByUserId(user.id).catch(() => null);
-        const theme = userSetting?.theme ?? USER_SETTINGS_THEME.SYSTEM;
-
-        set({
-            user: user,
-            theme: theme,
-            isAuthenticated: true,
-        });
-
-        return user;
-    }),
-    login: action(set, async (universityId) => {
-        const user = await usersService.getByUniversityId(universityId);
+    login: action(set, async (userId) => {
+        const user = await usersService.getById(userId);
 
         const userSetting = await userSettingsService.getByUserId(user.id).catch(() => null);
         const theme = userSetting?.theme ?? USER_SETTINGS_THEME.SYSTEM;

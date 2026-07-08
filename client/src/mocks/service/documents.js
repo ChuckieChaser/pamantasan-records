@@ -1,5 +1,6 @@
 import { documentsData, documentVersionsData, documentRequestsData, documentRequestMessagesData, documentSharesData } from '../data';
-import { DOCUMENTS_STATUS, DOCUMENT_REQUESTS_STATUS } from '../../constants';
+import { DOCUMENTS_STATUS, DOCUMENT_REQUESTS_STATUS, AUDIT_LOGS_ENTITY_TYPE, AUDIT_LOGS_ACTION } from '../../constants';
+import { logAudit } from './audits';
 
 const DELAY_MS = 500;
 
@@ -43,6 +44,7 @@ export const mockDocumentsService = {
                 };
 
                 documentsData.push(document);
+                logAudit(AUDIT_LOGS_ENTITY_TYPE.DOCUMENT, document.id, AUDIT_LOGS_ACTION.UPLOADED, document);
                 resolve(document);
             }, DELAY_MS);
         });
@@ -59,6 +61,16 @@ export const mockDocumentsService = {
                     updated_at: new Date().toISOString(),
                 };
 
+                // Infer action based on status update if possible
+                let action = AUDIT_LOGS_ACTION.UPDATED;
+                if (data.status) {
+                    if (data.status === DOCUMENTS_STATUS.PUBLISHED) action = AUDIT_LOGS_ACTION.PUBLISHED;
+                    else if (data.status === DOCUMENTS_STATUS.REJECTED) action = AUDIT_LOGS_ACTION.REJECTED;
+                    else if (data.status === DOCUMENTS_STATUS.PENDING_DIRECTOR) action = AUDIT_LOGS_ACTION.APPROVED; // Assuming officer approval
+                }
+                
+                logAudit(AUDIT_LOGS_ENTITY_TYPE.DOCUMENT, id, action, data);
+
                 resolve(documentsData[index]);
             }, DELAY_MS);
         });
@@ -70,6 +82,7 @@ export const mockDocumentsService = {
                 if (index === -1) return reject(new Error('Document not found'));
 
                 documentsData.splice(index, 1);
+                logAudit(AUDIT_LOGS_ENTITY_TYPE.DOCUMENT, id, AUDIT_LOGS_ACTION.DELETED);
                 resolve({ success: true });
             }, DELAY_MS);
         });
@@ -78,6 +91,14 @@ export const mockDocumentsService = {
 
 export const mockDocumentVersionsService = {
     // --- Reads ---
+    getAll: async () => {
+        return new Promise((resolve) => {
+            setTimeout(() => {
+                const documentVersions = [...documentVersionsData];
+                resolve(documentVersions);
+            }, DELAY_MS);
+        });
+    },
     getByDocumentId: async (documentId) => {
         return new Promise((resolve) => {
             setTimeout(() => {
@@ -95,11 +116,27 @@ export const mockDocumentVersionsService = {
                     id: crypto.randomUUID(),
                     ...data,
                     created_at: new Date().toISOString(),
-                    rejected_at: null,
+                    updated_at: new Date().toISOString(),
                 };
 
                 documentVersionsData.push(documentVersion);
                 resolve(documentVersion);
+            }, DELAY_MS);
+        });
+    },
+    update: async (id, data) => {
+        return new Promise((resolve, reject) => {
+            setTimeout(() => {
+                const index = documentVersionsData.findIndex((i) => i.id === id);
+                if (index === -1) return reject(new Error('Document version not found'));
+
+                documentVersionsData[index] = {
+                    ...documentVersionsData[index],
+                    ...data,
+                    updated_at: new Date().toISOString(),
+                };
+
+                resolve(documentVersionsData[index]);
             }, DELAY_MS);
         });
     },
@@ -208,6 +245,14 @@ export const mockDocumentRequestMessagesService = {
 
 export const mockDocumentSharesService = {
     // --- Reads ---
+    getAll: async () => {
+        return new Promise((resolve) => {
+            setTimeout(() => {
+                const documentShares = [...documentSharesData];
+                resolve(documentShares);
+            }, DELAY_MS);
+        });
+    },
     getByDocumentId: async (documentId) => {
         return new Promise((resolve) => {
             setTimeout(() => {

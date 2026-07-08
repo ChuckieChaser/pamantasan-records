@@ -8,6 +8,8 @@ export const FOLDER_1_ID = 'd0000000-0000-4000-8000-000000000001';
 export const DOCUMENT_1_ID = 'd0000000-0000-4000-8000-000000000002';
 export const DOCUMENT_2_ID = 'd0000000-0000-4000-8000-000000000003';
 export const DOCUMENT_3_ID = 'd0000000-0000-4000-8000-000000000004';
+export const DOCUMENT_4_ID = 'd0000000-0000-4000-8000-000000000005';
+export const DOCUMENT_5_ID = 'd0000000-0000-4000-8000-000000000006';
 
 export const DOCUMENT_REQUEST_1_ID = 'e0000000-0000-4000-8000-000000000001';
 export const DOCUMENT_REQUEST_2_ID = 'e0000000-0000-4000-8000-000000000002';
@@ -70,6 +72,32 @@ const rawDocuments = [
         created_at: NOW,
         updated_at: NOW,
     },
+    {
+        id: DOCUMENT_4_ID,
+        parent_id: null,
+        uploader_id: ADMINISTRATOR_ID,
+        name: 'Faculty_Evaluation_Q2.pdf',
+        comment: 'Awaiting Director approval for publication.',
+        is_folder: false,
+        summary: 'Evaluation results for the second quarter.',
+        embedding: null,
+        status: DOCUMENTS_STATUS.PENDING_DIRECTOR,
+        created_at: NOW,
+        updated_at: NOW,
+    },
+    {
+        id: DOCUMENT_5_ID,
+        parent_id: null,
+        uploader_id: ADMINISTRATOR_ID,
+        name: 'New_Employee_Handbook.pdf',
+        comment: 'Freshly uploaded document, awaiting share.',
+        is_folder: false,
+        summary: 'Policies and guidelines for new employees.',
+        embedding: null,
+        status: DOCUMENTS_STATUS.UPLOADED,
+        created_at: NOW,
+        updated_at: NOW,
+    },
 ];
 
 const rawDocumentVersions = [
@@ -77,6 +105,8 @@ const rawDocumentVersions = [
         id: 'c0000000-0000-4000-8000-000000000001',
         document_id: DOCUMENT_1_ID,
         uploader_id: ADMINISTRATOR_ID,
+        approver_id: null,
+        publisher_id: null,
         rejecter_id: null,
         version: 1,
         checksum: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
@@ -86,12 +116,14 @@ const rawDocumentVersions = [
         change_summary: 'Initial draft upload.',
         rejection_reason: null,
         created_at: NOW,
-        rejected_at: null,
+        updated_at: NOW,
     },
     {
         id: 'c0000000-0000-4000-8000-000000000002',
         document_id: DOCUMENT_2_ID,
         uploader_id: ADMINISTRATOR_ID,
+        approver_id: null,
+        publisher_id: null,
         rejecter_id: DIRECTOR_ID,
         version: 1,
         checksum: '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92',
@@ -101,12 +133,14 @@ const rawDocumentVersions = [
         change_summary: 'Initial budget calculation.',
         rejection_reason: 'Please adjust the hardware allocation for CCS.',
         created_at: TWO_DAYS_AGO,
-        rejected_at: TWO_DAYS_AGO,
+        updated_at: TWO_DAYS_AGO,
     },
     {
         id: 'c0000000-0000-4000-8000-000000000003',
         document_id: DOCUMENT_2_ID,
         uploader_id: ADMINISTRATOR_ID,
+        approver_id: DIRECTOR_ID,
+        publisher_id: DIRECTOR_ID,
         rejecter_id: null,
         version: 2,
         checksum: '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
@@ -116,12 +150,14 @@ const rawDocumentVersions = [
         change_summary: 'Hardware allocation adjusted per Director feedback.',
         rejection_reason: null,
         created_at: NOW,
-        rejected_at: null,
+        updated_at: NOW,
     },
     {
         id: 'c0000000-0000-4000-8000-000000000004',
         document_id: DOCUMENT_3_ID,
         uploader_id: ADMINISTRATOR_ID,
+        approver_id: null,
+        publisher_id: null,
         rejecter_id: null,
         version: 1,
         checksum: 'b2ca6b0bac6105445211993427181054521b1070e67e3fb1070e67e3fb1070e6',
@@ -131,7 +167,41 @@ const rawDocumentVersions = [
         change_summary: 'Requested attachment.',
         rejection_reason: null,
         created_at: NOW,
-        rejected_at: null,
+        updated_at: NOW,
+    },
+    {
+        id: 'c0000000-0000-4000-8000-000000000005',
+        document_id: DOCUMENT_4_ID,
+        uploader_id: ADMINISTRATOR_ID,
+        approver_id: null,
+        publisher_id: null,
+        rejecter_id: null,
+        version: 1,
+        checksum: 'c2ca6b0bac6105445211993427181054521b1070e67e3fb1070e67e3fb1070e7',
+        path: '/storage/docs/faculty_eval_q2.pdf',
+        size_bytes: 1548000,
+        mime_type: 'application/pdf',
+        change_summary: 'Initial draft upload.',
+        rejection_reason: null,
+        created_at: NOW,
+        updated_at: NOW,
+    },
+    {
+        id: 'c0000000-0000-4000-8000-000000000006',
+        document_id: DOCUMENT_5_ID,
+        uploader_id: ADMINISTRATOR_ID,
+        approver_id: null,
+        publisher_id: null,
+        rejecter_id: null,
+        version: 1,
+        checksum: 'e8ca6b0bac6105445211993427181054521b1070e67e3fb1070e67e3fb1070e8',
+        path: '/storage/docs/handbook.pdf',
+        size_bytes: 3145728,
+        mime_type: 'application/pdf',
+        change_summary: 'Initial upload.',
+        rejection_reason: null,
+        created_at: NOW,
+        updated_at: NOW,
     },
 ];
 
@@ -161,6 +231,7 @@ const rawDocumentRequestMessages = [
         id: 'f0000000-0000-4000-8000-000000000001',
         document_request_id: DOCUMENT_REQUEST_1_ID,
         user_id: MEMBER_ID,
+        attachment_ids: [],
         message: 'Hi Admin, I cannot find the 2026 grading rubrics. Can you provide them?',
         created_at: ONE_HOUR_AGO,
     },
@@ -168,7 +239,24 @@ const rawDocumentRequestMessages = [
         id: 'f0000000-0000-4000-8000-000000000002',
         document_request_id: DOCUMENT_REQUEST_1_ID,
         user_id: ADMINISTRATOR_ID,
+        attachment_ids: [],
         message: 'I am currently drafting them. They will be uploaded later today.',
+        created_at: NOW,
+    },
+    {
+        id: 'f0000000-0000-4000-8000-000000000003',
+        document_request_id: DOCUMENT_REQUEST_2_ID,
+        user_id: HR_MEMBER_ID,
+        attachment_ids: [],
+        message: 'Can I get a copy of the latest IT Security Policy?',
+        created_at: TWO_DAYS_AGO,
+    },
+    {
+        id: 'f0000000-0000-4000-8000-000000000004',
+        document_request_id: DOCUMENT_REQUEST_2_ID,
+        user_id: ADMINISTRATOR_ID,
+        attachment_ids: [DOCUMENT_3_ID],
+        message: 'Here is the requested document.',
         created_at: NOW,
     },
 ];
@@ -176,7 +264,7 @@ const rawDocumentRequestMessages = [
 const rawDocumentShares = [
     {
         id: 'b0000000-0000-4000-8000-000000000001',
-        document_id: DOCUMENT_2_ID,
+        document_id: DOCUMENT_1_ID, // CS101_Syllabus_Draft.pdf — PENDING_OFFICER: shared to CCS for review
         sharer_id: ADMINISTRATOR_ID,
         recipient_id: null,
         department_id: DEPARTMENT_CCS_ID,
@@ -185,14 +273,33 @@ const rawDocumentShares = [
     },
     {
         id: 'b0000000-0000-4000-8000-000000000002',
-        document_id: DOCUMENT_3_ID,
+        document_id: DOCUMENT_2_ID, // Q3_Financial_Allocation.xlsx — PUBLISHED: shared to CCS for all
+        sharer_id: ADMINISTRATOR_ID,
+        recipient_id: null,
+        department_id: DEPARTMENT_CCS_ID,
+        document_request_id: null,
+        created_at: NOW,
+    },
+    {
+        id: 'b0000000-0000-4000-8000-000000000003',
+        document_id: DOCUMENT_3_ID, // IT_Security_Policy_v2.pdf — ATTACHMENT: routed via document request
         sharer_id: ADMINISTRATOR_ID,
         recipient_id: HR_MEMBER_ID,
         department_id: null,
         document_request_id: DOCUMENT_REQUEST_2_ID,
         created_at: NOW,
     },
+    {
+        id: 'b0000000-0000-4000-8000-000000000004',
+        document_id: DOCUMENT_4_ID, // Faculty_Evaluation_Q2.pdf — PENDING_DIRECTOR: shared to CCS for review
+        sharer_id: ADMINISTRATOR_ID,
+        recipient_id: null,
+        department_id: DEPARTMENT_CCS_ID,
+        document_request_id: null,
+        created_at: NOW,
+    },
 ];
+
 
 // --- Strict Validation ---
 export const documentsData = rawDocuments.map((d) => DocumentsSchema.parse(d));

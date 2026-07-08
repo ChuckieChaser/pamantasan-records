@@ -1,37 +1,63 @@
 import { create } from 'zustand';
 import { USER_SETTINGS_THEME } from '../../constants';
-import { usersService, userSettingsService } from '../../services';
+import { apiClient } from '../../services/api/axios';
 import { action } from '../utilities';
+
+// ==============================================================================
+// AUTHENTICATION STORE
+// Manages the current user session. On login, the user object is persisted to
+// localStorage so the axios interceptor can attach user context headers.
+// No JWT — the server trusts the headers and enforces RLS per request.
+// ==============================================================================
 
 export const useAuthentication = create((set) => ({
     // --- States ---
-    user: null,
-    theme: USER_SETTINGS_THEME.SYSTEM,
+    user:            null,
+    settings:        null,
     isAuthenticated: false,
-    isLoading: false,
-    error: null,
+    isLoading:       false,
+    error:           null,
 
     // --- Actions ---
-    login: action(set, async (userId) => {
-        const user = await usersService.getById(userId);
+    login: action(set, async (university_id, password) => {
+        const response = await apiClient.post('/auth/login', { university_id, password });
+        const { user, settings } = response.data;
 
-        const userSetting = await userSettingsService.getByUserId(user.id).catch(() => null);
-        const theme = userSetting?.theme ?? USER_SETTINGS_THEME.SYSTEM;
+        // Persist user context for the axios interceptor
+        localStorage.setItem('pamantasan_user', JSON.stringify(user));
 
         set({
-            user: user,
-            theme: theme,
+            user,
+            settings,
             isAuthenticated: true,
         });
 
         return user;
     }),
+
+    // Restore session from localStorage on page refresh
+    restore: action(set, async () => {
+        const raw = localStorage.getItem('pamantasan_user');
+        if (!raw) return null;
+
+        const cached = JSON.parse(raw);
+        const response = await apiClient.get('/auth/me');
+        const { user, settings } = response.data;
+
+        // Update the cached copy in case it changed
+        localStorage.setItem('pamantasan_user', JSON.stringify(user));
+
+        set({ user, settings, isAuthenticated: true });
+        return user;
+    }),
+
     logout: () => {
+        localStorage.removeItem('pamantasan_user');
         set({
-            user: null,
+            user:            null,
+            settings:        null,
             isAuthenticated: false,
-            theme: USER_SETTINGS_THEME.SYSTEM,
-            error: null,
+            error:           null,
         });
     },
 }));

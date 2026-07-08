@@ -47,40 +47,13 @@ export default function Dashboard() {
     }, [user, getDocuments, getCoordinatorRequests, getDocumentRequests, getDocumentRequestsByRequesterId, getDocumentVersions, getDocumentShares, getAuditLogs, deselectActiveDocument, deselectActiveAuditLog, users.length, getUsers]);
 
     // ==============================================================================
-    // SECTION 2: ACCESS CONTROL FILTER (mirrors server RLS)
+    // SECTION 2: ACCESS CONTROL
+    // The server enforces Row Level Security on every query, so the documents
+    // array already contains only what this user is allowed to see.
+    // No client-side RLS mirror needed.
     // ==============================================================================
 
-    const visibleDocuments = useMemo(() => {
-        if (!user) return [];
-        if (user.role === USERS_ROLE.ADMINISTRATOR || user.role === USERS_ROLE.COORDINATOR) {
-            return documents.filter(doc => doc.status !== DOCUMENTS_STATUS.ARCHIVED);
-        }
-
-        return documents.filter(doc => {
-            if (doc.status === DOCUMENTS_STATUS.ARCHIVED) return false;
-            if (doc.uploader_id === user.id) return true;
-
-            const isRejecter = documentVersions.some(dv => dv.document_id === doc.id && dv.rejecter_id === user.id);
-            if (isRejecter) return true;
-
-            const hasAccess = documentShares.some(ds => {
-                if (ds.document_id === doc.id) {
-                    if (ds.department_id === user.department_id) {
-                        if ((doc.status === DOCUMENTS_STATUS.PENDING_OFFICER || doc.status === DOCUMENTS_STATUS.PENDING_DIRECTOR || doc.status === DOCUMENTS_STATUS.PUBLISHED) && user.role === USERS_ROLE.OFFICER) return true;
-                        if ((doc.status === DOCUMENTS_STATUS.PENDING_DIRECTOR || doc.status === DOCUMENTS_STATUS.PUBLISHED) && user.role === USERS_ROLE.DIRECTOR) return true;
-                        if (doc.status === DOCUMENTS_STATUS.PUBLISHED && user.role === USERS_ROLE.MEMBER && (!ds.recipient_id || ds.recipient_id === user.id)) return true;
-                    }
-                    if (doc.status === DOCUMENTS_STATUS.ATTACHMENT && ds.document_request_id) {
-                        const req = documentRequests.find(dr => dr.id === ds.document_request_id);
-                        if (req && req.requester_id === user.id) return true;
-                    }
-                }
-                return false;
-            });
-
-            return hasAccess;
-        });
-    }, [documents, user, documentVersions, documentShares, documentRequests]);
+    const visibleDocuments = documents;
 
     // ==============================================================================
     // SECTION 3: METRICS

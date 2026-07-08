@@ -64,7 +64,6 @@ export const DocumentRequestMessagesSchema = z.object({
     id: z.string().uuid(),
     document_request_id: z.string().uuid(),
     user_id: z.string().uuid().nullable().optional(),
-    attachment_ids: z.array(z.string().uuid()).default([]),
 
     message: z.string().min(1),
 

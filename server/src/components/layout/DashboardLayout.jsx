@@ -7,29 +7,34 @@ export default function DashboardLayout() {
     const [status, setStatus] = useState({ postgres: false, ollama: false, client: false });
     const failCountRef = useRef(0);
 
-    useEffect(() => {
-        const fetchStatus = async () => {
-            if (failCountRef.current >= 3) return; // Stop polling if failed too many times
+    const fetchStatus = async () => {
+        if (failCountRef.current >= 3) return; // Stop polling if failed too many times
 
-            try {
-                const res = await fetch('/api/status');
-                if (res.ok) {
-                    const data = await res.json();
-                    setStatus(data);
-                    failCountRef.current = 0; // Reset fail count on success
-                } else {
-                    throw new Error('API down');
-                }
-            } catch (err) {
-                failCountRef.current += 1;
-                setStatus({ postgres: false, ollama: false, client: false });
+        try {
+            const res = await fetch('/api/status');
+            if (res.ok) {
+                const data = await res.json();
+                setStatus(data);
+                failCountRef.current = 0; // Reset fail count on success
+            } else {
+                throw new Error('API down');
             }
-        };
+        } catch (err) {
+            failCountRef.current += 1;
+            setStatus({ postgres: false, ollama: false, client: false });
+        }
+    };
 
+    useEffect(() => {
         fetchStatus();
         const interval = setInterval(fetchStatus, 15000); // 15 seconds
         return () => clearInterval(interval);
     }, []);
+
+    const manualRefresh = () => {
+        failCountRef.current = 0; // Reset the limit so it forces a check
+        fetchStatus();
+    };
 
     return (
         <div className="flex h-screen w-screen overflow-hidden bg-background text-main">
@@ -45,20 +50,20 @@ export default function DashboardLayout() {
                     </div>
 
                     {/* Global Status Indicators */}
-                    <div className="flex items-center gap-6">
+                    <div className="flex items-center gap-6 group cursor-pointer" onClick={manualRefresh} title="Force Reconnect / Check Status">
                         <div className="flex items-center gap-2">
                             <Database className="size-4 text-muted" />
-                            <span className="text-sm font-medium text-main">Postgres</span>
+                            <span className="text-sm font-medium text-main group-hover:text-accent transition-colors">Postgres</span>
                             <div className={`size-2 rounded-full ${status.postgres ? 'bg-success-text' : 'bg-error-text'}`} />
                         </div>
                         <div className="flex items-center gap-2">
                             <BrainCircuit className="size-4 text-muted" />
-                            <span className="text-sm font-medium text-main">Ollama</span>
+                            <span className="text-sm font-medium text-main group-hover:text-accent transition-colors">Ollama</span>
                             <div className={`size-2 rounded-full ${status.ollama ? 'bg-success-text' : 'bg-error-text'}`} />
                         </div>
                         <div className="flex items-center gap-2">
                             <Monitor className="size-4 text-muted" />
-                            <span className="text-sm font-medium text-main">Client</span>
+                            <span className="text-sm font-medium text-main group-hover:text-accent transition-colors">Client</span>
                             <div className={`size-2 rounded-full ${status.client ? 'bg-success-text' : 'bg-error-text'}`} />
                         </div>
                     </div>

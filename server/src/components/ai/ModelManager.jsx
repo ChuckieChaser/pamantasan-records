@@ -64,15 +64,20 @@ export default function ModelManager({ onOllamaStatus }) {
                                 setTimeout(fetchModels, 1000);
                             }
                         } else {
-                            // Update progress
-                            setActivePulls(prev => ({
-                                ...prev,
-                                [modelName]: {
-                                    status: progress.status,
-                                    total: progress.total || prev[modelName]?.total || 0,
-                                    completed: progress.completed || prev[modelName]?.completed || 0
-                                }
-                            }));
+                            // Update progress — use running maximum so total never regresses to 0
+                            setActivePulls(prev => {
+                                const existing = prev[modelName] || { status: '', total: 0, completed: 0 };
+                                const newTotal     = Math.max(existing.total,     progress.total     || 0);
+                                const newCompleted = Math.max(existing.completed, progress.completed || 0);
+                                return {
+                                    ...prev,
+                                    [modelName]: {
+                                        status:    progress.status || existing.status,
+                                        total:     newTotal,
+                                        completed: newCompleted,
+                                    }
+                                };
+                            });
                         }
                     }
                 } catch (e) {
@@ -98,13 +103,13 @@ export default function ModelManager({ onOllamaStatus }) {
         
         setActivePulls(prev => ({
             ...prev,
-            [modelName]: { status: 'Initializing...', total: 100, completed: 0 }
+            [modelName]: { status: 'Initializing...', total: 0, completed: 0 }
         }));
         
         if (modelName === customPull) setCustomPull('');
         
         try {
-            await fetch('/api/pull', {
+            await fetch('/api/models/pull', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ modelName })
@@ -121,7 +126,7 @@ export default function ModelManager({ onOllamaStatus }) {
 
     const handleCancelPull = async (modelName) => {
         try {
-            await fetch('/api/pull/cancel', {
+            await fetch('/api/models/cancel', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ modelName })
@@ -134,7 +139,7 @@ export default function ModelManager({ onOllamaStatus }) {
     const handleDelete = async (modelName) => {
         if (!confirm(`Are you sure you want to delete ${modelName}?`)) return;
         try {
-            await fetch('/api/delete', {
+            await fetch('/api/models', {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ modelName })
@@ -148,12 +153,27 @@ export default function ModelManager({ onOllamaStatus }) {
         }
     };
 
-    const filteredCatalog = CATALOG.filter(m => 
+    const isInstalled = (name) => installedModels.some(m => m.name === name || m.name === `${name}:latest`);
+
+    // Dynamically inject installed models into the catalog so they can be deleted even if not in the hardcoded list
+    const dynamicCatalog = [...CATALOG];
+    installedModels.forEach(m => {
+        const baseName = m.name.split(':')[0];
+        if (!dynamicCatalog.some(c => c.name === baseName || c.name === m.name)) {
+            dynamicCatalog.push({
+                name: m.name,
+                display: baseName,
+                params: '?',
+                context: '?',
+                desc: 'User downloaded model.'
+            });
+        }
+    });
+
+    const filteredCatalog = dynamicCatalog.filter(m => 
         m.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
         m.display.toLowerCase().includes(searchQuery.toLowerCase())
     );
-
-    const isInstalled = (name) => installedModels.some(m => m.name === name || m.name === `${name}:latest`);
 
     const formatBytes = (bytes) => {
         if (bytes === 0) return '0 B';
@@ -178,26 +198,34 @@ export default function ModelManager({ onOllamaStatus }) {
 
         if (isPulling) {
             const hasData = activePullState.total > 0;
-            const percentage = hasData ? (activePullState.completed / activePullState.total) * 100 : 0;
-            const radius = 14;
-            const circumference = 2 * Math.PI * radius;
-            const offset = hasData ? circumference - (percentage / 100) * circumference : circumference * 0.25;
+            const percentage = hasData ? Math.min((activePullState.completed / activePullState.total) * 100, 100) : 0;
+            // SVG ring geometry: viewBox 32x32, center at 16,16
+            const radius = 13;  // slightly smaller so stroke fits inside viewBox
+            const circumference = 2 * Math.PI * radius; // ~81.68
+            // offset = 0 means full ring; offset = circumference means empty ring
+            const offset = hasData
+                ? circumference - (percentage / 100) * circumference
+                : circumference; // empty while spinning
 
             const titleText = hasData 
                 ? `${activePullState.status}: ${percentage.toFixed(1)}% (${formatBytes(activePullState.completed)} / ${formatBytes(activePullState.total)})`
                 : `${activePullState.status}...`;
 
             return (
-                <button onClick={() => handleCancelPull(modelName)} className="relative size-8 flex items-center justify-center group cursor-pointer" title={`Cancel Download - ${titleText}`}>
-                    <svg className={`absolute inset-0 size-full rotate-[-90deg] ${!hasData ? 'animate-spin' : ''}`}>
-                        <circle cx="16" cy="16" r={radius} className="stroke-border fill-none" strokeWidth="2" />
+                <button onClick={() => handleCancelPull(modelName)} className="relative size-8 flex items-center justify-center group cursor-pointer" title={`Cancel — ${titleText}`}>
+                    <svg viewBox="0 0 32 32" className={`absolute inset-0 size-full rotate-[-90deg] ${!hasData ? 'animate-spin' : ''}`}>
+                        {/* Track ring */}
+                        <circle cx="16" cy="16" r={radius} className="stroke-border fill-none" strokeWidth="2.5" />
+                        {/* Progress ring */}
                         <circle 
                             cx="16" 
                             cy="16" 
                             r={radius} 
-                            className="stroke-success fill-none transition-all duration-300 ease-out" 
-                            strokeWidth="2"
-                            strokeDasharray={circumference}
+                            className="fill-none transition-all duration-500 ease-out"
+                            style={{ stroke: 'var(--color-success-text)' }}
+                            strokeWidth="2.5"
+                            strokeLinecap="round"
+                            strokeDasharray={`${circumference} ${circumference}`}
                             strokeDashoffset={offset}
                         />
                     </svg>
@@ -221,7 +249,7 @@ export default function ModelManager({ onOllamaStatus }) {
     return (
         <div className="flex flex-col h-full bg-surface text-main">
             {/* Top Header */}
-            <div className="flex items-center gap-3 p-4 border-b border-border bg-surface shrink-0">
+            <div className="h-16 flex items-center gap-3 px-4 border-b border-border bg-surface shrink-0">
                 <BrainCircuit className="size-5 text-accent" />
                 <span className="font-bold font-heading tracking-wide">Model Manager</span>
             </div>

@@ -1,98 +1,104 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShieldCheck } from 'lucide-react';
+import { ShieldCheck, Eye, EyeOff } from 'lucide-react';
 
 import { useAuthentication } from '../stores';
-import { PrimaryButton, SecondaryButton } from '../components/ui';
-
-import {
-    ADMINISTRATOR_ID,
-    COORDINATOR_ID,
-    DIRECTOR_ID,
-    OFFICER_ID,
-    MEMBER_ID,
-    HR_MEMBER_ID,
-} from '../mocks/data';
 
 // ==============================================================================
-// SECTION 1: QUICK-ACCESS ROLE CONFIG
+// LOGIN PAGE
+// Real email/university_id + password form.
+// All test users have the password: "password"
 // ==============================================================================
 
-// --- Administrator and Coordinator: primary access (uploaders / managers) ---
-const PRIMARY_ROLES = [
-    { label: 'Login as Administrator', userId: ADMINISTRATOR_ID },
-    { label: 'Login as Coordinator', userId: COORDINATOR_ID },
-];
-
-// --- Other roles: secondary access (approvers / requesters) ---
-const SECONDARY_ROLES = [
-    { label: 'Login as Director', userId: DIRECTOR_ID },
-    { label: 'Login as Officer', userId: OFFICER_ID },
-    { label: 'Login as Member (CCS)', userId: MEMBER_ID },
-    { label: 'Login as Member (HR)', userId: HR_MEMBER_ID },
-];
-
-// ==============================================================================
-// SECTION 2: PAGE
-// ==============================================================================
-
-// --- Login card: container → rounded-lg + shadow-sm ---
 export default function Login() {
     const navigate = useNavigate();
-    const { login, isLoading } = useAuthentication();
+    const { login, isLoading, error } = useAuthentication();
 
-    const handleLogin = async (userId) => {
-        await login(userId);
+    const [universityId, setUniversityId] = useState('');
+    const [password, setPassword]         = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        await login(universityId.trim(), password);
         navigate('/dashboard');
     };
 
     return (
-        <div className="flex w-full max-w-xs flex-col rounded-lg border border-border bg-surface shadow-sm">
+        <div className="flex w-full max-w-sm flex-col gap-6">
             {/* --- Identity --- */}
-            <div className="flex flex-col items-center gap-4 text-center p-4 pb-2">
-                {/* --- Icon well: rounded-md (child container) --- */}
-                <div className="flex h-14 w-14 items-center justify-center rounded-md bg-accent-background text-accent">
+            <div className="flex flex-col items-center gap-3 text-center">
+                <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-accent-background text-accent">
                     <ShieldCheck className="size-7" />
                 </div>
                 <div>
-                    <h1 className="text-lg font-bold text-main">Records Management</h1>
-                    <p className="mt-1 text-xs text-muted">Select a role to enter the workspace.</p>
+                    <h1 className="text-xl font-bold text-main">Records Management</h1>
+                    <p className="mt-1 text-sm text-muted">Sign in to your account to continue.</p>
                 </div>
             </div>
 
-            {/* --- Primary Roles --- */}
-            <div className="flex flex-col gap-2 p-4 pt-2 pb-2">
-                {PRIMARY_ROLES.map((role) => (
-                    <PrimaryButton
-                        key={role.userId}
-                        size="medium"
-                        disabled={isLoading}
-                        onClick={() => handleLogin(role.userId)}
-                    >
-                        {role.label}
-                    </PrimaryButton>
-                ))}
-            </div>
+            {/* --- Form --- */}
+            <form
+                onSubmit={handleSubmit}
+                className="flex flex-col gap-4 rounded-xl border border-border bg-surface p-6 shadow-sm"
+            >
+                {/* University ID */}
+                <div className="flex flex-col gap-1.5">
+                    <label htmlFor="university_id" className="text-sm font-medium text-main">
+                        University ID
+                    </label>
+                    <input
+                        id="university_id"
+                        type="text"
+                        value={universityId}
+                        onChange={(e) => setUniversityId(e.target.value)}
+                        placeholder="e.g. 20-00001"
+                        required
+                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-main placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                    />
+                </div>
 
-            {/* --- Divider --- */}
-            <div className="flex items-center gap-3 px-4 py-2">
-                <div className="h-px flex-1 bg-border" />
-                <span className="text-xs text-muted">Other roles</span>
-                <div className="h-px flex-1 bg-border" />
-            </div>
+                {/* Password */}
+                <div className="flex flex-col gap-1.5">
+                    <label htmlFor="password" className="text-sm font-medium text-main">
+                        Password
+                    </label>
+                    <div className="relative">
+                        <input
+                            id="password"
+                            type={showPassword ? 'text' : 'password'}
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder="Enter your password"
+                            required
+                            className="w-full rounded-lg border border-border bg-background px-3 py-2 pr-10 text-sm text-main placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                        />
+                        <button
+                            type="button"
+                            onClick={() => setShowPassword((p) => !p)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-main transition-colors"
+                        >
+                            {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                        </button>
+                    </div>
+                </div>
 
-            {/* --- Secondary Roles --- */}
-            <div className="flex flex-col gap-2 p-4 pt-2">
-                {SECONDARY_ROLES.map((role) => (
-                    <SecondaryButton
-                        key={role.userId}
-                        size="medium"
-                        disabled={isLoading}
-                        onClick={() => handleLogin(role.userId)}
-                    >
-                        {role.label}
-                    </SecondaryButton>
-                ))}
-            </div>
+                {/* Error */}
+                {error && (
+                    <p className="rounded-lg border border-error-border bg-error-background px-3 py-2 text-sm text-error-text">
+                        {error}
+                    </p>
+                )}
+
+                {/* Submit */}
+                <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="flex h-10 w-full items-center justify-center rounded-lg bg-accent text-sm font-semibold text-white transition-colors hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    {isLoading ? 'Signing in…' : 'Sign In'}
+                </button>
+            </form>
         </div>
     );
 }

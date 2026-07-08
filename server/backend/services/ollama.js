@@ -60,10 +60,11 @@ class OllamaService {
                                 throw new Error(parsed.error);
                             }
                             if (progressCallback) {
+                                // Strip out layer-level success so we don't trigger premature completion in the frontend
+                                if (parsed.status === 'success') {
+                                    parsed.status = 'layer_success';
+                                }
                                 progressCallback(parsed);
-                            }
-                            if (parsed.status === 'success') {
-                                logger.success(`Successfully pulled model: ${modelName}`, 'OLLAMA');
                             }
                         } catch (e) {
                             if (e.message && !e.message.includes('JSON')) {
@@ -76,6 +77,13 @@ class OllamaService {
             }
             
             this.activePulls.delete(modelName);
+            // Wait a split second to ensure final logs are flushed, then emit final success
+            setTimeout(() => {
+                if (progressCallback) {
+                    progressCallback({ status: 'success' });
+                }
+                logger.success(`Successfully pulled model: ${modelName}`, 'OLLAMA');
+            }, 500);
             return { success: true };
         } catch (error) {
             if (error.name === 'AbortError') {

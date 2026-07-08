@@ -1,26 +1,70 @@
-import * as mocks from '../mocks/service';
-// Later, we will import * as live from './api/...';
+// ==============================================================================
+// SERVICES — Live API
+// All service exports map 1:1 to the mock service interface, but now call the
+// real backend instead of in-memory data. Mocks folder has been removed.
+// ==============================================================================
 
-const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
+import { departmentsApi }  from './api/departments';
+import { usersApi }        from './api/users';
+import { documentsApi }    from './api/documents';
+import { coordinatorsApi } from './api/coordinators';
+import { notificationsApi } from './api/notifications';
+import { auditsApi }       from './api/audits';
 
-// 2. The Manager's Decision Logic
-// If USE_MOCK is true, export the mock service.
-// (For now, if false, we just export empty objects until we build the real API)
-export const departmentsService = USE_MOCK ? mocks.mockDepartmentsService : {};
+// --- Departments ---
+export const departmentsService = departmentsApi;
 
-export const usersService = USE_MOCK ? mocks.mockUsersService : {};
-export const userCredentialsService = USE_MOCK ? mocks.mockUserCredentialsService : {};
-export const userSettingsService = USE_MOCK ? mocks.mockUserSettingsService : {};
-export const userSessionsService = USE_MOCK ? mocks.mockUserSessionsService : {};
+// --- Users ---
+export const usersService            = usersApi;
+export const userCredentialsService  = {}; // Managed server-side only
+export const userSettingsService     = {
+    getByUserId: (id)         => usersApi.getSettings(id),
+    create:      (id)         => Promise.resolve(), // Created automatically on user creation
+    update:      (id, data)   => usersApi.updateSettings(id, data),
+};
+export const userSessionsService     = {}; // No client-side session management without JWT
 
-export const documentsService = USE_MOCK ? mocks.mockDocumentsService : {};
-export const documentVersionsService = USE_MOCK ? mocks.mockDocumentVersionsService : {};
-export const documentRequestsService = USE_MOCK ? mocks.mockDocumentRequestsService : {};
-export const documentRequestMessagesService = USE_MOCK ? mocks.mockDocumentRequestMessagesService : {};
-export const documentSharesService = USE_MOCK ? mocks.mockDocumentSharesService : {};
+// --- Documents ---
+export const documentsService               = {
+    getAll:          (params)      => documentsApi.getAll(params),
+    getById:         (id)          => documentsApi.getById(id),
+    getByUploaderId: (uid)         => documentsApi.getByUploaderId(uid),
+    create:          (data)        => documentsApi.create(data),
+    update:          (id, data)    => documentsApi.update(id, data),
+    delete:          (id)          => documentsApi.delete(id),
+};
+export const documentVersionsService        = {
+    getAll:          ()            => documentsApi.getAll().then(() => []), // Fetched per document
+    getByDocumentId: (docId)       => documentsApi.getVersions(docId),
+    create:          (docId, form) => documentsApi.upload(docId, form),
+    update:          ()            => Promise.resolve(), // Versions are immutable
+};
+export const documentRequestsService        = {
+    getAll:              (params)  => documentsApi.getRequests(params),
+    getById:             (id)      => documentsApi.getRequestById(id),
+    getByRequesterId:    (rid)     => documentsApi.getRequestsByRequesterId(rid),
+    create:              (data)    => documentsApi.createRequest(data),
+    update:              (id, d)   => documentsApi.updateRequest(id, d),
+    delete:              (id)      => documentsApi.deleteRequest(id),
+};
+export const documentRequestMessagesService = {
+    getByDocumentRequestId: (rid)  => documentsApi.getMessages(rid),
+    create:                 (data) => documentsApi.createMessage(data.document_request_id, data),
+};
+export const documentSharesService          = {
+    getAll:              ()        => documentsApi.getShares(),
+    getByDocumentId:     (docId)   => documentsApi.getSharesByDocId(docId),
+    getByDepartmentId:   ()        => documentsApi.getShares(),
+    create:              (data)    => documentsApi.createShare(data),
+    update:              ()        => Promise.resolve(),
+    delete:              (id)      => documentsApi.deleteShare(id),
+};
 
-export const coordinatorRequestsService = USE_MOCK ? mocks.mockCoordinatorRequestsService : {};
+// --- Coordinator Requests ---
+export const coordinatorRequestsService = coordinatorsApi;
 
-export const notificationsService = USE_MOCK ? mocks.mockNotificationsService : {};
+// --- Notifications ---
+export const notificationsService = notificationsApi;
 
-export const auditLogsService = USE_MOCK ? mocks.mockAuditLogsService : {};
+// --- Audit Logs ---
+export const auditLogsService = auditsApi;

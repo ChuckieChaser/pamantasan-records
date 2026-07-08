@@ -1,4 +1,8 @@
-# Docker Compose YML File
+# Configurations
+
+This file here serves as the configuration done on the second laptop (server side)
+
+## Docker Compose YML File
 
 ```
 version: '3.8'
@@ -14,24 +18,30 @@ services:
     ports:
       - "5433:5432"
     volumes:
-      - D:/records/documents:/var/lib/postgresql/data
+      - D:/records/data:/var/lib/postgresql
 ```
 
 I also hook it up on the pgAdmin 4 server connection whatever that is
 
 ---
 
-# Ollama Configuration
+## Ollama Configuration
 
 I just set up the environment variable on the laptop
 
 - Variable Name : `OLLAMA_HOST`
 - Variable Value: `0.0.0.0`
 
-To ensure your Ollama models are saved to your dedicated D: drive folder, add this new environment variable as well:
-
 - Variable Name : `OLLAMA_MODELS`
 - Variable Value: `D:\records\models`
 
-*(Note: You will need to restart the Ollama background service/app for this to take effect!)*
+For added benefit, I also gone ahead and tweak the default model storage location directly to that folder in the ollama app settings
 
+---
+
+## Firewall
+
+I set the inbound of the firewall to allow remote connections
+
+- Port: 5000 TCP (Node)
+- Port: 5433 TCP (Postgres)

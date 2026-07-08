@@ -1,177 +1,92 @@
+import 'dotenv/config';
 import express from 'express';
 import { WebSocketServer } from 'ws';
 import http from 'http';
 import cors from 'cors';
-import { logger } from './services/logger.js';
-import { ollamaService } from './services/ollama.js';
-import pkg from 'pg';
-const { Pool } = pkg;
 
-const app = express();
+import { logger } from './services/logger.js';
+import statusRouter       from './routes/status.js';
+import modelsRouter       from './routes/models.js';
+import logsRouter         from './routes/logs.js';
+import authRouter         from './routes/auth.js';
+import usersRouter        from './routes/users.js';
+import departmentsRouter  from './routes/departments.js';
+import documentsRouter    from './routes/documents.js';
+import coordinatorsRouter from './routes/coordinators.js';
+import notificationsRouter from './routes/notifications.js';
+import auditsRouter       from './routes/audits.js';
+
+// ==============================================================================
+// SERVER SETUP
+// ==============================================================================
+
+const app  = express();
 const port = process.env.PORT || 5000;
 
-// Setup DB Pool
-const pool = new Pool({
-    user: 'admin',
-    password: 'admin',
-    host: '127.0.0.1',
-    port: 5433,
-    database: 'pamantasan_records'
-});
-
-let lastClientPing = 0;
-
-// Middleware
+// --- Middleware ---
 app.use(cors());
 app.use(express.json());
 
-// Track client connection
-app.use((req, res, next) => {
-    // If request comes from an external IP (not localhost), assume it's the client laptop
-    const ip = req.ip || req.connection.remoteAddress;
-    if (ip && !ip.includes('127.0.0.1') && !ip.includes('::1') && !ip.includes('::ffff:127.0.0.1')) {
-        lastClientPing = Date.now();
+// --- Client-presence tracker ---
+// Any non-localhost request is assumed to be from the client laptop.
+// Used by /api/status to report the client indicator.
+app.use((req, _res, next) => {
+    const ip = req.ip || req.socket?.remoteAddress || '';
+    const isLocal = ip.includes('127.0.0.1') || ip.includes('::1') || ip.includes('::ffff:127.0.0.1');
+    if (!isLocal) {
+        app.set('lastClientPing', Date.now());
     }
     next();
 });
 
-// API Routes
-app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok' });
-});
+// ==============================================================================
+// ROUTES
+// ==============================================================================
 
-app.get('/api/status', async (req, res) => {
-    let dbOnline = false;
-    try {
-        await pool.query('SELECT 1');
-        dbOnline = true;
-    } catch (e) {
-        // ignore
-    }
+app.use('/api',              statusRouter);
+app.use('/api/models',       modelsRouter);
+app.use('/api/logs',         logsRouter);
+app.use('/api/auth',         authRouter);
+app.use('/api/users',        usersRouter);
+app.use('/api/departments',  departmentsRouter);
+app.use('/api/documents',    documentsRouter);
+app.use('/api/coordinators', coordinatorsRouter);
+app.use('/api/notifications', notificationsRouter);
+app.use('/api/audits',       auditsRouter);
 
-    let ollamaOnline = false;
-    try {
-        await ollamaService.fetchModels();
-        ollamaOnline = true;
-    } catch (e) {
-        // ignore
-    }
+// ==============================================================================
+// WEBSOCKET SERVER (Real-time log streaming & model progress)
+// ==============================================================================
 
-    // Client is online if we've seen a request from them in the last 60 seconds
-    const clientOnline = (Date.now() - lastClientPing) < 60000;
-
-    res.json({
-        postgres: dbOnline,
-        ollama: ollamaOnline,
-        client: clientOnline
-    });
-});
-
-app.get('/api/models', async (req, res) => {
-    const models = await ollamaService.fetchModels();
-    res.json({ models });
-});
-
-app.post('/api/pull', async (req, res) => {
-    const { modelName } = req.body;
-    if (!modelName) {
-        return res.status(400).json({ error: 'Model name is required' });
-    }
-
-    // Start pulling in the background
-    // We don't await this so the request doesn't hang, progress is sent via WebSockets
-    try {
-        ollamaService.pullModel(modelName, (progress) => {
-            // Emit a specific event for pull progress, handled by WebSockets
-            logger.emit('model_progress', { modelName, progress });
-        }).catch(err => {
-            if (err.message === 'Pull cancelled') {
-                logger.emit('model_progress', { modelName, progress: { status: 'cancelled' } });
-            } else {
-                logger.emit('model_progress', { modelName, progress: { status: 'error' } });
-            }
-        });
-        logger.success('Pull request sent successfully', 'API');
-        res.json({ message: 'Pull initiated', modelName });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.post('/api/pull/cancel', (req, res) => {
-    const { modelName } = req.body;
-    if (!modelName) return res.status(400).json({ error: 'Model name is required' });
-    
-    const cancelled = ollamaService.cancelPull(modelName);
-    if (cancelled) {
-        res.json({ message: 'Pull cancelled' });
-    } else {
-        res.status(404).json({ error: 'No active pull found for this model' });
-    }
-});
-
-// DELETE /api/delete - Delete an Ollama model
-app.delete('/api/delete', async (req, res) => {
-    const { modelName } = req.body;
-    if (!modelName) {
-        logger.warning('Delete request missing modelName', 'API');
-        return res.status(400).json({ error: 'modelName is required' });
-    }
-
-    try {
-        await ollamaService.deleteModel(modelName);
-        res.json({ success: true, message: 'Model deleted successfully' });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// DELETE /api/logs - Clear all backend logs
-app.delete('/api/logs', (req, res) => {
-    logger.clearLogs();
-    res.json({ success: true, message: 'Logs cleared' });
-});
-
-// Create HTTP server
 const server = http.createServer(app);
-
-// Setup WebSocket Server
-const wss = new WebSocketServer({ server, path: '/logs' });
+const wss    = new WebSocketServer({ server, path: '/logs' });
 
 wss.on('connection', (ws) => {
-    logger.info('New WebSocket connection established', 'WEBSOCKET');
+    logger.info('WebSocket client connected', 'WEBSOCKET');
 
-    // Send existing logs immediately on connection
+    // Send all existing logs immediately on connection
     ws.send(JSON.stringify({ type: 'INIT_LOGS', data: logger.getLogs() }));
 
-    // Setup listener for new logs
-    const onNewLog = (logEntry) => {
-        ws.send(JSON.stringify({ type: 'NEW_LOG', data: logEntry }));
-    };
+    const onNewLog      = (entry)   => ws.send(JSON.stringify({ type: 'NEW_LOG',       data: entry }));
+    const onModelProgress = (payload) => ws.send(JSON.stringify({ type: 'MODEL_PROGRESS', data: payload }));
+    const onClearLogs   = ()        => ws.send(JSON.stringify({ type: 'INIT_LOGS',     data: [] }));
 
-    // Setup listener for model progress
-    const onModelProgress = (payload) => {
-        ws.send(JSON.stringify({ type: 'MODEL_PROGRESS', data: payload }));
-    };
-
-    // Setup listener for clearing logs
-    const onClearLogs = () => {
-        ws.send(JSON.stringify({ type: 'INIT_LOGS', data: [] }));
-    };
-
-    logger.on('new_log', onNewLog);
+    logger.on('new_log',      onNewLog);
     logger.on('model_progress', onModelProgress);
-    logger.on('clear_logs', onClearLogs);
+    logger.on('clear_logs',   onClearLogs);
 
     ws.on('close', () => {
-        logger.removeListener('new_log', onNewLog);
-        logger.removeListener('model_progress', onModelProgress);
-        logger.removeListener('clear_logs', onClearLogs);
+        logger.removeListener('new_log',       onNewLog);
+        logger.removeListener('model_progress',  onModelProgress);
+        logger.removeListener('clear_logs',    onClearLogs);
     });
 });
 
-// Start Server
+// ==============================================================================
+// START
+// ==============================================================================
+
 server.listen(port, () => {
-    console.log(`Backend Server running on port ${port}`);
-    logger.info(`Server initialized and listening on port ${port}`, 'SYSTEM');
+    console.log(`Server listening on port ${port}`);
+    logger.info(`Server initialized on port ${port}`, 'SYSTEM');
 });

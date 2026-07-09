@@ -27,7 +27,7 @@ router.post('/login', async (req, res) => {
         await withRLS(client, { role: 'SYSTEM' }, async (c) => {
             // 1. Find the user by university_id
             const userResult = await c.query(
-                `SELECT u.*, uc.password_hash, us.theme, us.notification, us.animation
+                `SELECT u.*, uc.password_hash, us.theme, us.notification
                  FROM users u
                  LEFT JOIN user_credentials uc ON uc.user_id = u.id
                  LEFT JOIN user_settings    us ON us.user_id = u.id
@@ -54,8 +54,7 @@ router.post('/login', async (req, res) => {
             const { password_hash, ...user } = row;
             const settings = {
                 theme:        row.theme,
-                notification: row.notification,
-                animation:    row.animation,
+                notification: row.notification
             };
 
             logger.info(`User logged in: ${user.email} (${user.role})`, 'AUTH');
@@ -83,7 +82,7 @@ router.get('/me', async (req, res) => {
             departmentId: req.headers['x-user-dept'],
         }, async (c) => {
             const result = await c.query(
-                `SELECT u.*, us.theme, us.notification, us.animation
+                `SELECT u.*, us.theme, us.notification
                  FROM users u
                  LEFT JOIN user_settings us ON us.user_id = u.id
                  WHERE u.id = $1`,
@@ -92,8 +91,8 @@ router.get('/me', async (req, res) => {
 
             if (result.rows.length === 0) return res.status(404).json({ error: 'User not found' });
 
-            const { theme, notification, animation, ...user } = result.rows[0];
-            res.json({ user, settings: { theme, notification, animation } });
+            const { theme, notification, ...user } = result.rows[0];
+            res.json({ user, settings: { theme, notification } });
         });
     } catch (err) {
         res.status(500).json({ error: err.message });

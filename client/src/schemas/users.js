@@ -47,7 +47,7 @@ export const UserSettingsSchema = z.object({
 
     theme: UserSettingsThemeSchema,
     notification: UserSettingsNotificationSchema,
-    animation: z.boolean(),
+
 
     created_at: z.string().datetime(),
     updated_at: z.string().datetime(),

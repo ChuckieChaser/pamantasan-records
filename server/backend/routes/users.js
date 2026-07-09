@@ -123,17 +123,16 @@ router.get('/:id/settings', async (req, res) => {
 
 // PATCH /api/users/:id/settings
 router.patch('/:id/settings', async (req, res) => {
-    const { theme, notification, animation } = req.body;
+    const { theme, notification } = req.body;
     const client = await pool.connect();
     try {
         await withRLS(client, getRLSContext(req), async (c) => {
             const result = await c.query(
                 `UPDATE user_settings
                  SET theme        = COALESCE($2, theme),
-                     notification = COALESCE($3, notification),
-                     animation    = COALESCE($4, animation)
+                     notification = COALESCE($3, notification)
                  WHERE user_id = $1 RETURNING *`,
-                [req.params.id, theme, notification, animation]
+                [req.params.id, theme, notification]
             );
             if (result.rows.length === 0) return res.status(404).json({ error: 'Settings not found' });
             res.json(result.rows[0]);

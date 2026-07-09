@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS departments (
     CONSTRAINT uq_departments_code UNIQUE (code)
 );
 
+-- Attach the global timestamp trigger
 DROP TRIGGER IF EXISTS set_timestamp_departments ON departments;
 CREATE TRIGGER set_timestamp_departments
     BEFORE UPDATE ON departments
@@ -32,9 +33,11 @@ CREATE TRIGGER set_timestamp_departments
 ALTER TABLE departments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE departments FORCE ROW LEVEL SECURITY;
 
+-- Visibility: Open to all authenticated internal users
 CREATE POLICY departments_select_access ON departments
     FOR SELECT USING (is_any_role() OR is_system_role());
 
+-- Mutation: Strictly locked to the Administrator
 CREATE POLICY departments_insert_access ON departments
     FOR INSERT WITH CHECK (is_administrator_role());
 

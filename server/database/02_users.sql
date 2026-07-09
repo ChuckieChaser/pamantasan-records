@@ -8,6 +8,7 @@ SET client_min_messages = WARNING;
 CREATE DOMAIN system_users_role AS VARCHAR
     CHECK (VALUE IN ('ADMINISTRATOR', 'COORDINATOR', 'DIRECTOR', 'OFFICER', 'MEMBER'));
 
+-- Matched exactly to the 4-step onboarding pipeline
 CREATE DOMAIN system_users_status AS VARCHAR
     CHECK (VALUE IN ('PENDING_PASSWORD', 'PENDING_SSO', 'VERIFIED', 'SUSPENDED'));
 
@@ -46,18 +47,22 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE TABLE IF NOT EXISTS user_credentials (
     user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+
     password_hash VARCHAR(255) NOT NULL,
     google_id VARCHAR(255) NULL,
+
     created_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
     CONSTRAINT uq_user_credentials_google_id UNIQUE (google_id)
 );
 
 CREATE TABLE IF NOT EXISTS user_settings (
     user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+
     theme system_user_settings_theme NOT NULL DEFAULT 'SYSTEM',
     notification system_user_settings_notification NOT NULL DEFAULT 'ALL',
-    animation BOOLEAN NOT NULL DEFAULT TRUE,
+
     created_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -65,11 +70,14 @@ CREATE TABLE IF NOT EXISTS user_settings (
 CREATE TABLE IF NOT EXISTS user_sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+
     token_hash VARCHAR(255) NOT NULL,
     ip_address VARCHAR(45) NULL,
     user_agent TEXT NULL,
+
     created_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
     expired_at timestamptz NULL,
+
     CONSTRAINT uq_user_sessions_token_hash UNIQUE (token_hash)
 );
 
@@ -78,6 +86,14 @@ CREATE INDEX IF NOT EXISTS idx_users_staffing ON users(department_id, role);
 CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);
 
 -- --- Triggers ---
+-- NEW: Attach the initialization trigger to automatically create credentials and settings
+DROP TRIGGER IF EXISTS initialize_user_data ON users;
+CREATE TRIGGER initialize_user_data
+    AFTER INSERT ON users
+    FOR EACH ROW
+    EXECUTE FUNCTION trigger_initialize_user_data();
+
+-- Attach the global timestamp triggers
 DROP TRIGGER IF EXISTS set_timestamp_users ON users;
 CREATE TRIGGER set_timestamp_users BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION trigger_set_timestamp();
 

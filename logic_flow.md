@@ -1,176 +1,123 @@
-# Flow of the System
+# Pamantasan Records Management System: Master Blueprint
 
-This md file will be the master plan and blueprint on how the system should work.
+This document serves as the master architectural plan and business logic flow for the system. All client interfaces and backend databases must adhere strictly to these defined rules.
 
-### Architecture
+---
 
-The system is divided into 2 Node structure:
+## 1. System Architecture
 
-- Client (Laptop A): Holds the frontend website.
-- Server (Laptop B): Holds the physical storage (certain directory in D drive), database postgresql and locally installed AI for AI features.
+The system utilizes a physically decoupled two-node structure:
 
-Both laptops are connected either through LAN or wireless to allow both to communicate.
+- **Client (Laptop A):** Hosts the frontend React application.
+- **Server (Laptop B):** Hosts the Node.js backend, PostgreSQL database, local physical storage (D: Drive), and a locally installed AI engine for semantic extraction and summarization.
 
-### Roles
+The nodes communicate via a local LAN or Wireless network.
 
-There are 5 roles within the system, each role has their own permissions:
+---
 
-- Administrator: Can do almost everything within the system.
-- Coordinator: Can do almost everything within the system but requires Administrator permission to do so.
-- Officer: Approver of the documents. Can approve, unapprove, reject, request, view, and download.
-- Director: Publisher of the documents, Can publish, unpublish, request, view and download.
-- Member: End users. Can only request, view and download.
+## 2. Role-Based Access Control (RBAC)
 
-### Department Workflow
+The system enforces a strict 5-tier hierarchical role structure:
 
-- Adding department is easy, nothing much to say here.
+1. **Administrator:** The super-user. Has full CRUD access and acts as the ultimate "Checker" for any sandboxed requests.
+2. **Coordinator:** The "Maker". Executes daily operational tasks (uploads, sharing, user creation) but requires Administrator approval for any database mutations.
+3. **Officer:** The Department Approver. First gatekeeper in the document pipeline. Can approve, unapprove, reject,, request, view, and download.
+4. **Director:** The Department Publisher. Final gatekeeper in the document pipeline. Can publish, unpublish, request, view, and download.
+5. **Member:** The End-User. Has read-only access to published documents and can request restricted files via the Helpdesk.
 
-### Users Workflow
+---
 
-- Creating users is pretty much self explanatory. Administrator fills out the add user form. Temporary password can be set, altho when left untouch, it will default to the university id. Once created, the newly created user's status will be set by default as `PENDING_PASSWORD`.
+## 3. The Identity & Onboarding Pipeline
 
-- This creation of user will also create another insert on the user related tables like user_credentials and user_settings alongside it as they all are connected.
+User creation triggers an automated, strict state-machine workflow.
 
-- This will create an audit log, specifically stating the event. It will also notify the user via their corresponding email associated into their accounts, this email will list their login credentials and temporary password.
+### User Creation
 
-- The user can now enter this credentials into the system. Once login, they are forced to complete an onboarding pipeline. First off is by changing their temporary password to actual password. Once set, their status is now set to `PENDING_SSO`. This means they are needed to verify and put their email for the multi-factor authentication added by the system via the Google Auth. Once this is set, their status is now set as `VERIFIED`, which means they can now do what they're allowed to in the system.
+1. An Administrator (or Coordinator, pending Admin approval) fills out the user creation form.
+2. **Database Automation:** The creation of a user inherently triggers the automated generation of their `user_credentials` and `user_settings` rows. The temporary password defaults to the `university_id`.
+3. An audit log is generated, and a welcome email containing their credentials is dispatched by the Node server.
 
-- User may change their settings and credentials but not their information set by the Administrator or Coordinators themselves.
+### The Status State Machine
 
-- If the Administrator or Coordinator found suspicious activity or malicious act done by a user, they can suspend the user, marking their status as `SUSPENDED`, meaning they can no longer access the system unless otherwise unsuspend.
+Users must traverse the following pipeline before accessing the system:
 
-List of statuses for users
+- **`PENDING_PASSWORD`:** (Default). The user logs in and is immediately forced to change their password.
+- **`PENDING_SSO`:** The user must link their account to Google Authenticator (MFA) and verify their email.
+- **`VERIFIED`:** Onboarding complete. The user is granted standard access based on their role.
+- **`SUSPENDED`:** An Administrator can manually trigger this state to immediately revoke system access due to malicious or suspicious activity.
 
-- PENDING_PASSWORD: Immediate password reset
-- PENDING_SSO: Immediate google auth confirmation for mfa
-- VERIFIED: allows the user to login to the system
-- SUSPENDED: disallows the user to login to the system
+Users have full autonomy over their personal settings and credentials, but cannot alter their core identity (Role/Department).
 
-### Document Worflow
+---
 
-- Only Administrator and Coordinator may upload and create a document, be it a folder or a file. Once they upload or create a document, its status is flagged as `UPLOADED`. This states that the document is, well, uploaded and not shared.
+## 4. The Document State Machine (Independent Pipelines)
 
-- It then get puts into the server storage (a dedicated directory) with its filename obfuscated with its corresponding uuid, this will use the document_versions uuid, not the document uuid to ensure that the maching uuid is correspondence to the versions itself. I mean, having the first file obfuscate by document uuid while the rest of the file within the version uses the document_versions uuid is quite inconsistent. This will also be diagnose by the locally installed AI by summarizing the content of it, the summarized content will be put into the summary column of the database. It also get its content extracted as embedding for the semantic search.
+Documents are structural containers. They do not possess a single global status. Instead, the state machine (`PENDING_APPROVAL` -> `PUBLISHED`) lives within the `document_shares` table. This guarantees that if a file is shared to multiple departments, each department has absolute autonomy over their own approval and publishing timeline without affecting the others.
 
-- Alongside the insertion of documents, this will also create an insert to the document_versions. Basically, whenever a file is uploaded, it always create its first version of that detail. This also will be run by ai to look for any changes and put it in the changes_summary column of the version. Folders do not get versions.
+### 4.1 Upload & AI Processing
 
-- they can revert to a selected version on the inspector's version tab.
+- Only Administrators and Coordinators can create folders or upload files.
+- **Initial State:** A newly created document implicitly exists in an `UPLOADED` state. (It is invisible to all departments until a share record is explicitly created).
+- **Obfuscation:** Files saved to physical storage are renamed to match the `document_versions` UUID (not the `documents` UUID) to ensure version history continuity.
+- **AI Integration:** Upon upload, the local AI extracts the document text, generates a summary, and creates an embedding vector.
+- **Versioning:** Re-uploading an existing file prompts Replace, Continue, or Skip. This current and the new version is then extracted by the local AI to generate change summary
+    - **Replace:** Creates a new row in `document_versions`. Users can revert to previous versions via the Inspector UI.
+    - **Continue:** Uploads as a new document with a suffix (e.g., `filename (1).pdf`).
+    - **Skip:** Cancels the upload.
 
-- If an existing document gets uploaded twice, a prompt must pop stating that a document already exist in the document and must choose an option before continouing the process.
+### 4.2 The Department Routing Workflow
 
-Replace: The corresponding file will create another version and set its version number correspondingly.
-Continue: Continue the upload, but add a suffix like (1) so no two files have the same name.
-Skip: Skip the file entirely.
+When a document is shared to a department, a new row in `document_shares` is created. This isolated row traverses the following statuses:
 
-- Since the document, on create/upload have its flagged as `UPLOADED`, no other roles except Administrator and Coordinator may see.
+1. **`PENDING_APPROVAL` (Officer):** Visible to Officers in the target department.
+    - _Action:_ Officer can **Approve** (moves share to `APPROVED`) or **Reject** (Deletes the share and logs the rejection).
+2. **`APPROVED` (Director):** Visible to Directors in the target department.
+    - _Action:_ Director can **Publish** (moves share to `PUBLISHED`) or **Unpublish** (reverts share to `APPROVED`).
+3. **`PUBLISHED` (Member):** Visible to end-users in that specific department.
+    - _Visibility Scope:_ If the share's `recipient_id` is NULL, the entire department sees it. If a specific UUID is provided, only that user sees it.
+4. **`ARCHIVED` (Global Terminal State):** Admin/Coordinator can mark the physical document as `is_archived = TRUE`. This immediately hides it from all departments regardless of their share status. From here, it can be permanently deleted.
 
-- The Administrator and Coordinator can do the following:
+### 4.3 The Folder Cascade Rule
 
-File:
-_ can view (view the preview of the content)
-_ can download (download it as zip)
-_ can edit (rename the filename, or edit the comment and share settings)
-Folder:
-_ can open (since we cannot view a folder)
-_ can download (download it as zip)
-_ can edit (rename the filename, or edit the comment and share settings)
-Both (Major action events):
-_ Share/Unshare (share the folder via department scope and change its status to `PENDING_APPROVAL` or simply unshare it to change the document status back to `UPLOADED`)
-_ Archive/Unarchive (Change the status of the document to `ARCHIVED` or `UPLOADED`) \* Delete (Permanently delete the document, along with its content and versions in the database)
+Folders act as UI navigational views. If a Director publishes a folder, the database automatically cascades that exact status change down through all nested child files **specifically for that department's share**. It will not alter the status of those child files in other departments.
 
-They cannot archive a document if it is shared, they first must unshare before doing so.
+---
 
-Delete only appears once the documented is archived.
+## 5. Helpdesk Tickets (The Peer-to-Peer Bypass)
 
-- Folders act like another view for the table, like you can open a folder and view its content. With breadcrumbs on the Topbar acting as your navigation URL.
+To resolve the XOR constraint between department routing and private ticketing, the system utilizes two distinctly separate routing tables.
 
-- Once shared to departments (documents can be shared to multiple departments), its status is changed to `PENDING_APPROVAL`. This allows the pipeline managers to see the shared file but only within and past their corresponding role.
+- **Department Routing (`document_shares`):** Handles the standard pipeline (`PENDING_APPROVAL` -> `PUBLISHED`).
+- **Helpdesk Bypass (`document_request_attachments`):** Handles peer-to-peer file sharing.
+    - An Officer, Director or a Member submits a ticket for a restricted file.
+    - Administrators/Coordinators interface with the ticket via a chat thread.
+    - An Admin can securely attach **any** document to the ticket. This grants the requesting Member isolated, read-only access to that specific file without removing the document from its original department pipeline or altering its core status.
 
-- Officers and Directors have this nifty trick that, as long as a document is shared to a department that also corresponds to their department, they are 1 flag away from seeing it. This is done so we do not need to manually put their id to the recipient.
+---
 
-- Officers will only be able to see the document if the status is flagged as `PENDING_APPROVAL` and past it (meaning they still can see the document after its status is changed unless it is `UPLOADED` or `ARCHIVED`).
+## 6. The Maker-Checker Sandbox (Coordinator Workflow)
 
-- The officer can do the following to the document shared to their department:
+Because Coordinators lack executive authority, their database write privileges are fundamentally sandboxed.
 
-File:
-_ can view (view the preview of the content)
-_ can download (download it as zip)
-Folder:
-_ can open (since we cannot view a folder)
-_ can download (download it as zip)
-Both (Major action events):
-_ Approve/Unapprove (Change the status of the document to `APPROVED` or `PENDING_APPROVAL`)
-_ Reject (Change the status of the document to `UPLOADED` and set the versions reject columns the rejecting officer and the rejection reason)
+- **The Intercept:** When a Coordinator attempts a major action (User Create, Document Share, Delete, Archive), the system intercepts the action.
+- **The Payload:** The intended action is packaged into a JSON object and inserted into the `coordinator_requests` table with a status of `PENDING`.
+- **The Exception (Chatting):** Coordinators may send text messages in Helpdesk tickets instantly. However, attempting to _attach_ a file to a ticket triggers the sandbox intercept.
+- **Execution:** An Administrator reviews the queue. Only upon clicking "Approve" does the Node server execute the JSON payload and mutate the actual system data.
 
-They can still unapprove once the status of the document reaches `APPROVED`, this will only be unavailable once the Director publishes it.
+---
 
-They cannot reject an approved document. They must first unapprove before doing so.
+## 7. System Side-Effects (Notifications & Audits)
 
-- Director will only be able to see the document if the status is flagged as `APPROVED` and past it (meaning they still can see the document after its status is changed unless it is `UPLOADED` or `ARCHIVED`).
+These actions are handled entirely by the Node.js Server (acting as the `SYSTEM` role).
 
-- The director can do the following to the document shared to their department:
+### Notifications (The Inbox)
 
-File:
-_ can view (view the preview of the content)
-_ can download (download it as zip)
-Folder:
-_ can open (since we cannot view a folder)
-_ can download (download it as zip)
-Both (Major action events):
-\_ Publish/Unpublish (Change the status of the document to `PUBLISHED` or `APPROVED`)
+- Major status changes immediately generate a notification for the affected parties.
+- **Email Bridge:** The server dispatches an email. Upon SMTP success, the notification is marked `is_emailed = TRUE`.
+- **Anti-Spam Aggregation:** To prevent inbox flooding during bulk folder cascades, the UI relies on an aggregated database View to group identical events (e.g., _"Director published 50 items in Project Folder"_).
 
-Publish in this case works similar to Share ability of the Administrator, but instead of per department they share this through the members of their corresponding departments.
+### Audit Logs (The Immutable Ledger)
 
-In the database, a null recipient_id means everyone in the departments will see this. If it has a value, it means specific users onyl sees this.
-
-Basically if the administrator shares per departments, director shares (or publish) per users
-
-- members can only see the document if the status of the document is `PUBLISHED` and is shared to them specifically or through all via the recipient_id null.
-
-- members are only allowed to view, open, and download a document
-
-- Any major events that changes the status of a folder with content, will cascade through that content. If you have a folder named `capstone` and it has a file named `capstone_reviewer.pdf` and another folder called `project` with content of `system_design.exe`, if you try and share, delete, approve, or any major action event, it will cascade through all the contents and will be audited accordingly
-
-Status of the Documents
-
-- UPLOADED: Locally in the system, not shared
-- PENDING_APPROVAL: Waiting for the Officer's Approval
-- APPROVED: Approved and awaiting for the Director's Publication
-- PUBLISHED: Published and ready to be viewed by the Members
-- ARCHIVED: No longer available to be seen by anyone except the Administrator and Coordinator.
-
-### Document Request Worflow
-
-- unlike the document pipeline, this is different. A document can be shared via department or via document request.
-
-- any non admin and non coordinator can request a document. All they have to do is to request a ticket for this.
-
-- the document request system works like a chatbox for ticketing. The admin and coordinators sees the incoming request and can choose to comply and resolve by sending and chatting over to the requesting user or simply deny the request.
-
-- this will bypass the document workflow where document is shared via scope. This however is a straight peer to peer connection sharing. Only the admin/coordinator and the requesting party can see the attached file.
-
-- i dont know how will this be achieved, but the idea is. If the requesting party wants a file that already been sent to, say, other department that is not theirs, the admin/coordinator can deny or share them the documents. In the database, we do not allow both department id and ticket id to live within the same row, so im not sure how will we handle this. Also the `ATTACHMENT` flag on the status must be get rid as this will interfere with the document pipeline.
-
-- For example, in the document_shares, initially it has a XOR constraint. Either you have a department_id or the ticket_id. The problem with this, is if you want to attach the file in a document requests, what would happen? Do we just create another row with the same document_id but this time no department_id? For me it is still a conflict and must be resolve.
-
-### Coordinator Workflow
-
-- The coordinator workflow is like always needing a verification before entering. This will be a headache sooner or later so we need to steel the foundation for this.
-
-- Adding user, adding departments, sharing, deleting, etc etc (any major action events) requires admin approval. Basically whenever a coordinator tries to do a these actions, they will be prompt to "It will be push in the coordinator request, wait for the admin to verify" and has 2 options like Confirm or Cancel.
-
-- For chats however this is different. They can send message instantly without ever getting the admin permission prompt. But they are required when trying to attach a file in the chats.
-
-- audits on this happens only after the admin approve of the action.
-
-### Notification
-
-- Everytime a user does a major change on the system, the other affected party gets notified, simple as that.
-
-### Audit Logs
-
-- Any major action even must be logged, alongside any other major events happen in the system must be logged.
-
-### Others
-
-- obviously this is still missing some functionalities so we need to deep dive on open questions
+- Every major state change, login, and Maker-Checker execution is permanently recorded.
+- **Immutability:** The audit log table lacks `UPDATE` or `DELETE` permissions. History cannot be altered by any role, including Administrators.
+- **Context Preservation:** Logs utilize a JSON payload to store rich narrative data about the event, ensuring full forensic reconstructability.

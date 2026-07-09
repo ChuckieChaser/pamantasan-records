@@ -49,7 +49,58 @@ CREATE OR REPLACE FUNCTION is_any_role() RETURNS boolean AS $$
     );
 $$ LANGUAGE SQL STABLE;
 
--- --- Global Triggers ---
+-- ==============================================================================
+-- SECTION 0.1: GLOBAL TRIGGER FUNCTIONS
+-- ==============================================================================
+
+-- User Initialization (Creates credentials and settings upon user creation)
+CREATE OR REPLACE FUNCTION trigger_initialize_user_data()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO user_credentials (user_id, password_hash)
+    VALUES (NEW.id, NEW.university_id);
+
+    INSERT INTO user_settings (user_id)
+    VALUES (NEW.id);
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Folder Status Cascade (Recursively updates document_shares for the specific department)
+CREATE OR REPLACE FUNCTION trigger_cascade_folder_status()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_is_folder BOOLEAN;
+BEGIN
+    -- Prevent infinite trigger loops during the recursive CTE update
+    IF pg_trigger_depth() > 1 THEN
+        RETURN NEW;
+    END IF;
+
+    IF OLD.status IS DISTINCT FROM NEW.status THEN
+        -- Check if the document associated with this share is a folder
+        SELECT is_folder INTO v_is_folder FROM documents WHERE id = NEW.document_id;
+
+        IF v_is_folder THEN
+            WITH RECURSIVE descendants AS (
+                SELECT id FROM documents WHERE parent_id = NEW.document_id
+                UNION ALL
+                SELECT d.id FROM documents d JOIN descendants ds ON d.parent_id = ds.id
+            )
+            -- Apply the new status only to the shares belonging to THIS specific department
+            UPDATE document_shares
+            SET status = NEW.status
+            WHERE department_id = NEW.department_id
+              AND document_id IN (SELECT id FROM descendants);
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Standard timestamp automation
 CREATE OR REPLACE FUNCTION trigger_set_timestamp()
 RETURNS TRIGGER AS $$
 BEGIN

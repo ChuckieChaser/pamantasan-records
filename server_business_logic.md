@@ -1,109 +1,109 @@
 # System Business Logic & Visibility Flow (Server SQL)
 
-After a comprehensive, line-by-line review of all SQL files in the `/server` directory (`00_systems.sql` through `06_audits.sql`), here is the detailed breakdown of the business logic, Row-Level Security (RLS) visibility, and operational flows for the Pamantasan Records Management System.
+After a comprehensive architectural refactor aligning the `/server` SQL files (`00_systems.sql` through `06_audits.sql`) with the `logic_flow.md` master plan, here is the definitive breakdown of the business logic, Row-Level Security (RLS) visibility, and operational flows for the Pamantasan Records Management System.
 
 ---
 
-## 1. Core Architecture & System Context (`00_systems.sql`)
+## 1. Core Architecture & Context State (`00_systems.sql`)
 
-The system relies heavily on PostgreSQL's `current_setting()` to establish the session context (`app.user_current_id`, `app.user_current_department_id`, and `app.user_current_role`). 
+The system enforces security natively at the database level using PostgreSQL's `current_setting()` session context (`app.user_current_id`, `app.user_current_department_id`, and `app.user_current_role`).
 
 **Roles Hierarchy & Functions:**
-- `SYSTEM`: A background/internal role that bypasses almost all RLS.
-- `ADMINISTRATOR`: The super-user. Has full CRUD access to almost all operational data.
-- `COORDINATOR`: The "Maker" in the Maker-Checker system. Has high visibility but restricted write access.
-- `DIRECTOR` & `OFFICER`: Department-level managers. Have scoped write access to documents in their approval pipeline.
-- `MEMBER`: The end-user. Has read-only access to published documents and can create helpdesk requests.
+
+- `SYSTEM`: A background/internal role used by the Node.js server that bypasses standard RLS to execute side-effects (like automated emails or audit generation).
+- `ADMINISTRATOR`: The super-user. Has full CRUD access and acts as the universal "Checker" in the Maker-Checker workflow.
+- `COORDINATOR`: The "Maker". Has high visibility but is structurally locked out of direct write access to major tables.
+- `OFFICER` & `DIRECTOR`: Department-level managers executing the document approval pipeline.
+- `MEMBER`: The end-user. Has strictly read-only access to published documents and can request cross-department files via Helpdesk tickets.
 
 ---
 
-## 2. Organization & User Management (`01_departments.sql` & `02_users.sql`)
+## 2. Organization & Automated Onboarding (`01_departments.sql` & `02_users.sql`)
 
 ### Departments
-- **Visibility (Select):** Global. Any role can see the list of departments.
-- **Manipulation (Insert/Update/Delete):** Strictly limited to `ADMINISTRATOR`.
 
-### Users & Identity
-- **Visibility:** Any logged-in user can view the basic user registry (name, email, role, department).
-- **Manipulation:** Only `ADMINISTRATOR` can create or modify users. 
-- **Security Isolation:**
-  - `user_credentials`: Only `SYSTEM` can read password hashes. Users can only update their own credentials (or `ADMINISTRATOR` can force an insert).
-  - `user_settings` & `user_sessions`: Users can read/update/delete their own settings and sessions. `ADMINISTRATOR` can force-delete sessions (kick users).
+- **Visibility:** Global (`is_any_role()`). Essential for populating dropdowns across the frontend.
+- **Manipulation:** Strictly limited to `ADMINISTRATOR`.
+
+### Users & Identity (The Onboarding Pipeline)
+
+- **Status State Machine:** `PENDING_PASSWORD` ➔ `PENDING_SSO` ➔ `VERIFIED` ➔ `SUSPENDED`.
+- **Database Automation:** A native database trigger (`trigger_initialize_user_data`) completely automates the creation of a user's dependencies. The millisecond an `ADMINISTRATOR` inserts a row into `users`, the database seeds `user_credentials` (using `university_id` as the temporary password hash) and `user_settings` natively.
+- **Security Isolation:** Users have full autonomy over updating their own `user_credentials` (passwords/Google Auth) and `user_settings` (themes/notifications), but cannot modify their core `users` identity (Role/Department).
 
 ---
 
 ## 3. The Unified Document Pipeline (`03_documents.sql`)
 
-This is the most complex part of the system. A document is not just a file; it represents a state machine.
+This is the central nervous system. To ensure complete departmental autonomy, a document itself is a "dumb" container (tracking only if it is globally `is_archived = TRUE`). The strict state machine lives inside the `document_shares` junction table.
 
-### Document Status Lifecycle
-`UPLOADED` ➔ `PENDING_OFFICER` ➔ `PENDING_DIRECTOR` ➔ `PUBLISHED` (or `ARCHIVED` / `ATTACHMENT`)
+### Document Status Lifecycle (Per Department Share)
 
-### Document Visibility (The `documents_select_access` Policy)
-To see a document, a user must meet **one** of these conditions:
-1. They are an `ADMINISTRATOR`.
-2. The document is **not** `ARCHIVED`, **AND**:
-   - They are the `uploader_id` (the person who uploaded it).
-   - They are the `rejecter_id` on any of its past versions (they reviewed it previously).
-   - **Department Routing:** The document has a `document_shares` record matching their `department_id`, **AND**:
-     - If `OFFICER`: Status is `PENDING_OFFICER`, `PENDING_DIRECTOR`, or `PUBLISHED`.
-     - If `DIRECTOR`: Status is `PENDING_DIRECTOR` or `PUBLISHED`.
-     - If `MEMBER`: Status is `PUBLISHED` **AND** (`recipient_id` is null OR matches their user ID).
-   - **Ticket Routing:** The document status is `ATTACHMENT`, and it is shared via a `document_request_id` that the user originally requested.
+`PENDING_APPROVAL` ➔ `APPROVED` ➔ `PUBLISHED`
 
-### Document Manipulation (Insert / Update / Delete)
-- **Insert / Delete:** ONLY `ADMINISTRATOR` (and `SYSTEM`). *Note: Coordinators cannot directly insert documents; they must go through the Maker-Checker queue.*
-- **Update (State Transitions):**
-  - `ADMINISTRATOR` can update anything.
-  - `OFFICER` can update **only if** the document is shared to their department AND the status is exactly `PENDING_OFFICER`.
-  - `DIRECTOR` can update **only if** the document is shared to their department AND the status is exactly `PENDING_DIRECTOR`.
+### The Folder Cascade Mechanism
 
-### Document Routing (`document_shares`)
-A share record connects a document to an audience. It has a strict constraint: it must have EITHER a `department_id` (Department Pipeline) OR a `document_request_id` (Helpdesk Ticket Pipeline), never both.
-- **Insert/Update/Delete Shares:** `ADMINISTRATOR` can route anything. Interestingly, `OFFICER` and `DIRECTOR` are also allowed to insert/update/delete shares **for their own department**.
+A recursive database CTE (`trigger_cascade_folder_status`) is bound to the `document_shares` table. If a Director updates the status of a folder, the database instantly and invisibly updates the status of all nested child items _belonging to that specific department ID_, leaving other departments untouched.
 
----
+### Document Visibility (The Core Filter)
 
-## 4. Helpdesk Tickets (`document_requests` & `document_request_messages`)
+To view a document, a user's session must satisfy **one** of these gates:
 
-- **Visibility:** `ADMINISTRATOR` and `COORDINATOR` can see **all** tickets. Regular users (Directors, Officers, Members) can only see tickets where they are the `requester_id`.
-- **Creation:** Any user who is **not** an Admin or Coordinator can create a ticket.
-- **Messages:** Only the requester or an `ADMINISTRATOR` can post messages to an `OPEN` ticket.
-- *Logic Flow:* A Member requests a document ➔ Coordinator sees it, drafts the document, submits a Coordinator Request ➔ Admin approves the Coordinator Request ➔ Document is created as an `ATTACHMENT` and shared directly to the Member's ticket ➔ Admin resolves the ticket.
+1. They are an `ADMINISTRATOR` or `COORDINATOR`.
+2. The document is **not** `is_archived = TRUE`, **AND**:
+    - They are the original `uploader_id` or a previous `rejecter_id`.
+    - **Department Pipeline:** The document exists in `document_shares` for their `department_id`, **AND**:
+        - `OFFICER`: The share status is `PENDING_APPROVAL`, `APPROVED`, or `PUBLISHED`.
+        - `DIRECTOR`: The share status is `APPROVED` or `PUBLISHED`.
+        - `MEMBER`: The share status is `PUBLISHED` **AND** (`recipient_id` is NULL or matches their ID).
+    - **Ticket Pipeline:** The document exists in `document_request_attachments` linked to an open ticket they requested.
+
+### Document Manipulation (State Transitions)
+
+- `OFFICER` can transition a share between `PENDING_APPROVAL` ⟷ `APPROVED`.
+- `DIRECTOR` can transition a share between `APPROVED` ⟷ `PUBLISHED`.
 
 ---
 
-## 5. The Maker-Checker System (`04_coordinators.sql`)
+## 4. Helpdesk Tickets & The XOR Resolution (`03_documents.sql`)
 
-Because `COORDINATOR`s are operational workers but lack full trust, they operate in a sandbox.
+The system completely isolates the "Department Routing Pipeline" from the "Peer-to-Peer Helpdesk Pipeline."
 
-- **Visibility:** `ADMINISTRATOR` can see all requests. A `COORDINATOR` can only see their own requests (`requester_id`).
-- **Creation:** A `COORDINATOR` inserts a JSON payload representing their intended action (e.g., `DOCUMENT_UPLOAD`, `USER_CREATE`).
-- **Execution:** The server does not execute this automatically. An `ADMINISTRATOR` must review the payload and update the status to `APPROVED` or `REJECTED`. 
-- *Logic Flow:* This perfectly explains why the `Inspector.jsx` UI allows Coordinators to click "Share" or "Archive" but routes those actions to a pending queue instead of mutating the document directly.
-
----
-
-## 6. Notifications & Audits (`05_notifications.sql` & `06_audits.sql`)
-
-### Notifications (The Inbox)
-- Entirely managed by the `SYSTEM` role. 
-- Users can only `SELECT` and `UPDATE` (mark as read) notifications where they are the `recipient_id`.
-- The system includes a View (`vw_notifications`) that groups similar events together to avoid inbox spam.
-
-### Audits (The Ledger)
-- **Visibility:** `ADMINISTRATOR` and `COORDINATOR` can read the audit logs.
-- **Immutability:** There is no `UPDATE` or `DELETE` policy. Once written, it is permanent.
-- **Insertion:** Users log their own actions (e.g., "I clicked approve"), or the `SYSTEM` logs automated actions.
+- **`document_shares` (The Pipeline):** Used exclusively to route documents up the chain of command (`PENDING_APPROVAL` to `PUBLISHED`).
+- **`document_request_attachments` (The P2P Bypass):** Solves the XOR constraint. Allows an Admin to grab a file that belongs to the College of Science and securely attach it directly to an HR Member's ticket without sharing it to the entire HR department or ripping it out of its original pipeline.
+- **Ticketing Visibility:** `MEMBER`s only see tickets they requested (`requester_id`). Admins and Coordinators see all.
 
 ---
 
-## Summary of Misalignments Prevented by RLS
+## 5. The Maker-Checker Sandbox (`04_coordinators.sql`)
 
-1. **Officers trying to approve a Published Document:** Prevented by `documents_update_access` (requires `status = 'PENDING_OFFICER'`).
-2. **Members trying to see Drafts:** Prevented by `documents_select_access` (requires `status = 'PUBLISHED'`).
-3. **Coordinators trying to upload directly:** Prevented by `documents_insert_access` (requires `ADMINISTRATOR` or `SYSTEM`).
-4. **Directors sharing outside their department:** Prevented by `document_shares_insert_access` (requires `department_id = get_user_current_department_id()`).
+Because `COORDINATOR`s are operational workers but lack executive authority, their entire workflow is sandboxed.
 
-> [!NOTE]
-> The database schema and RLS policies are extremely robust and act as a hard wall against UI mistakes. The logic we implemented in the React client perfectly mirrors these backend rules.
+- **Universal JSON Sandbox:** When a Coordinator clicks "Create User," "Delete Document," or "Share File," the action is intercepted. They insert a JSON payload representing their intended action into the `coordinator_requests` table (e.g., `DOCUMENT_UPLOAD`, `USER_CREATE`).
+- **The Chat Bypass Exception:** As dictated by the master plan, Coordinators can send ticket messages instantly (`document_request_messages` allows Coordinator inserts), but if they try to attach a file, they are blocked by RLS. They must submit a `DOCUMENT_ATTACH` request for Admin approval.
+- **Execution:** The Node.js server executes the payload only after an `ADMINISTRATOR` updates the request status to `APPROVED`.
+
+---
+
+## 6. Notifications, Emails & Immutable Audits (`05_notifications.sql` & `06_audits.sql`)
+
+### Notifications (The Red Bell)
+
+- **Node Automation:** Insertions are entirely restricted to the `SYSTEM` role. When business logic executes in the Node server, the server writes the notification with `is_emailed = FALSE`, triggers Nodemailer, and upon success, flags it `TRUE`.
+- **Anti-Spam (`vw_notifications`):** Because the recursive folder cascade could generate 50 simultaneous alerts, the UI relies on a `GROUP BY` View to aggregate identical events (e.g., "Director published 50 items").
+
+### Audits (The Immutable Ledger)
+
+- **True Immutability:** There are zero `UPDATE` or `DELETE` policies on the `audit_logs` table. History cannot be altered.
+- **Contextual Narratives:** Uses a `data JSONB` column to store rich JSON payloads summarizing the exact nature of the event, preventing context loss during Maker-Checker approvals.
+
+---
+
+## 7. Summary of Hard-Enforced Database Protections
+
+1. **Officers approving a Published Document:** Blocked by `documents_update_access` (requires `status IN ('PENDING_APPROVAL', 'APPROVED')`).
+2. **Members viewing Drafts:** Blocked by `documents_select_access` (requires `status = 'PUBLISHED'`).
+3. **Coordinators altering the pipeline directly:** Blocked by omission in `documents_insert_access`, `document_shares_insert_access`, and `document_request_attachments_insert_access` (forcing them to the Maker-Checker queue).
+4. **Directors sharing outside their department:** Blocked by `document_shares_insert_access` (requires `department_id = get_user_current_department_id()`).
+5. **Orphaned User Settings:** Blocked by `trigger_initialize_user_data` (guarantees credentials and settings exist for every user).
+6. **Attachment Conflict:** Blocked by structurally splitting `document_shares` and `document_request_attachments` into dedicated tables.

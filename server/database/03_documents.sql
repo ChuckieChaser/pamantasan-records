@@ -9,7 +9,7 @@ CREATE EXTENSION IF NOT EXISTS vector;
 -- --- System Domains ---
 -- REFACTORED: Status now belongs to the share, tracking the pipeline per department.
 CREATE DOMAIN system_document_share_status AS VARCHAR
-    CHECK (VALUE IN ('PENDING_APPROVAL', 'APPROVED', 'PUBLISHED'));
+    CHECK (VALUE IN ('PENDING_APPROVAL', 'APPROVED', 'PUBLISHED', 'STASHED'));
 
 CREATE DOMAIN system_document_requests_status AS VARCHAR
     CHECK (VALUE IN ('OPEN', 'RESOLVED', 'REJECTED'));

@@ -69,10 +69,7 @@ const Inspector = ({ document, auditLog, onClose }) => {
     // --- Modal States ---
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isRevertModalOpen, setIsRevertModalOpen] = useState(false);
-    const [isArchiveModalOpen, setIsArchiveModalOpen] = useState(false);
     const [isApproveModalOpen, setIsApproveModalOpen] = useState(false);
-    const [isUnarchiveModalOpen, setIsUnarchiveModalOpen] = useState(false);
-    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
     // --- Edit State ---
     const [editName, setEditName] = useState('');
@@ -313,6 +310,9 @@ const Inspector = ({ document, auditLog, onClose }) => {
             } else if (destructiveAction === 'REJECT') {
                 const share = docShares.find(s => s.department_id === user?.department_id);
                 if (share) await deleteShare(share.id);
+            } else if (destructiveAction === 'STASH') {
+                const share = docShares.find(s => s.department_id === user?.department_id);
+                if (share) await updateShare(share.id, { status: DOCUMENT_SHARE_STATUS.STASHED });
             } else if (destructiveAction === 'UNAPPROVE') {
                 const share = docShares.find(s => s.department_id === user?.department_id);
                 if (share) await updateShare(share.id, { status: DOCUMENT_SHARE_STATUS.PENDING_APPROVAL });
@@ -328,8 +328,6 @@ const Inspector = ({ document, auditLog, onClose }) => {
             }
             
             setDestructiveAction(null);
-            setIsArchiveModalOpen(false);
-            setIsUnarchiveModalOpen(false);
         } catch (error) {
             console.error('Failed to perform action', error);
         }
@@ -483,7 +481,7 @@ const Inspector = ({ document, auditLog, onClose }) => {
                     if (status === DOCUMENT_SHARE_STATUS.APPROVED) {
                         primaryDestructiveActions.push(
                             <PrimaryButton key="publish" size="small" icon={UploadCloud} className="flex-1 justify-center" onClick={handlePublishOpen}>Publish</PrimaryButton>,
-                            <DestructiveButton key="reject" size="small" icon={XCircle} className="flex-1 justify-center" onClick={() => setDestructiveAction('REJECT')}>Reject</DestructiveButton>
+                            <DestructiveButton key="stash" size="small" icon={Archive} className="flex-1 justify-center" onClick={() => setDestructiveAction('STASH')}>Stash</DestructiveButton>
                         );
                     } else if (status === DOCUMENT_SHARE_STATUS.PUBLISHED) {
                         primaryDestructiveActions.push(
@@ -1081,16 +1079,6 @@ const Inspector = ({ document, auditLog, onClose }) => {
                         description={`Are you sure you want to approve ${document?.name}? This will forward the document to the Director for publication.`}
                         confirmText="Confirm Approval"
                         onConfirm={handleApproveSubmit}
-                        isDestructive={false}
-                    />
-
-                    <ConfirmActionModal
-                        isOpen={isUnarchiveModalOpen}
-                        onClose={() => setIsUnarchiveModalOpen(false)}
-                        title="Confirm Unarchive"
-                        description={`Are you sure you want to unarchive ${document?.name}? It will be restored to its original uploaded state.`}
-                        confirmText="Confirm Unarchive"
-                        onConfirm={() => updateDocument(document.id, { status: 'UPLOADED' })}
                         isDestructive={false}
                     />
 

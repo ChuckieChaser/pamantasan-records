@@ -86,7 +86,7 @@ export default function DocumentBrowser({ title, description, documents, documen
             clickTimeoutRef.current = setTimeout(() => {
                 if (onDocumentClick) onDocumentClick(id);
                 clickTimeoutRef.current = null;
-            }, 250);
+            }, 100);
         }
     };
 

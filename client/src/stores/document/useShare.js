@@ -32,28 +32,22 @@ export const useDocumentShare = create((set, get) => ({
     create: action(set, async (data) => {
         const createdDocumentShare = await documentSharesService.create(data);
 
-        const documentShares = get().documentShares;
-        const newDocumentShares = [...documentShares, createdDocumentShare];
+        await get().getAll();
 
-        set({ documentShares: newDocumentShares });
         return createdDocumentShare;
     }),
     update: action(set, async (id, data) => {
         const updatedDocumentShare = await documentSharesService.update(id, data);
 
-        const documentShares = get().documentShares;
-        const newDocumentShares = documentShares.map((nds) => (nds.id === id ? updatedDocumentShare : nds));
+        await get().getAll();
 
-        set({ documentShares: newDocumentShares });
         return updatedDocumentShare;
     }),
     delete: action(set, async (id) => {
         await documentSharesService.delete(id);
 
-        const documentShares = get().documentShares;
-        const newDocumentShares = documentShares.filter((nds) => nds.id !== id);
+        await get().getAll();
 
-        set({ documentShares: newDocumentShares });
         return id;
     }),
 }));

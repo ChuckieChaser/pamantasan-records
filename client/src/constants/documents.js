@@ -2,6 +2,7 @@ export const DOCUMENT_SHARE_STATUS = Object.freeze({
     PENDING_APPROVAL: 'PENDING_APPROVAL',
     APPROVED: 'APPROVED',
     PUBLISHED: 'PUBLISHED',
+    STASHED: 'STASHED',
 });
 
 export const DOCUMENT_REQUESTS_STATUS = Object.freeze({

@@ -161,30 +161,41 @@ router.patch('/shares/:id', async (req, res) => {
     const client = await pool.connect();
     try {
         await withRLS(client, getRLSContext(req), async (c) => {
+            const shareRes = await c.query('SELECT document_id, department_id, recipient_id, sharer_id, id FROM document_shares WHERE id = $1', [req.params.id]);
+            if (shareRes.rows.length === 0) return res.status(404).json({ error: 'Share not found' });
+            
+            const share = shareRes.rows[0];
+            const userId = getRLSContext(req).userId;
+            const userRole = getRLSContext(req).role;
+
             const updateParts = ['status = $1'];
             const params = [status];
             if (recipient_id !== undefined) {
                 updateParts.push(`recipient_id = $${params.length + 1}`);
                 params.push(recipient_id);
             }
-            params.push(req.params.id);
 
-            const result = await c.query(
-                `UPDATE document_shares SET ${updateParts.join(', ')} WHERE id = $${params.length} RETURNING *`,
-                params
-            );
-            if (result.rows.length === 0) return res.status(404).json({ error: 'Share not found' });
-
-            const share = result.rows[0];
-            const userId = getRLSContext(req).userId;
-            const userRole = getRLSContext(req).role;
+            // Execute recursive CTE update
+            const result = await c.query(`
+                WITH RECURSIVE DocumentTree AS (
+                    SELECT id FROM documents WHERE id = $${params.length + 1}
+                    UNION ALL
+                    SELECT d.id FROM documents d INNER JOIN DocumentTree dt ON d.parent_id = dt.id
+                )
+                UPDATE document_shares 
+                SET ${updateParts.join(', ')}
+                WHERE document_id IN (SELECT id FROM DocumentTree)
+                AND (department_id = $${params.length + 2} OR (department_id IS NULL AND $${params.length + 2} IS NULL))
+                AND (recipient_id = $${params.length + 3} OR (recipient_id IS NULL AND $${params.length + 3} IS NULL))
+                RETURNING *
+            `, [...params, share.document_id, share.department_id, share.recipient_id]);
 
             // 1. Cross-update document_versions for Approvals/Publishing
-            if (['APPROVED', 'PUBLISHED', 'REJECTED'].includes(status)) {
+            // Ensure STASHED is NOT setting any specific updateField, and we don't set it for REJECTED either if we're not supposed to.
+            if (['APPROVED', 'PUBLISHED'].includes(status)) {
                 let updateField = '';
                 if (status === 'APPROVED') updateField = 'approver_id';
                 if (status === 'PUBLISHED') updateField = 'publisher_id';
-                if (status === 'REJECTED') updateField = 'rejecter_id';
 
                 await c.query(
                     `UPDATE document_versions
@@ -192,6 +203,15 @@ router.patch('/shares/:id', async (req, res) => {
                      WHERE document_id = $2
                      AND version = (SELECT MAX(version) FROM document_versions WHERE document_id = $2)`,
                     [userId, share.document_id]
+                );
+            } else if (status === 'PENDING_APPROVAL') {
+                // If unapproving, we should clear the approver_id!
+                await c.query(
+                    `UPDATE document_versions
+                     SET approver_id = NULL
+                     WHERE document_id = $1
+                     AND version = (SELECT MAX(version) FROM document_versions WHERE document_id = $1)`,
+                    [share.document_id]
                 );
             }
 
@@ -213,7 +233,9 @@ router.patch('/shares/:id', async (req, res) => {
                 action: status
             });
 
-            res.json(share);
+            // Find the returning row for the parent
+            const returnedParentShare = result.rows.find(r => r.id === share.id) || share;
+            res.json(returnedParentShare);
         });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -230,7 +252,7 @@ router.delete('/shares/:id', async (req, res) => {
             // First get the target share to know what we are deleting
             const shareRes = await c.query('SELECT document_id, department_id, recipient_id FROM document_shares WHERE id = $1', [req.params.id]);
             if (shareRes.rows.length === 0) return res.status(404).json({ error: 'Share not found' });
-            
+
             const share = shareRes.rows[0];
 
             // Use a recursive CTE to find the document and all its descendants
@@ -616,7 +638,7 @@ router.get('/:id/view', async (req, res) => {
             if (!fs.existsSync(physicalPath)) return res.status(404).json({ error: 'Physical file not found' });
 
             res.contentType(verResult.rows[0].mime_type || 'application/octet-stream');
-            
+
             const fileStream = fs.createReadStream(physicalPath);
             fileStream.on('error', () => {
                 if (!res.headersSent) res.status(500).json({ error: 'Error streaming file' });

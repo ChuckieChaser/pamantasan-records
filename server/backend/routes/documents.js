@@ -191,28 +191,32 @@ router.patch('/shares/:id', async (req, res) => {
             `, [...params, share.document_id, share.department_id, share.recipient_id]);
 
             // 1. Cross-update document_versions for Approvals/Publishing
-            // Ensure STASHED is NOT setting any specific updateField, and we don't set it for REJECTED either if we're not supposed to.
-            if (['APPROVED', 'PUBLISHED'].includes(status)) {
-                let updateField = '';
-                if (status === 'APPROVED') updateField = 'approver_id';
-                if (status === 'PUBLISHED') updateField = 'publisher_id';
-
-                await c.query(
-                    `UPDATE document_versions
-                     SET ${updateField} = $1
-                     WHERE document_id = $2
-                     AND version = (SELECT MAX(version) FROM document_versions WHERE document_id = $2)`,
-                    [userId, share.document_id]
-                );
-            } else if (status === 'PENDING_APPROVAL') {
-                // If unapproving, we should clear the approver_id!
-                await c.query(
-                    `UPDATE document_versions
-                     SET approver_id = NULL
-                     WHERE document_id = $1
-                     AND version = (SELECT MAX(version) FROM document_versions WHERE document_id = $1)`,
-                    [share.document_id]
-                );
+            // Use a nested try-catch so that a failure here does NOT abort the outer transaction.
+            if (['APPROVED', 'PUBLISHED', 'PENDING_APPROVAL'].includes(status)) {
+                try {
+                    if (['APPROVED', 'PUBLISHED'].includes(status)) {
+                        const updateField = status === 'APPROVED' ? 'approver_id' : 'publisher_id';
+                        await c.query(
+                            `UPDATE document_versions
+                             SET ${updateField} = $1
+                             WHERE document_id = $2
+                             AND version = (SELECT MAX(version) FROM document_versions WHERE document_id = $2)`,
+                            [userId, share.document_id]
+                        );
+                    } else if (status === 'PENDING_APPROVAL') {
+                        // Unapproving — clear the approver
+                        await c.query(
+                            `UPDATE document_versions
+                             SET approver_id = NULL
+                             WHERE document_id = $1
+                             AND version = (SELECT MAX(version) FROM document_versions WHERE document_id = $1)`,
+                            [share.document_id]
+                        );
+                    }
+                } catch (versionErr) {
+                    // Non-fatal: log but don't abort the share status update
+                    console.warn('Could not cross-update document_versions:', versionErr.message);
+                }
             }
 
             // 2. Audit Log
@@ -670,16 +674,23 @@ router.get('/:id/view', async (req, res) => {
 // GET /api/documents/:id/download-zip
 router.get('/:id/download-zip', async (req, res) => {
     const client = await pool.connect();
+    let folderName = 'folder';
+    let fileRows = [];
+
     try {
-        // Check if document exists and is a folder (WITHOUT withRLS to avoid potential conflicts on large queries)
+        // Phase 1: Collect file data inside RLS (no streaming here)
         await withRLS(client, getRLSContext(req), async (c) => {
             const folderResult = await c.query('SELECT name, is_folder FROM documents WHERE id = $1', [req.params.id]);
-            if (folderResult.rows.length === 0) return res.status(404).json({ error: 'Folder not found' });
-            if (!folderResult.rows[0].is_folder) return res.status(400).json({ error: 'Not a folder' });
+            if (folderResult.rows.length === 0) {
+                res.status(404).json({ error: 'Folder not found' });
+                return;
+            }
+            if (!folderResult.rows[0].is_folder) {
+                res.status(400).json({ error: 'Not a folder' });
+                return;
+            }
+            folderName = folderResult.rows[0].name;
 
-            const folderName = folderResult.rows[0].name;
-
-            // Recursive CTE to get all files and their logical relative paths
             const result = await c.query(`
                 WITH RECURSIVE DocumentTree AS (
                     SELECT id, parent_id, name, is_folder, CAST(name AS TEXT) AS relative_path
@@ -696,24 +707,30 @@ router.get('/:id/download-zip', async (req, res) => {
                 FROM DocumentTree dt
                 WHERE dt.is_folder = false;
             `, [req.params.id]);
+            fileRows = result.rows;
+        });
 
-            res.attachment(`${folderName}.zip`);
+        // If the response was already sent (error case), stop here
+        if (res.headersSent) return;
 
-            const archive = archiver('zip', { zlib: { level: 9 } });
-            archive.on('error', (err) => { throw err; });
-            archive.pipe(res);
+        // Phase 2: Stream archive OUTSIDE withRLS (RLS transaction is already closed)
+        res.attachment(`${folderName}.zip`);
+        const archive = archiver('zip', { zlib: { level: 9 } });
+        archive.on('error', (err) => {
+            if (!res.headersSent) res.status(500).json({ error: err.message });
+        });
+        archive.pipe(res);
 
-            for (const file of result.rows) {
-                if (file.physical_path) {
-                    const fullPath = path.join(DOCUMENTS_PATH, file.physical_path);
-                    if (fs.existsSync(fullPath)) {
-                        archive.file(fullPath, { name: file.relative_path });
-                    }
+        for (const file of fileRows) {
+            if (file.physical_path) {
+                const fullPath = path.join(DOCUMENTS_PATH, file.physical_path);
+                if (fs.existsSync(fullPath)) {
+                    archive.file(fullPath, { name: file.relative_path });
                 }
             }
+        }
 
-            await archive.finalize();
-        });
+        await archive.finalize();
     } catch (err) {
         if (!res.headersSent) {
             res.status(500).json({ error: err.message });

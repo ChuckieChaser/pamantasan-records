@@ -82,8 +82,7 @@ export default function Documents() {
         setIsUploadOpen(true);
     };
 
-    // Allow upload if Admin, Coordinator, or Officer (depending on requirements, usually these roles can upload)
-    const canAddDocuments = [USERS_ROLE.ADMINISTRATOR, USERS_ROLE.COORDINATOR, USERS_ROLE.OFFICER].includes(user?.role);
+    const canAddDocuments = [USERS_ROLE.ADMINISTRATOR, USERS_ROLE.COORDINATOR].includes(user?.role);
 
     return (
         <div className="flex flex-col gap-10">

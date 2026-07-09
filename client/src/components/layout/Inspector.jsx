@@ -43,7 +43,7 @@ const Inspector = ({ document, auditLog, onClose }) => {
 
     const { user } = useAuthentication();
     const { update: updateDocument, delete: deleteDocument, documents } = useDocument();
-    const { documentVersions, create: createVersion, revert: revertVersion } = useDocumentVersion();
+    const { documentVersions, create: createVersion, revert: revertVersion, getAll: getAllVersions, getByDocumentId: getVersionsByDocId } = useDocumentVersion();
     const { documentShares, create: createShare, update: updateShare, delete: deleteShare } = useDocumentShare();
     const { attachments } = useAttachment();
     const { documentRequests } = useDocumentRequest();
@@ -60,6 +60,13 @@ const Inspector = ({ document, auditLog, onClose }) => {
     }, [users.length, departments.length, getUsers, getDepartments]);
 
 
+    // Re-fetch versions whenever a non-folder document is selected
+    useEffect(() => {
+        if (document?.id && !document.is_folder) {
+            getVersionsByDocId(document.id);
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [document?.id]);
 
     const { openViewer } = useDocumentViewer();
 
@@ -330,6 +337,9 @@ const Inspector = ({ document, auditLog, onClose }) => {
             } else if (destructiveAction === 'STASH') {
                 const share = docShares.find(s => s.department_id === user?.department_id);
                 if (share) await updateShare(share.id, { status: DOCUMENT_SHARE_STATUS.STASHED });
+            } else if (destructiveAction === 'UNSTASH') {
+                const share = docShares.find(s => s.department_id === user?.department_id);
+                if (share) await updateShare(share.id, { status: DOCUMENT_SHARE_STATUS.APPROVED });
             } else if (destructiveAction === 'UNAPPROVE') {
                 const share = docShares.find(s => s.department_id === user?.department_id);
                 if (share) await updateShare(share.id, { status: DOCUMENT_SHARE_STATUS.PENDING_APPROVAL });
@@ -505,6 +515,10 @@ const Inspector = ({ document, auditLog, onClose }) => {
                         primaryDestructiveActions.push(
                             <PrimaryButton key="publish" size="small" icon={UploadCloud} className="flex-1 justify-center" onClick={handlePublishOpen}>Publish</PrimaryButton>,
                             <DestructiveButton key="stash" size="small" icon={Archive} className="flex-1 justify-center" onClick={() => setDestructiveAction('STASH')}>Stash</DestructiveButton>
+                        );
+                    } else if (status === DOCUMENT_SHARE_STATUS.STASHED) {
+                        primaryDestructiveActions.push(
+                            <PrimaryButton key="unstash" size="small" icon={RotateCcw} className="flex-1 justify-center" onClick={() => setDestructiveAction('UNSTASH')}>Unstash</PrimaryButton>
                         );
                     } else if (status === DOCUMENT_SHARE_STATUS.PUBLISHED) {
                         primaryDestructiveActions.push(

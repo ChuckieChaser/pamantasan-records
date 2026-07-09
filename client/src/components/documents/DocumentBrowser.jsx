@@ -9,11 +9,18 @@ import { FilterMenu } from '../ui/Menus';
 import DocumentCard from './DocumentCard';
 import { DOCUMENT_SHARE_STATUS } from '../../constants';
 import { useDocumentShare, useAuthentication, useUser, useDocument } from '../../stores';
-import { formatBytes } from '../utilities';
-
 // ==============================================================================
 // SECTION 1: UTILITIES
 // ==============================================================================
+
+const formatBytes = (bytes) => {
+    const b = Number(bytes);
+    if (isNaN(b) || b === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(b) / Math.log(k));
+    return parseFloat((b / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
 
 const SORT_STATES = Object.freeze(['DEFAULT', 'ASC', 'DESC']);
 const STATUS_FILTER_STATES = Object.freeze(['DEFAULT', 'UPLOADED', ...Object.values(DOCUMENT_SHARE_STATUS)]);

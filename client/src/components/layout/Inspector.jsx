@@ -42,8 +42,8 @@ const Inspector = ({ document, auditLog, onClose }) => {
     const navigate = useNavigate();
 
     const { user } = useAuthentication();
-    const { update: updateDocument, delete: deleteDocument } = useDocument();
-    const { documentVersions, create: createVersion, revert: revertVersion, getByDocumentId: getDocumentVersions } = useDocumentVersion();
+    const { update: updateDocument, delete: deleteDocument, documents } = useDocument();
+    const { documentVersions, create: createVersion, revert: revertVersion } = useDocumentVersion();
     const { documentShares, create: createShare, update: updateShare, delete: deleteShare } = useDocumentShare();
     const { attachments } = useAttachment();
     const { documentRequests } = useDocumentRequest();
@@ -59,11 +59,7 @@ const Inspector = ({ document, auditLog, onClose }) => {
         if (departments.length === 0) getDepartments();
     }, [users.length, departments.length, getUsers, getDepartments]);
 
-    useEffect(() => {
-        if (document?.id && !document.is_folder) {
-            getDocumentVersions(document.id);
-        }
-    }, [document?.id, document?.is_folder, getDocumentVersions]);
+
 
     const { openViewer } = useDocumentViewer();
 
@@ -88,6 +84,23 @@ const Inspector = ({ document, auditLog, onClose }) => {
     const [publishComment, setPublishComment] = useState('');
     const [userSearch, setUserSearch] = useState('');
     const [destructiveAction, setDestructiveAction] = useState(null);
+
+    const getFolderSize = (folderId) => {
+        let size = 0;
+        const children = documents.filter(d => d.parent_id === folderId);
+        for (const child of children) {
+            if (child.is_folder) {
+                size += getFolderSize(child.id);
+            } else {
+                const docVersionsList = documentVersions.filter(v => v.document_id === child.id);
+                const latestVersion = docVersionsList.length > 0 ? docVersionsList.reduce((max, v) => v.version > max.version ? v : max, docVersionsList[0]) : null;
+                if (latestVersion && latestVersion.size_bytes) {
+                    size += Number(latestVersion.size_bytes);
+                }
+            }
+        }
+        return size;
+    };
 
     // --- Derived data (early) ---
     const eligibleUsers = useMemo(() => {

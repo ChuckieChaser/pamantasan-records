@@ -10,6 +10,7 @@ export const documentsApi = {
     delete:           (id)           => apiClient.delete(`/documents/${id}`).then(r => r.data),
 
     // --- Versions ---
+    getAllVersions:   ()             => apiClient.get('/documents/versions/all').then(r => r.data),
     getVersions:      (docId)        => apiClient.get(`/documents/${docId}/versions`).then(r => r.data),
     upload:           (docId, formData) =>
         apiClient.post(`/documents/${docId}/upload`, formData, {

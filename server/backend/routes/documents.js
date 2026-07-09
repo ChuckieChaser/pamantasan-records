@@ -516,6 +516,21 @@ router.get('/attachments/all', async (req, res) => {
     }
 });
 
+// GET /api/documents/versions/all — must be before /:id routes
+router.get('/versions/all', async (req, res) => {
+    const client = await pool.connect();
+    try {
+        await withRLS(client, getRLSContext(req), async (c) => {
+            const result = await c.query('SELECT * FROM document_versions ORDER BY version DESC');
+            res.json(result.rows);
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
 // GET /api/documents/shares/all — must be before /:id routes
 router.get('/shares/all', async (req, res) => {
     const client = await pool.connect();

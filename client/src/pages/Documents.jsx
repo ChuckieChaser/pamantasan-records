@@ -126,6 +126,7 @@ export default function Documents() {
                     onClose={() => {
                         setIsUploadOpen(false);
                         getDocuments(); // refresh after upload
+                        getDocumentVersions();
                     }}
                     currentFolderId={currentFolderId}
                 />

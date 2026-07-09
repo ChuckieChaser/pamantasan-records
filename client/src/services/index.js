@@ -35,7 +35,7 @@ export const documentsService               = {
     delete:          (id)          => documentsApi.delete(id),
 };
 export const documentVersionsService        = {
-    getAll:          ()            => documentsApi.getAll().then(() => []), // Fetched per document
+    getAll:          ()            => documentsApi.getAllVersions(),
     getByDocumentId: (docId)       => documentsApi.getVersions(docId),
     create:          (docId, form) => documentsApi.upload(docId, form),
     update:          ()            => Promise.resolve(), // Versions are immutable

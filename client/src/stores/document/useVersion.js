@@ -17,10 +17,13 @@ export const useDocumentVersion = create((set, get) => ({
         return documentVersions;
     }),
     getByDocumentId: action(set, async (documentId) => {
-        const documentVersions = await documentVersionsService.getByDocumentId(documentId).catch(() => []);
+        const fetchedVersions = await documentVersionsService.getByDocumentId(documentId).catch(() => []);
 
-        set({ documentVersions: documentVersions });
-        return documentVersions;
+        set(state => {
+            const others = state.documentVersions.filter(v => v.document_id !== documentId);
+            return { documentVersions: [...others, ...fetchedVersions] };
+        });
+        return fetchedVersions;
     }),
 
     // --- Actions ---

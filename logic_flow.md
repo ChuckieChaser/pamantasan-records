@@ -50,7 +50,7 @@ List of statuses for users
 
 - Only Administrator and Coordinator may upload and create a document, be it a folder or a file. Once they upload or create a document, its status is flagged as `UPLOADED`. This states that the document is, well, uploaded and not shared.
 
-- It then get puts into the server storage (a dedicated directory) with its filename obfuscated with its corresponding uuid. This will also be diagnose by the locally installed AI by summarizing the content of it, the summarized content will be put into the summary column of the database. It also get its content extracted as embedding for the semantic search.
+- It then get puts into the server storage (a dedicated directory) with its filename obfuscated with its corresponding uuid, this will use the document_versions uuid, not the document uuid to ensure that the maching uuid is correspondence to the versions itself. I mean, having the first file obfuscate by document uuid while the rest of the file within the version uses the document_versions uuid is quite inconsistent. This will also be diagnose by the locally installed AI by summarizing the content of it, the summarized content will be put into the summary column of the database. It also get its content extracted as embedding for the semantic search.
 
 - Alongside the insertion of documents, this will also create an insert to the document_versions. Basically, whenever a file is uploaded, it always create its first version of that detail. This also will be run by ai to look for any changes and put it in the changes_summary column of the version. Folders do not get versions.
 

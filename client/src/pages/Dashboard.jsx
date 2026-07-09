@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from 'react';
+import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { FileText, FileClock, XCircle, Clock, Activity } from 'lucide-react';
 
 import { useAuthentication, useDocument, useCoordinatorRequest, useDocumentRequest, useDocumentVersion, useDocumentShare, useAttachment, useAuditLog, useUser } from '../stores';
@@ -13,6 +14,11 @@ import DocumentBrowser from '../components/documents/DocumentBrowser';
 // ==============================================================================
 
 export default function Dashboard() {
+    const [searchParams] = useSearchParams();
+    const navigate = useNavigate();
+    const location = useLocation();
+    const currentFolderId = searchParams.get('folder');
+
     const { user } = useAuthentication();
     const { documents, activeDocument, getAll: getDocuments, selectActiveDocument, deselectActiveDocument } = useDocument();
     const { coordinatorRequests, getAll: getCoordinatorRequests } = useCoordinatorRequest();
@@ -87,31 +93,41 @@ export default function Dashboard() {
     // SECTION 4: DOCUMENT SETS (folders excluded, files only for now)
     // ==============================================================================
 
-    // Prep for folder navigation: currentFolderId logic is in place for future expansion
+    // Helper to filter documents based on folder navigation logic
+    const filterByFolder = (docs) => {
+        if (currentFolderId) {
+            return docs.filter(d => d.parent_id === currentFolderId);
+        }
+        // At root: show documents that either have no parent, or their parent is not in this specific list
+        return docs.filter(d => !d.parent_id || !docs.some(p => p.id === d.parent_id));
+    };
+
     const pendingApprovalDocs = useMemo(() => {
-        return visibleDocuments
-            .filter(d => documentShares.some(s => s.document_id === d.id && s.status === DOCUMENT_SHARE_STATUS.PENDING_APPROVAL))
-            .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
-    }, [visibleDocuments, documentShares]);
+        if (currentFolderId) return filterByFolder(visibleDocuments).sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+        const docs = visibleDocuments.filter(d => documentShares.some(s => s.document_id === d.id && s.status === DOCUMENT_SHARE_STATUS.PENDING_APPROVAL));
+        return filterByFolder(docs).sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+    }, [visibleDocuments, documentShares, currentFolderId]);
 
     const pendingPublicationDocs = useMemo(() => {
-        return visibleDocuments
-            .filter(d => documentShares.some(s => s.document_id === d.id && s.status === DOCUMENT_SHARE_STATUS.APPROVED))
-            .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
-    }, [visibleDocuments, documentShares]);
+        if (currentFolderId) return filterByFolder(visibleDocuments).sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+        const docs = visibleDocuments.filter(d => documentShares.some(s => s.document_id === d.id && s.status === DOCUMENT_SHARE_STATUS.APPROVED));
+        return filterByFolder(docs).sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+    }, [visibleDocuments, documentShares, currentFolderId]);
 
     const sharedDocsList = useMemo(() => {
+        if (currentFolderId) return filterByFolder(visibleDocuments).sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
         const sharedDocs = documentShares
             .map(ds => visibleDocuments.find(d => d.id === ds.document_id))
             .filter(Boolean);
-        return Array.from(new Set(sharedDocs.map(d => d.id))).map(id => sharedDocs.find(d => d.id === id));
-    }, [documentShares, visibleDocuments]);
+        const uniqueDocs = Array.from(new Set(sharedDocs.map(d => d.id))).map(id => sharedDocs.find(d => d.id === id));
+        return filterByFolder(uniqueDocs).sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+    }, [documentShares, visibleDocuments, currentFolderId]);
 
     const publishedDocs = useMemo(() => {
-        return visibleDocuments
-            .filter(d => documentShares.some(s => s.document_id === d.id && s.status === DOCUMENT_SHARE_STATUS.PUBLISHED))
-            .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
-    }, [visibleDocuments, documentShares]);
+        if (currentFolderId) return filterByFolder(visibleDocuments).sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+        const docs = visibleDocuments.filter(d => documentShares.some(s => s.document_id === d.id && s.status === DOCUMENT_SHARE_STATUS.PUBLISHED));
+        return filterByFolder(docs).sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+    }, [visibleDocuments, documentShares, currentFolderId]);
 
     // --- Handlers ---
     const handleDocumentClick = (id) => {
@@ -120,6 +136,16 @@ export default function Dashboard() {
         } else {
             if (activeAuditLog) deselectActiveAuditLog();
             selectActiveDocument(id);
+        }
+    };
+
+    const handleDocumentDoubleClick = (id) => {
+        const doc = documents.find(d => d.id === id);
+        if (doc?.is_folder) {
+            navigate(`/dashboard?folder=${doc.id}`);
+        } else {
+            // View file natively in a new tab
+            window.open(`/api/documents/${id}/view`, '_blank');
         }
     };
 
@@ -172,48 +198,52 @@ export default function Dashboard() {
             {/* --- Pending Documents (Officers) --- */}
             {user?.role === USERS_ROLE.OFFICER && (
                 <DocumentBrowser
-                    title="Pending Approval"
+                    title={currentFolderId ? "Pending Approval (Folder View)" : "Pending Approval"}
                     description="Documents awaiting your review and approval."
                     documents={pendingApprovalDocs}
                     documentVersions={documentVersions}
                     activeDocumentId={activeDocument?.id}
                     onDocumentClick={handleDocumentClick}
+                    onDocumentDoubleClick={handleDocumentDoubleClick}
                 />
             )}
 
             {/* --- Pending Documents (Directors) --- */}
             {user?.role === USERS_ROLE.DIRECTOR && (
                 <DocumentBrowser
-                    title="Pending Publication"
+                    title={currentFolderId ? "Pending Publication (Folder View)" : "Pending Publication"}
                     description="Documents awaiting your final review and publication."
                     documents={pendingPublicationDocs}
                     documentVersions={documentVersions}
                     activeDocumentId={activeDocument?.id}
                     onDocumentClick={handleDocumentClick}
+                    onDocumentDoubleClick={handleDocumentDoubleClick}
                 />
             )}
 
             {/* --- Published Documents (Members) --- */}
             {user?.role === USERS_ROLE.MEMBER && (
                 <DocumentBrowser
-                    title="Published Documents"
+                    title={currentFolderId ? "Published Documents (Folder View)" : "Published Documents"}
                     description="Official documents published and available for your reference."
                     documents={publishedDocs}
                     documentVersions={documentVersions}
                     activeDocumentId={activeDocument?.id}
                     onDocumentClick={handleDocumentClick}
+                    onDocumentDoubleClick={handleDocumentDoubleClick}
                 />
             )}
 
             {/* --- Shared Documents (Admin/Coordinator) --- */}
             {(user?.role === USERS_ROLE.ADMINISTRATOR || user?.role === USERS_ROLE.COORDINATOR) && (
                 <DocumentBrowser
-                    title="Shared Documents"
+                    title={currentFolderId ? "Shared Documents (Folder View)" : "Shared Documents"}
                     description="Documents manually shared with departments or specific users."
                     documents={sharedDocsList}
                     documentVersions={documentVersions}
                     activeDocumentId={activeDocument?.id}
                     onDocumentClick={handleDocumentClick}
+                    onDocumentDoubleClick={handleDocumentDoubleClick}
                 />
             )}
 

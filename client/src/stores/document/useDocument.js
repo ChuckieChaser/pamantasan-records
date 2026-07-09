@@ -68,14 +68,13 @@ export const useDocument = create((set, get) => ({
     delete: action(set, async (id) => {
         await documentsService.delete(id);
 
-        const documents = get().documents;
-        const newDocuments = documents.filter((nd) => nd.id !== id);
+        // Resynchronize the entire tree from the backend to ensure cascading deletes (like archived children) are removed from the store
+        await get().getAll();
 
         const activeDocument = get().activeDocument;
         const newActiveDocument = activeDocument?.id === id ? null : activeDocument;
 
         set({
-            documents: newDocuments,
             activeDocument: newActiveDocument,
         });
 

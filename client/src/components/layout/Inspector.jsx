@@ -42,7 +42,7 @@ const Inspector = ({ document, auditLog, onClose }) => {
 
     const { user } = useAuthentication();
     const { update: updateDocument, delete: deleteDocument } = useDocument();
-    const { documentVersions, create: createVersion, revert: revertVersion } = useDocumentVersion();
+    const { documentVersions, create: createVersion, revert: revertVersion, getByDocumentId: getDocumentVersions } = useDocumentVersion();
     const { documentShares, create: createShare, update: updateShare, delete: deleteShare } = useDocumentShare();
     const { attachments } = useAttachment();
     const { documentRequests } = useDocumentRequest();
@@ -58,6 +58,12 @@ const Inspector = ({ document, auditLog, onClose }) => {
         if (departments.length === 0) getDepartments();
     }, [users.length, departments.length, getUsers, getDepartments]);
 
+    useEffect(() => {
+        if (document?.id && !document.is_folder) {
+            getDocumentVersions(document.id);
+        }
+    }, [document?.id, document?.is_folder, getDocumentVersions]);
+
     const { openViewer } = useDocumentViewer();
 
     // --- Modal States ---
@@ -71,6 +77,7 @@ const Inspector = ({ document, auditLog, onClose }) => {
     // --- Edit State ---
     const [editName, setEditName] = useState('');
     const [editComment, setEditComment] = useState('');
+    const [editError, setEditError] = useState('');
 
     // --- Share/Publish State ---
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -102,6 +109,18 @@ const Inspector = ({ document, auditLog, onClose }) => {
             } else {
                 blob = await documentsApi.download(document.id);
                 filename = document.name;
+                
+                // Ensure extension is present so browsers don't fallback to .zip
+                const latestVersion = documentVersions.find(v => v.document_id === document.id);
+                if (latestVersion && latestVersion.path) {
+                    const parts = latestVersion.path.split('.');
+                    if (parts.length > 1) {
+                        const ext = '.' + parts.pop();
+                        if (!filename.toLowerCase().endsWith(ext.toLowerCase())) {
+                            filename += ext;
+                        }
+                    }
+                }
             }
 
             const url = window.URL.createObjectURL(blob);
@@ -142,13 +161,30 @@ const Inspector = ({ document, auditLog, onClose }) => {
     const handleEditOpen = () => {
         setEditName(document.name);
         setEditComment(document.comment || '');
+        setEditError('');
         setIsEditModalOpen(true);
     };
 
     const handleEditSubmit = async () => {
         if (!document) return;
+        setEditError('');
+
+        // Name conflict validation
+        const { documents } = useDocument.getState();
+        const conflict = documents.some(d => 
+            d.id !== document.id &&
+            !d.is_archived &&
+            d.parent_id === document.parent_id &&
+            d.name.toLowerCase() === editName.trim().toLowerCase()
+        );
+        
+        if (conflict) {
+            setEditError('A folder or file with this name already exists in this location.');
+            return;
+        }
+
         try {
-            await updateDocument(document.id, { name: editName, comment: editComment || undefined });
+            await updateDocument(document.id, { name: editName.trim(), comment: editComment || undefined });
             setIsEditModalOpen(false);
             setEditName('');
             setEditComment('');
@@ -385,22 +421,32 @@ const Inspector = ({ document, auditLog, onClose }) => {
                         <SecondaryButton key="open" size="small" icon={Eye} className="flex-1 justify-center" onClick={() => {
                             const basePath = location.pathname.startsWith('/archives') ? '/archives' : '/documents';
                             navigate(`${basePath}?folder=${document.id}`);
-                        }}>Open</SecondaryButton>,
-                        <SecondaryButton key="download" size="small" icon={Download} className="flex-1 justify-center" onClick={handleDownload}>Download ZIP</SecondaryButton>
+                        }}>Open</SecondaryButton>
                     );
+                    if (!document.is_archived && status !== 'ARCHIVED') {
+                        secondaryActions.push(
+                            <SecondaryButton key="download" size="small" icon={Download} className="flex-1 justify-center" onClick={handleDownload}>Download</SecondaryButton>
+                        );
+                    }
                 } else {
                     secondaryActions.push(
-                        <SecondaryButton key="view" size="small" icon={Eye} className="flex-1 justify-center" onClick={() => openViewer(document)}>View</SecondaryButton>,
-                        <SecondaryButton key="download" size="small" icon={Download} className="flex-1 justify-center" onClick={handleDownload}>Download</SecondaryButton>
+                        <SecondaryButton key="view" size="small" icon={Eye} className="flex-1 justify-center" onClick={() => openViewer(document)}>View</SecondaryButton>
                     );
+                    if (!document.is_archived && status !== 'ARCHIVED') {
+                        secondaryActions.push(
+                            <SecondaryButton key="download" size="small" icon={Download} className="flex-1 justify-center" onClick={handleDownload}>Download</SecondaryButton>
+                        );
+                    }
                 }
 
                 if (role === USERS_ROLE.ADMINISTRATOR || role === USERS_ROLE.COORDINATOR) {
-                    secondaryActions.push(
-                        <SecondaryButton key="edit" size="small" icon={MessageSquare} className="flex-1 justify-center" onClick={handleEditOpen}>Edit</SecondaryButton>
-                    );
+                    if (!document.is_archived && status !== 'ARCHIVED') {
+                        secondaryActions.push(
+                            <SecondaryButton key="edit" size="small" icon={MessageSquare} className="flex-1 justify-center" onClick={handleEditOpen}>Edit</SecondaryButton>
+                        );
+                    }
 
-                    if (status !== true && status !== 'ATTACHMENT') {
+                    if (status !== true && status !== 'ATTACHMENT' && !document.is_archived && status !== 'ARCHIVED') {
                         if (docShares.length === 0) {
                             primaryDestructiveActions.push(
                                 <PrimaryButton key="share" size="small" icon={Share2} className="flex-1 justify-center" onClick={handleShareOpen}>Share</PrimaryButton>
@@ -890,6 +936,11 @@ const Inspector = ({ document, auditLog, onClose }) => {
                         <div className={`grid ${docShares.length > 0 ? 'grid-cols-2' : 'grid-cols-1'} gap-6 p-6`}>
                             {/* Left Pane: Document Attributes */}
                             <div className={`flex flex-col gap-6 ${docShares.length > 0 ? 'border-r border-border pr-6' : ''}`}>
+                                {editError && (
+                                    <div className="rounded border border-error/50 bg-error/10 p-3 text-sm text-error">
+                                        {editError}
+                                    </div>
+                                )}
                                 <div className="flex flex-col gap-2">
                                     <label className="text-sm font-semibold text-main">Name</label>
                                     <InputField

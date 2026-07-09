@@ -15,13 +15,18 @@ export default function Login() {
     const { login, isLoading, error } = useAuthentication();
 
     const [universityId, setUniversityId] = useState('');
-    const [password, setPassword]         = useState('');
+    const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        await login(universityId.trim(), password);
-        navigate('/dashboard');
+        try {
+            await login(universityId.trim(), password);
+            navigate('/dashboard');
+        } catch (err) {
+            // Error is caught here to prevent unhandled rejection.
+            // The actual error message is handled by the useAuthentication store's state.
+        }
     };
 
     return (

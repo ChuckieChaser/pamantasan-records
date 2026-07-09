@@ -34,7 +34,15 @@ export default function Archives() {
             return [];
         }
         return documents
-            .filter(d => d.is_archived && d.parent_id === currentFolderId)
+            .filter(d => {
+                if (!d.is_archived) return false;
+                if (currentFolderId) return d.parent_id === currentFolderId;
+                
+                // Root view: show if it has no parent, or if parent is not archived
+                if (!d.parent_id) return true;
+                const parent = documents.find(p => p.id === d.parent_id);
+                return !parent || !parent.is_archived;
+            })
             .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
     }, [documents, user, currentFolderId]);
 
@@ -61,7 +69,9 @@ export default function Archives() {
     const handleDocumentDoubleClick = (id) => {
         const doc = documents.find(d => d.id === id);
         if (doc?.is_folder) {
-            navigate(`/archives?folder=${doc.id}`);
+            navigate(`${location.pathname}?folder=${doc.id}`);
+        } else {
+            window.open(`/api/documents/${id}/view`, '_blank');
         }
     };
 

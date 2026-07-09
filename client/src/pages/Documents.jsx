@@ -38,15 +38,6 @@ export default function Documents() {
     }, [getDocuments, getDocumentVersions]);
 
     // --- Derived Data ---
-    const recentDocuments = useMemo(() => {
-        const oneWeekAgo = new Date();
-        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-        
-        return documents
-            .filter(d => !d.is_folder && new Date(d.updated_at) >= oneWeekAgo)
-            .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
-            .slice(0, 5); // top 5
-    }, [documents]);
 
     const currentDocuments = useMemo(() => {
         return documents.filter(d => d.parent_id === currentFolderId);
@@ -97,15 +88,6 @@ export default function Documents() {
                 <p className="mt-1 text-sm text-muted">Browse and manage all documents in the system.</p>
             </div>
 
-            {recentDocuments.length > 0 && !currentFolderId && (
-                <DocumentBrowser
-                    title="Recently Modified"
-                    documents={recentDocuments}
-                    documentVersions={documentVersions}
-                    onDocumentClick={handleDocumentClick}
-                    onDocumentDoubleClick={handleDocumentDoubleClick}
-                />
-            )}
 
             <DocumentBrowser
                 title={currentFolderId ? `Folder: ${currentPathSegments[currentPathSegments.length - 1]}` : "All Documents"}

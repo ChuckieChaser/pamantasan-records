@@ -17,7 +17,7 @@ const readEntry = async (entry, currentPath = '') => {
             dirReader.readEntries(async (entries) => {
                 let results = [{ isFolder: true, name: entry.name, path: currentPath, file: null }];
                 const newPath = currentPath ? `${currentPath}/${entry.name}` : entry.name;
-                
+
                 for (const child of entries) {
                     const childResults = await readEntry(child, newPath);
                     results = results.concat(childResults);
@@ -31,15 +31,14 @@ const readEntry = async (entry, currentPath = '') => {
 
 export default function UploadDocumentsModal({ isOpen, onClose, currentFolderId }) {
     const { user } = useAuthentication();
-    const { create: createDocument } = useDocument();
+    const { create: createDocument, getAll: refreshDocuments, documents } = useDocument();
     const { create: createDocumentVersion } = useDocumentVersion();
-    
+
     const [isDragging, setIsDragging] = useState(false);
     const [uploadQueue, setUploadQueue] = useState([]);
     const [isUploading, setIsUploading] = useState(false);
     const [conflictState, setConflictState] = useState(null); // { item, existingDoc }
-    const { documents } = useDocument();
-    
+
     const fileInputRef = useRef(null);
     const folderMapRef = useRef(new Map());
 
@@ -76,7 +75,7 @@ export default function UploadDocumentsModal({ isOpen, onClose, currentFolderId 
                 }
             }
         }
-        
+
         // initialize queue state
         const initialQueue = allFiles.map((f, index) => ({
             id: index,
@@ -97,13 +96,14 @@ export default function UploadDocumentsModal({ isOpen, onClose, currentFolderId 
             status: 'PENDING'
         }));
         setUploadQueue(prev => [...prev, ...newQueue]);
-        
+
         // Reset file input so same files can be re-selected if needed
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
-    const startUploads = async () => {
-        if (uploadQueue.length === 0) return;
+    const startUploads = async (overrideQueue) => {
+        const queueToProcess = Array.isArray(overrideQueue) ? overrideQueue : uploadQueue;
+        if (queueToProcess.length === 0) return;
         setIsUploading(true);
 
         if (folderMapRef.current.size === 0) {
@@ -111,7 +111,7 @@ export default function UploadDocumentsModal({ isOpen, onClose, currentFolderId 
         }
 
         // Sort queue so folders are created first, top-level down
-        const sortedQueue = [...uploadQueue].sort((a, b) => {
+        const sortedQueue = [...queueToProcess].sort((a, b) => {
             const depthA = (a.path.match(/\//g) || []).length;
             const depthB = (b.path.match(/\//g) || []).length;
             if (depthA !== depthB) return depthA - depthB;
@@ -124,17 +124,18 @@ export default function UploadDocumentsModal({ isOpen, onClose, currentFolderId 
         for (const item of sortedQueue) {
             if (item.status !== 'PENDING') continue;
 
-            const parentId = folderMapRef.current.get(item.path);
+            const isRootItem = !item.path;
+            const parentId = isRootItem ? (currentFolderId || null) : folderMapRef.current.get(item.path);
 
             // Check for conflict (only among non-archived documents)
             if (!item.conflictResolution) {
-                const existingDoc = documents.find(d => 
+                const existingDoc = documents.find(d =>
                     !d.is_archived &&
-                    (d.parent_id === parentId || (!d.parent_id && !parentId)) && 
-                    d.name === item.name && 
+                    (d.parent_id === parentId || (!d.parent_id && !parentId)) &&
+                    d.name === item.name &&
                     d.is_folder === item.isFolder
                 );
-                
+
                 if (existingDoc) {
                     setIsUploading(false);
                     setConflictState({ item, existingDoc });
@@ -148,7 +149,7 @@ export default function UploadDocumentsModal({ isOpen, onClose, currentFolderId 
             }
 
             setUploadQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: 'UPLOADING' } : q));
-            
+
             try {
                 let docId;
                 let finalName = item.name;
@@ -205,10 +206,17 @@ export default function UploadDocumentsModal({ isOpen, onClose, currentFolderId 
                 setUploadQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: 'ERROR' } : q));
             }
         }
-        
+
         setIsUploading(false);
         folderMapRef.current = new Map(); // Reset
-        if (!hasError) {
+
+        // ALWAYS refresh to pick up successful uploads, even if some items errored
+        await refreshDocuments();
+
+        // Check if there are errors
+        const hasFailed = uploadQueue.some(q => q.status === 'ERROR');
+
+        if (!hasFailed) {
             handleClose();
         }
     };
@@ -219,20 +227,23 @@ export default function UploadDocumentsModal({ isOpen, onClose, currentFolderId 
         folderMapRef.current = new Map();
         onClose();
     };
-    
+
     const removePending = (id) => {
         setUploadQueue(prev => prev.map(q => q.id === id ? { ...q, status: 'SKIPPED' } : q));
     };
 
     const handleConflictResolution = (resolution) => {
         if (!conflictState) return;
-        setUploadQueue(prev => prev.map(q => 
-            q.id === conflictState.item.id 
-                ? { ...q, conflictResolution: resolution, existingDocId: conflictState.existingDoc.id } 
+
+        const newQueue = uploadQueue.map(q =>
+            q.id === conflictState.item.id
+                ? { ...q, conflictResolution: resolution, existingDocId: conflictState.existingDoc.id }
                 : q
-        ));
+        );
+
+        setUploadQueue(newQueue);
         setConflictState(null);
-        setTimeout(startUploads, 0); // Resume
+        startUploads(newQueue); // Resume immediately with the new queue
     };
 
     return (
@@ -264,75 +275,74 @@ export default function UploadDocumentsModal({ isOpen, onClose, currentFolderId 
             ) : (
                 <>
                     <div className="flex flex-col flex-1 p-6 gap-6 overflow-hidden">
-                        
-                        {/* Drag and drop zone */}
-                <div
-                    className={`${uploadQueue.length === 0 ? 'flex-1 p-8' : 'shrink-0 p-6'} flex flex-col items-center justify-center border-2 border-dashed rounded-xl transition-colors ${
-                        isDragging ? 'border-accent bg-accent/5' : 'border-border bg-surface-hover hover:border-accent/50'
-                    }`}
-                    onDragOver={handleDragOver}
-                    onDragLeave={handleDragLeave}
-                    onDrop={handleDrop}
-                >
-                    <UploadCloud className={`size-12 mb-4 ${isDragging ? 'text-accent' : 'text-muted'}`} />
-                    <p className="text-sm font-bold text-main mb-1">Drag and drop files or folders here</p>
-                    <p className="text-xs text-muted mb-4 text-center max-w-sm">Folders will be automatically recreated to preserve their hierarchy.</p>
-                    
-                    <input
-                        type="file"
-                        multiple
-                        className="hidden"
-                        ref={fileInputRef}
-                        onChange={handleFileInput}
-                    />
-                    <SecondaryButton onClick={() => fileInputRef.current?.click()}>
-                        Browse Files
-                    </SecondaryButton>
-                </div>
 
-                {/* Queue list */}
-                {uploadQueue.length > 0 && (
-                    <div className="flex-1 flex flex-col gap-2 min-h-0">
-                        <div className="flex items-center justify-between">
-                            <h3 className="text-sm font-bold text-main">Upload Queue ({uploadQueue.length})</h3>
-                            {!isUploading && (
-                                <button className="text-xs text-muted hover:text-accent font-medium transition-colors" onClick={() => setUploadQueue([])}>
-                                    Clear all
-                                </button>
-                            )}
+                        {/* Drag and drop zone */}
+                        <div
+                            className={`${uploadQueue.length === 0 ? 'flex-1 p-8' : 'shrink-0 p-6'} flex flex-col items-center justify-center border-2 border-dashed rounded-xl transition-colors ${isDragging ? 'border-accent bg-accent/5' : 'border-border bg-surface-hover hover:border-accent/50'
+                                }`}
+                            onDragOver={handleDragOver}
+                            onDragLeave={handleDragLeave}
+                            onDrop={handleDrop}
+                        >
+                            <UploadCloud className={`size-12 mb-4 ${isDragging ? 'text-accent' : 'text-muted'}`} />
+                            <p className="text-sm font-bold text-main mb-1">Drag and drop files or folders here</p>
+                            <p className="text-xs text-muted mb-4 text-center max-w-sm">Folders will be automatically recreated to preserve their hierarchy.</p>
+
+                            <input
+                                type="file"
+                                multiple
+                                className="hidden"
+                                ref={fileInputRef}
+                                onChange={handleFileInput}
+                            />
+                            <SecondaryButton onClick={() => fileInputRef.current?.click()}>
+                                Browse Files
+                            </SecondaryButton>
                         </div>
-                        <div className="flex-1 overflow-y-auto border border-border rounded-lg bg-surface">
-                            <ul className="divide-y divide-border">
-                                {uploadQueue.map(item => (
-                                    <li key={item.id} className="flex items-center justify-between p-3">
-                                        <div className="flex items-center gap-3 min-w-0">
-                                            {item.isFolder ? <Folder className="size-4 text-muted shrink-0" /> : <FileText className="size-4 text-muted shrink-0" />}
-                                            <div className="flex flex-col min-w-0">
-                                                <span className="text-sm font-medium text-main truncate">
-                                                    {item.path ? `${item.path}/${item.name}` : item.name}
-                                                </span>
-                                                {item.file && <span className="text-xs text-muted">{(item.file.size / 1024 / 1024).toFixed(2)} MB</span>}
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center shrink-0 ml-4">
-                                            {item.status === 'PENDING' && !isUploading && (
-                                                <button onClick={() => removePending(item.id)} className="text-muted hover:text-destructive transition-colors">
-                                                    <XCircle className="size-4" />
-                                                </button>
-                                            )}
-                                            {item.status === 'UPLOADING' && <Loader2 className="size-4 text-accent animate-spin" />}
-                                            {item.status === 'SUCCESS' && <CheckCircle className="size-4 text-emerald-500" />}
-                                            {item.status === 'ERROR' && <XCircle className="size-4 text-destructive" />}
-                                            {item.status === 'SKIPPED' && <span className="text-xs font-bold text-muted uppercase">Skipped</span>}
-                                        </div>
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
+
+                        {/* Queue list */}
+                        {uploadQueue.length > 0 && (
+                            <div className="flex-1 flex flex-col gap-2 min-h-0">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="text-sm font-bold text-main">Upload Queue ({uploadQueue.length})</h3>
+                                    {!isUploading && (
+                                        <button className="text-xs text-muted hover:text-accent font-medium transition-colors" onClick={() => setUploadQueue([])}>
+                                            Clear all
+                                        </button>
+                                    )}
+                                </div>
+                                <div className="flex-1 overflow-y-auto border border-border rounded-lg bg-surface">
+                                    <ul className="divide-y divide-border">
+                                        {uploadQueue.map(item => (
+                                            <li key={item.id} className="flex items-center justify-between p-3">
+                                                <div className="flex items-center gap-3 min-w-0">
+                                                    {item.isFolder ? <Folder className="size-4 text-muted shrink-0" /> : <FileText className="size-4 text-muted shrink-0" />}
+                                                    <div className="flex flex-col min-w-0">
+                                                        <span className="text-sm font-medium text-main truncate">
+                                                            {item.path ? `${item.path}/${item.name}` : item.name}
+                                                        </span>
+                                                        {item.file && <span className="text-xs text-muted">{(item.file.size / 1024 / 1024).toFixed(2)} MB</span>}
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center shrink-0 ml-4">
+                                                    {item.status === 'PENDING' && !isUploading && (
+                                                        <button onClick={() => removePending(item.id)} className="text-muted hover:text-destructive transition-colors">
+                                                            <XCircle className="size-4" />
+                                                        </button>
+                                                    )}
+                                                    {item.status === 'UPLOADING' && <Loader2 className="size-4 text-accent animate-spin" />}
+                                                    {item.status === 'SUCCESS' && <CheckCircle className="size-4 text-emerald-500" />}
+                                                    {item.status === 'ERROR' && <XCircle className="size-4 text-destructive" />}
+                                                    {item.status === 'SKIPPED' && <span className="text-xs font-bold text-muted uppercase">Skipped</span>}
+                                                </div>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            </div>
+                        )}
                     </div>
-                )}
-                    </div>
-                    
+
                     <div className="mt-auto shrink-0 flex justify-end gap-3 p-6 pt-0 border-t border-border mt-2">
                         <SecondaryButton type="button" onClick={handleClose} disabled={isUploading}>Close</SecondaryButton>
                         <PrimaryButton onClick={startUploads} disabled={isUploading || uploadQueue.length === 0 || uploadQueue.every(q => ['SUCCESS', 'SKIPPED'].includes(q.status))}>

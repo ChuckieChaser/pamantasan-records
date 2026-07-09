@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShieldCheck, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
 import { useAuthentication, useUser } from '../stores';
@@ -12,7 +12,7 @@ export default function Onboarding() {
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
-    
+
     // UI states
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -61,8 +61,13 @@ export default function Onboarding() {
     };
 
     // If user is already verified, they shouldn't be here
+    useEffect(() => {
+        if (user?.status === 'VERIFIED') {
+            navigate('/dashboard');
+        }
+    }, [user?.status, navigate]);
+
     if (user?.status === 'VERIFIED') {
-        navigate('/dashboard');
         return null;
     }
 

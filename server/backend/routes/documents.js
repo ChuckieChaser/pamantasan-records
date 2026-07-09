@@ -227,7 +227,25 @@ router.delete('/shares/:id', async (req, res) => {
     const client = await pool.connect();
     try {
         await withRLS(client, getRLSContext(req), async (c) => {
-            await c.query('DELETE FROM document_shares WHERE id = $1', [req.params.id]);
+            // First get the target share to know what we are deleting
+            const shareRes = await c.query('SELECT document_id, department_id, recipient_id FROM document_shares WHERE id = $1', [req.params.id]);
+            if (shareRes.rows.length === 0) return res.status(404).json({ error: 'Share not found' });
+            
+            const share = shareRes.rows[0];
+
+            // Use a recursive CTE to find the document and all its descendants
+            await c.query(`
+                WITH RECURSIVE DocumentTree AS (
+                    SELECT id FROM documents WHERE id = $1
+                    UNION ALL
+                    SELECT d.id FROM documents d INNER JOIN DocumentTree dt ON d.parent_id = dt.id
+                )
+                DELETE FROM document_shares 
+                WHERE document_id IN (SELECT id FROM DocumentTree)
+                AND (department_id = $2 OR (department_id IS NULL AND $2 IS NULL))
+                AND (recipient_id = $3 OR (recipient_id IS NULL AND $3 IS NULL))
+            `, [share.document_id, share.department_id, share.recipient_id]);
+
             res.json({ success: true });
         });
     } catch (err) {
@@ -561,7 +579,49 @@ router.get('/:id/download', async (req, res) => {
             const physicalPath = path.join(DOCUMENTS_PATH, verResult.rows[0].path);
             if (!fs.existsSync(physicalPath)) return res.status(404).json({ error: 'Physical file not found' });
 
-            res.download(physicalPath, docResult.rows[0].name);
+            const fileName = docResult.rows[0].name;
+            const ext = path.extname(verResult.rows[0].path);
+            const finalName = fileName.includes('.') ? fileName : `${fileName}${ext}`;
+
+            res.attachment(`${fileName}.zip`);
+
+            const archive = archiver('zip', { zlib: { level: 9 } });
+            archive.on('error', (err) => { throw err; });
+            archive.pipe(res);
+
+            archive.file(physicalPath, { name: finalName });
+
+            await archive.finalize();
+        });
+    } catch (err) {
+        if (!res.headersSent) res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+// GET /api/documents/:id/view
+router.get('/:id/view', async (req, res) => {
+    const client = await pool.connect();
+    try {
+        await withRLS(client, getRLSContext(req), async (c) => {
+            const docResult = await c.query('SELECT name, is_folder FROM documents WHERE id = $1', [req.params.id]);
+            if (docResult.rows.length === 0) return res.status(404).json({ error: 'Document not found' });
+            if (docResult.rows[0].is_folder) return res.status(400).json({ error: 'Cannot view a folder' });
+
+            const verResult = await c.query('SELECT path, mime_type FROM document_versions WHERE document_id = $1 ORDER BY version DESC LIMIT 1', [req.params.id]);
+            if (verResult.rows.length === 0) return res.status(404).json({ error: 'No versions found' });
+
+            const physicalPath = path.join(DOCUMENTS_PATH, verResult.rows[0].path);
+            if (!fs.existsSync(physicalPath)) return res.status(404).json({ error: 'Physical file not found' });
+
+            res.contentType(verResult.rows[0].mime_type || 'application/octet-stream');
+            
+            const fileStream = fs.createReadStream(physicalPath);
+            fileStream.on('error', () => {
+                if (!res.headersSent) res.status(500).json({ error: 'Error streaming file' });
+            });
+            fileStream.pipe(res);
         });
     } catch (err) {
         if (!res.headersSent) res.status(500).json({ error: err.message });
@@ -585,13 +645,14 @@ router.get('/:id/download-zip', async (req, res) => {
             // Recursive CTE to get all files and their logical relative paths
             const result = await c.query(`
                 WITH RECURSIVE DocumentTree AS (
-                    SELECT id, parent_id, name, is_folder, name::text AS relative_path
+                    SELECT id, parent_id, name, is_folder, CAST(name AS TEXT) AS relative_path
                     FROM documents
-                    WHERE parent_id = $1
+                    WHERE parent_id = $1 AND is_archived = false
                     UNION ALL
-                    SELECT d.id, d.parent_id, d.name, d.is_folder, (dt.relative_path || '/' || d.name)
+                    SELECT d.id, d.parent_id, d.name, d.is_folder, CAST(dt.relative_path || '/' || d.name AS TEXT)
                     FROM documents d
                     INNER JOIN DocumentTree dt ON d.parent_id = dt.id
+                    WHERE d.is_archived = false
                 )
                 SELECT dt.id, dt.name, dt.relative_path,
                        (SELECT path FROM document_versions dv WHERE dv.document_id = dt.id ORDER BY version DESC LIMIT 1) as physical_path
@@ -599,8 +660,7 @@ router.get('/:id/download-zip', async (req, res) => {
                 WHERE dt.is_folder = false;
             `, [req.params.id]);
 
-            res.setHeader('Content-Type', 'application/zip');
-            res.setHeader('Content-Disposition', `attachment; filename="${folderName}.zip"`);
+            res.attachment(`${folderName}.zip`);
 
             const archive = archiver('zip', { zlib: { level: 9 } });
             archive.on('error', (err) => { throw err; });
@@ -731,21 +791,14 @@ router.post('/:id/revert', async (req, res) => {
             );
             const nextVersion = versionResult.rows[0].next_version;
 
-            const newId = crypto.randomUUID();
-
             const result = await c.query(
-                `INSERT INTO document_versions
-                    (id, document_id, uploader_id, version, path, size_bytes, mime_type, change_summary)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+                `UPDATE document_versions
+                 SET version = $1, change_summary = $2
+                 WHERE id = $3 RETURNING *`,
                 [
-                    newId,
-                    req.params.id,
-                    uploader_id,
                     nextVersion,
-                    targetVersion.path,
-                    targetVersion.size_bytes,
-                    targetVersion.mime_type,
                     `Reverted to version ${targetVersion.version}`,
+                    version_id
                 ]
             );
             res.status(201).json(result.rows[0]);

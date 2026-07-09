@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Search, ArrowUpDown, ArrowUp, ArrowDown, Filter, LayoutGrid, List, Plus } from 'lucide-react';
 import { Card } from '../ui/Containers';
 import { Badge } from '../ui/Badges';
@@ -58,6 +58,9 @@ export default function DocumentBrowser({ title, description, documents, documen
     const [sortState, setSortState] = useState('DEFAULT');
     const [view, setView] = useState('TABLE'); // 'TABLE' | 'CARD'
     
+    // Click timer ref to distinguish single vs double click
+    const clickTimeoutRef = useRef(null);
+    
     const { documentShares } = useDocumentShare();
     const { user } = useAuthentication();
 
@@ -70,6 +73,21 @@ export default function DocumentBrowser({ title, description, documents, documen
 
     const toggleStatus = (status) => {
         setSelectedStatuses(prev => prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]);
+    };
+
+    const handleRowClick = (id) => {
+        if (clickTimeoutRef.current) {
+            // If there's an existing timer, it's a double click
+            clearTimeout(clickTimeoutRef.current);
+            clickTimeoutRef.current = null;
+            if (onDocumentDoubleClick) onDocumentDoubleClick(id);
+        } else {
+            // Otherwise, wait to see if it's a single click
+            clickTimeoutRef.current = setTimeout(() => {
+                if (onDocumentClick) onDocumentClick(id);
+                clickTimeoutRef.current = null;
+            }, 250);
+        }
     };
 
     const filterGroups = [
@@ -189,8 +207,7 @@ export default function DocumentBrowser({ title, description, documents, documen
                                     latestVersion={latestVersion}
                                     isSelected={activeDocumentId === doc.id}
                                     isShared={isShared}
-                                    onClick={() => onDocumentClick(doc.id)}
-                                    onDoubleClick={() => onDocumentDoubleClick && onDocumentDoubleClick(doc.id)}
+                                    onClick={() => handleRowClick(doc.id)}
                                 />
                             );
                         })}
@@ -237,8 +254,7 @@ export default function DocumentBrowser({ title, description, documents, documen
                                         <tr
                                             key={doc.id}
                                             className={`cursor-pointer transition-colors duration-200 hover:bg-surface-hover ${isSelected ? 'bg-surface-hover' : ''}`}
-                                            onClick={() => onDocumentClick(doc.id)}
-                                            onDoubleClick={() => onDocumentDoubleClick && onDocumentDoubleClick(doc.id)}
+                                            onClick={() => handleRowClick(doc.id)}
                                         >
                                             <td className="px-4 py-4">
                                                 <div className="flex items-center gap-3">

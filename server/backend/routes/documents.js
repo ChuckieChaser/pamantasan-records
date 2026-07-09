@@ -51,7 +51,7 @@ router.get('/', async (req, res) => {
     const client = await pool.connect();
     try {
         await withRLS(client, getRLSContext(req), async (c) => {
-            const { parent_id, status, is_folder } = req.query;
+            const { parent_id, is_archived, is_folder } = req.query;
             let query = 'SELECT * FROM documents WHERE 1=1';
             const params = [];
 
@@ -59,7 +59,7 @@ router.get('/', async (req, res) => {
                 params.push(parent_id === 'null' ? null : parent_id);
                 query += ` AND parent_id ${parent_id === 'null' ? 'IS NULL' : `= $${params.length}`}`;
             }
-            if (status) { params.push(status); query += ` AND status = $${params.length}`; }
+            if (is_archived !== undefined) { params.push(is_archived === 'true'); query += ` AND is_archived = $${params.length}`; }
             if (is_folder) { params.push(is_folder === 'true'); query += ` AND is_folder = $${params.length}`; }
 
             query += ' ORDER BY is_folder DESC, name ASC';
@@ -301,9 +301,9 @@ router.post('/:id/revert', async (req, res) => {
     }
 });
 
-// PATCH /api/documents/:id — Update a document record (with cascade for status)
+// PATCH /api/documents/:id — Update a document record
 router.patch('/:id', async (req, res) => {
-    const { status, parent_id, name, comment, summary } = req.body;
+    const { is_archived, parent_id, name, comment, summary } = req.body;
     const documentId = req.params.id;
 
     const client = await pool.connect();
@@ -313,7 +313,7 @@ router.patch('/:id', async (req, res) => {
             const params = [];
             let i = 1;
 
-            if (status !== undefined) { updates.push(`status = $${i++}`); params.push(status); }
+            if (is_archived !== undefined) { updates.push(`is_archived = $${i++}`); params.push(is_archived); }
             if (parent_id !== undefined) { updates.push(`parent_id = $${i++}`); params.push(parent_id === 'null' ? null : parent_id); }
             if (name !== undefined) { updates.push(`name = $${i++}`); params.push(name); }
             if (comment !== undefined) { updates.push(`comment = $${i++}`); params.push(comment); }
@@ -323,30 +323,9 @@ router.patch('/:id', async (req, res) => {
 
             params.push(documentId);
 
-            // If status is updated, we need to cascade it to all descendants
-            if (status !== undefined) {
-                // Perform normal update first
-                const updateQuery = `UPDATE documents SET ${updates.join(', ')} WHERE id = $${i} RETURNING *`;
-                const result = await c.query(updateQuery, params);
-
-                // Perform cascade for status only
-                await c.query(`
-                    WITH RECURSIVE DocumentTree AS (
-                        SELECT id FROM documents WHERE parent_id = $1
-                        UNION ALL
-                        SELECT d.id FROM documents d
-                        INNER JOIN DocumentTree dt ON d.parent_id = dt.id
-                    )
-                    UPDATE documents SET status = $2 WHERE id IN (SELECT id FROM DocumentTree)
-                `, [documentId, status]);
-
-                return res.json(result.rows[0]);
-            } else {
-                // Normal update
-                const query = `UPDATE documents SET ${updates.join(', ')} WHERE id = $${i} RETURNING *`;
-                const result = await c.query(query, params);
-                res.json(result.rows[0]);
-            }
+            const query = `UPDATE documents SET ${updates.join(', ')} WHERE id = $${i} RETURNING *`;
+            const result = await c.query(query, params);
+            res.json(result.rows[0]);
         });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -453,6 +432,43 @@ router.post('/shares', async (req, res) => {
             }
 
             res.status(201).json(results[0]);
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+// PATCH /api/documents/shares/:id — Update a document share status
+router.patch('/shares/:id', async (req, res) => {
+    const { status } = req.body;
+    if (!status) return res.status(400).json({ error: 'status is required' });
+
+    const client = await pool.connect();
+    try {
+        await withRLS(client, getRLSContext(req), async (c) => {
+            const result = await c.query(
+                `UPDATE document_shares SET status = $1 WHERE id = $2 RETURNING *`,
+                [status, req.params.id]
+            );
+            if (result.rows.length === 0) return res.status(404).json({ error: 'Share not found' });
+            res.json(result.rows[0]);
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+// DELETE /api/documents/shares/:id
+router.delete('/shares/:id', async (req, res) => {
+    const client = await pool.connect();
+    try {
+        await withRLS(client, getRLSContext(req), async (c) => {
+            await c.query('DELETE FROM document_shares WHERE id = $1', [req.params.id]);
+            res.json({ success: true });
         });
     } catch (err) {
         res.status(500).json({ error: err.message });

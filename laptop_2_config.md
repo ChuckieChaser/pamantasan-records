@@ -45,3 +45,11 @@ I set the inbound of the firewall to allow remote connections
 
 - Port: 5000 TCP (Node)
 - Port: 5433 TCP (Postgres)
+
+## Dedicated Folder
+
+D:/records/documents - for uploaded documents (they must be obfuscated via their uuid)
+
+D:/records/data - postgres data
+
+D:/records/models - ollama models

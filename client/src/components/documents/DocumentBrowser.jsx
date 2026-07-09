@@ -7,15 +7,15 @@ import { IconButton, PrimaryButton } from '../ui/Buttons';
 import { getFileIcon } from '../ui/FileIcon';
 import { FilterMenu } from '../ui/Menus';
 import DocumentCard from './DocumentCard';
-import { DOCUMENTS_STATUS } from '../../constants';
-import { useDocumentShare } from '../../stores';
+import { DOCUMENT_SHARE_STATUS } from '../../constants';
+import { useDocumentShare, useAuthentication } from '../../stores';
 
 // ==============================================================================
 // SECTION 1: UTILITIES
 // ==============================================================================
 
 const SORT_STATES = Object.freeze(['DEFAULT', 'ASC', 'DESC']);
-const STATUS_FILTER_STATES = Object.freeze(['DEFAULT', ...Object.values(DOCUMENTS_STATUS)]);
+const STATUS_FILTER_STATES = Object.freeze(['DEFAULT', 'UPLOADED', ...Object.values(DOCUMENT_SHARE_STATUS)]);
 
 const renderSortIcon = (col, currentSortCol, currentSortState, type = 'ARROW') => {
     if (currentSortCol !== col || currentSortState === 'DEFAULT') {
@@ -59,6 +59,14 @@ export default function DocumentBrowser({ title, description, documents, documen
     const [view, setView] = useState('TABLE'); // 'TABLE' | 'CARD'
     
     const { documentShares } = useDocumentShare();
+    const { user } = useAuthentication();
+
+    const getDocumentStatus = (doc) => {
+        if (doc.is_archived) return 'ARCHIVED';
+        const share = documentShares.find(s => s.document_id === doc.id && s.department_id === user?.department_id);
+        if (share) return share.status;
+        return 'UPLOADED';
+    };
 
     const toggleStatus = (status) => {
         setSelectedStatuses(prev => prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]);
@@ -67,7 +75,7 @@ export default function DocumentBrowser({ title, description, documents, documen
     const filterGroups = [
         {
             title: 'Statuses',
-            options: Object.values(DOCUMENTS_STATUS).map(s => ({ value: s, label: s.replace(/_/g, ' ') })),
+            options: ['UPLOADED', ...Object.values(DOCUMENT_SHARE_STATUS)].map(s => ({ value: s, label: s.replace(/_/g, ' ') })),
             selected: selectedStatuses,
             onToggle: toggleStatus
         }
@@ -100,9 +108,9 @@ export default function DocumentBrowser({ title, description, documents, documen
         let result = [...documents];
 
         if (!isArchiveBrowser) {
-            result = result.filter(d => d.status !== 'ARCHIVED');
+            result = result.filter(d => !d.is_archived);
         } else {
-            result = result.filter(d => d.status === 'ARCHIVED');
+            result = result.filter(d => d.is_archived);
         }
 
         if (filter) {
@@ -110,11 +118,11 @@ export default function DocumentBrowser({ title, description, documents, documen
         }
 
         if (selectedStatuses.length > 0) {
-            result = result.filter(d => selectedStatuses.includes(d.status));
+            result = result.filter(d => selectedStatuses.includes(getDocumentStatus(d)));
         }
 
         if (sortCol === 'STATUS' && sortState !== 'DEFAULT') {
-            result = result.filter(d => d.status === sortState);
+            result = result.filter(d => getDocumentStatus(d) === sortState);
         }
 
         let isSorted = false;
@@ -177,7 +185,7 @@ export default function DocumentBrowser({ title, description, documents, documen
                             return (
                                 <DocumentCard
                                     key={doc.id}
-                                    document={doc}
+                                    document={{ ...doc, status: getDocumentStatus(doc) }}
                                     latestVersion={latestVersion}
                                     isSelected={activeDocumentId === doc.id}
                                     isShared={isShared}
@@ -248,7 +256,7 @@ export default function DocumentBrowser({ title, description, documents, documen
                                                 </div>
                                             </td>
                                             <td className="px-4 py-4">
-                                                {customStatus ? customStatus.render(doc) : <Badge label={doc.status} variant="neutral" size="small" />}
+                                                {customStatus ? customStatus.render(doc) : <Badge label={getDocumentStatus(doc)} variant="neutral" size="small" />}
                                             </td>
                                             <td className="px-4 py-4 font-medium text-muted">
                                                 {new Date(doc.updated_at).toLocaleDateString()}

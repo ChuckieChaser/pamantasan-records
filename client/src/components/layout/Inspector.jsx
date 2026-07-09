@@ -7,7 +7,7 @@ import {
     CheckCircle, XCircle, UploadCloud, EyeOff, RefreshCcw, Tag, Calendar, Search, Activity
 } from 'lucide-react';
 import { useAuthentication, useDocument, useDocumentVersion, useDocumentShare, useUser, useDepartment, useDocumentViewer } from '../../stores';
-import { USERS_ROLE, DOCUMENTS_STATUS } from '../../constants';
+import { USERS_ROLE, DOCUMENT_SHARE_STATUS } from '../../constants';
 import { IconButton, PrimaryButton, SecondaryButton, DestructiveButton, getFileIcon, Modal, TextArea, SelectField, InputField, ConfirmActionModal } from '../ui';
 import DefaultAvatar from '../../assets/avatar.png';
 
@@ -138,7 +138,7 @@ const Inspector = ({ document, auditLog, onClose }) => {
     const handleArchiveSubmit = async () => {
         if (!document) return;
         try {
-            await updateDocument(document.id, { status: DOCUMENTS_STATUS.ARCHIVED });
+            await updateDocument(document.id, { is_archived: true });
             setIsArchiveModalOpen(false);
         } catch (error) {
             console.error('Failed to archive document', error);
@@ -149,10 +149,11 @@ const Inspector = ({ document, auditLog, onClose }) => {
         if (!document) return;
         try {
             // If it's PENDING_OFFICER, approve moves it to PENDING_DIRECTOR
-            if (document.status === DOCUMENTS_STATUS.PENDING_OFFICER) {
-                await updateDocument(document.id, { status: DOCUMENTS_STATUS.PENDING_DIRECTOR });
-            } else if (document.status === DOCUMENTS_STATUS.PENDING_DIRECTOR) {
-                await updateDocument(document.id, { status: DOCUMENTS_STATUS.PUBLISHED });
+            if (computedStatus === DOCUMENT_SHARE_STATUS.PENDING_OFFICER) {
+                const share = docShares.find(s => s.department_id === user?.department_id);
+                if (share) await useDocumentShare.getState().update(share.id, { status: DOCUMENT_SHARE_STATUS.APPROVED });
+            } else if (computedStatus === DOCUMENT_SHARE_STATUS.PENDING_DIRECTOR) {
+                await updateDocument(document.id, { status: DOCUMENT_SHARE_STATUS.PUBLISHED });
             }
             setIsApproveModalOpen(false);
         } catch (error) {
@@ -164,11 +165,11 @@ const Inspector = ({ document, auditLog, onClose }) => {
         setEditName(document?.name || '');
         setEditComment(document?.comment || '');
 
-        if (document?.status === DOCUMENTS_STATUS.UPLOADED || document?.status === DOCUMENTS_STATUS.PENDING_OFFICER || document?.status === DOCUMENTS_STATUS.PENDING_DIRECTOR) {
+        if (computedStatus === DOCUMENT_SHARE_STATUS.UPLOADED || computedStatus === DOCUMENT_SHARE_STATUS.PENDING_OFFICER || computedStatus === DOCUMENT_SHARE_STATUS.PENDING_DIRECTOR) {
             const currentDeptIds = docShares.map(s => s.department_id).filter(Boolean);
             setShareDepartmentIds(currentDeptIds);
             setDepartmentSearch('');
-        } else if (document?.status === DOCUMENTS_STATUS.PUBLISHED) {
+        } else if (computedStatus === DOCUMENT_SHARE_STATUS.PUBLISHED) {
             const currentUserIds = docShares.map(s => s.recipient_id).filter(Boolean);
             if (currentUserIds.length === eligibleUsers.length && eligibleUsers.length > 0) {
                 setPublishUserIds(['ALL_USERS']);
@@ -193,7 +194,7 @@ const Inspector = ({ document, auditLog, onClose }) => {
             }
 
             // Sync shares only if the status allows sharing/publishing
-            if (document.status === DOCUMENTS_STATUS.UPLOADED || document.status === DOCUMENTS_STATUS.PENDING_OFFICER || document.status === DOCUMENTS_STATUS.PENDING_DIRECTOR) {
+            if (computedStatus === DOCUMENT_SHARE_STATUS.UPLOADED || computedStatus === DOCUMENT_SHARE_STATUS.PENDING_OFFICER || computedStatus === DOCUMENT_SHARE_STATUS.PENDING_DIRECTOR) {
                 const currentDeptIds = docShares.map(s => s.department_id).filter(Boolean);
                 const toAdd = shareDepartmentIds.filter(id => !currentDeptIds.includes(id));
                 const toRemove = docShares.filter(s => s.department_id && !shareDepartmentIds.includes(s.department_id));
@@ -204,7 +205,7 @@ const Inspector = ({ document, auditLog, onClose }) => {
                 for (const share of toRemove) {
                     await deleteShare(share.id);
                 }
-            } else if (document.status === DOCUMENTS_STATUS.PUBLISHED) {
+            } else if (computedStatus === DOCUMENT_SHARE_STATUS.PUBLISHED) {
                 const currentUserIds = docShares.map(s => s.recipient_id).filter(Boolean);
                 let newIds = publishUserIds;
                 if (publishUserIds.includes('ALL_USERS')) {
@@ -291,7 +292,7 @@ const Inspector = ({ document, auditLog, onClose }) => {
                 });
             }
             await updateDocument(document.id, { 
-                status: DOCUMENTS_STATUS.PUBLISHED,
+                status: DOCUMENT_SHARE_STATUS.PUBLISHED,
                 ...(publishComment ? { comment: publishComment } : {})
             });
             setIsPublishModalOpen(false);
@@ -309,15 +310,16 @@ const Inspector = ({ document, auditLog, onClose }) => {
                     await deleteShare(share.id);
                 }
             } else if (destructiveAction === 'UNAPPROVE') {
-                await updateDocument(document.id, { status: DOCUMENTS_STATUS.PENDING_OFFICER });
+                const share = docShares.find(s => s.department_id === user?.department_id);
+                if (share) await useDocumentShare.getState().update(share.id, { status: DOCUMENT_SHARE_STATUS.PENDING_APPROVAL });
             } else if (destructiveAction === 'UNPUBLISH') {
                 const docSharesList = documentShares.filter(s => s.document_id === document.id);
                 for (const share of docSharesList) {
                     await deleteShare(share.id);
                 }
-                await updateDocument(document.id, { status: DOCUMENTS_STATUS.PENDING_DIRECTOR });
+                await updateDocument(document.id, { status: DOCUMENT_SHARE_STATUS.APPROVED });
             } else if (destructiveAction === 'REJECT') {
-                await updateDocument(document.id, { status: DOCUMENTS_STATUS.UPLOADED, rejection_reason: 'Rejected by officer' });
+                await updateDocument(document.id, { status: 'UPLOADED', rejection_reason: 'Rejected by officer' });
             } else if (destructiveAction === 'DELETE') {
                 await deleteDocument(document.id);
                 onClose();
@@ -362,16 +364,30 @@ const Inspector = ({ document, auditLog, onClose }) => {
 
     const latestVersion = docVersions[0];
 
+    
     const docShares = useMemo(() =>
         document ? documentShares.filter(s => s.document_id === document.id) : []
         , [document, documentShares]);
+
+    const getComputedStatus = () => {
+        if (!document) return 'UPLOADED';
+        if (document.is_archived) return 'ARCHIVED';
+        if (user?.department_id) {
+            const share = docShares.find(s => s.department_id === user.department_id);
+            if (share) return share.status;
+        }
+        if (docShares.length > 0) return docShares[0].status;
+        return 'UPLOADED';
+    };
+    const computedStatus = getComputedStatus();
+
 
     // --- Role-based actions ---
     const renderActions = () => {
         if (!user || !document) return null;
 
         const role = user.role;
-        const status = document.status;
+        const status = computedStatus;
         const secondaryActions = [];
         const primaryDestructiveActions = [];
 
@@ -396,7 +412,7 @@ const Inspector = ({ document, auditLog, onClose }) => {
                 <SecondaryButton key="edit" size="small" icon={MessageSquare} className="flex-1 justify-center" onClick={handleEditOpen}>Edit</SecondaryButton>
             );
 
-            if (status !== DOCUMENTS_STATUS.ARCHIVED && status !== DOCUMENTS_STATUS.ATTACHMENT) {
+            if (status !== true && status !== 'ATTACHMENT') {
                 if (docShares.length === 0) {
                     primaryDestructiveActions.push(
                         <PrimaryButton key="share" size="small" icon={Share2} className="flex-1 justify-center" onClick={handleShareOpen}>Share</PrimaryButton>
@@ -408,34 +424,34 @@ const Inspector = ({ document, auditLog, onClose }) => {
                 }
             }
 
-            if ((docShares.length === 0 || status === DOCUMENTS_STATUS.ATTACHMENT) && status !== DOCUMENTS_STATUS.ARCHIVED) {
+            if ((docShares.length === 0 || status === 'ATTACHMENT') && status !== true) {
                 primaryDestructiveActions.push(
                     <DestructiveButton key="archive" size="small" icon={Archive} className="flex-1 justify-center" onClick={() => setIsArchiveModalOpen(true)}>Archive</DestructiveButton>
                 );
-            } else if (status === DOCUMENTS_STATUS.ARCHIVED) {
+            } else if (status === true) {
                 primaryDestructiveActions.push(
                     <PrimaryButton key="unarchive" size="small" icon={RotateCcw} className="flex-1 justify-center" onClick={() => setIsUnarchiveModalOpen(true)}>Unarchive</PrimaryButton>,
                     <DestructiveButton key="delete" size="small" icon={XCircle} className="flex-1 justify-center" onClick={() => setDestructiveAction('DELETE')}>Delete</DestructiveButton>
                 );
             }
         } else if (role === USERS_ROLE.OFFICER) {
-            if (status === DOCUMENTS_STATUS.PENDING_OFFICER) {
+            if (status === DOCUMENT_SHARE_STATUS.PENDING_APPROVAL) {
                 primaryDestructiveActions.push(
                     <PrimaryButton key="approve" size="small" icon={CheckCircle} className="flex-1 justify-center" onClick={() => setIsApproveModalOpen(true)}>Approve</PrimaryButton>,
                     <DestructiveButton key="reject" size="small" icon={XCircle} className="flex-1 justify-center" onClick={() => setDestructiveAction('REJECT')}>Reject</DestructiveButton>
                 );
-            } else if (status === DOCUMENTS_STATUS.PENDING_DIRECTOR) {
+            } else if (status === DOCUMENT_SHARE_STATUS.APPROVED) {
                 primaryDestructiveActions.push(
                     <DestructiveButton key="unapprove" size="small" icon={XCircle} className="flex-1 justify-center" onClick={() => setDestructiveAction('UNAPPROVE')}>Unapprove</DestructiveButton>
                 );
             }
         } else if (role === USERS_ROLE.DIRECTOR) {
-            if (status === DOCUMENTS_STATUS.PENDING_DIRECTOR) {
+            if (status === DOCUMENT_SHARE_STATUS.APPROVED) {
                 primaryDestructiveActions.push(
                     <PrimaryButton key="publish" size="small" icon={UploadCloud} className="flex-1 justify-center" onClick={handlePublishOpen}>Publish</PrimaryButton>,
                     <DestructiveButton key="reject" size="small" icon={XCircle} className="flex-1 justify-center" onClick={() => setDestructiveAction('REJECT')}>Reject</DestructiveButton>
                 );
-            } else if (status === DOCUMENTS_STATUS.PUBLISHED) {
+            } else if (status === DOCUMENT_SHARE_STATUS.PUBLISHED) {
                 primaryDestructiveActions.push(
                     <DestructiveButton key="unpublish" size="small" icon={EyeOff} className="flex-1 justify-center" onClick={() => setDestructiveAction('UNPUBLISH')}>Unpublish</DestructiveButton>
                 );
@@ -481,7 +497,7 @@ const Inspector = ({ document, auditLog, onClose }) => {
                         </div>
                         <div>
                             <p className="break-all text-sm font-bold text-main">{document.name}</p>
-                            <p className="mt-1 text-xs font-bold uppercase tracking-wide text-muted">{document.status.replace(/_/g, ' ')}</p>
+                            <p className="mt-1 text-xs font-bold uppercase tracking-wide text-muted">{computedStatus.replace(/_/g, ' ')}</p>
                         </div>
                     </div>
 
@@ -514,7 +530,7 @@ const Inspector = ({ document, auditLog, onClose }) => {
                                         <span className="text-xs font-bold uppercase tracking-wide">Status</span>
                                     </div>
                                     <div className="mt-2 rounded bg-surface-hover p-2 text-sm font-medium text-main">
-                                        {document.status.replace(/_/g, ' ')}
+                                        {computedStatus.replace(/_/g, ' ')}
                                     </div>
                                 </div>
 
@@ -585,7 +601,7 @@ const Inspector = ({ document, auditLog, onClose }) => {
                                             </span>
                                         </div>
 
-                                        {(document.status === DOCUMENTS_STATUS.PUBLISHED || document.status === DOCUMENTS_STATUS.PENDING_DIRECTOR) && (
+                                        {(computedStatus === DOCUMENT_SHARE_STATUS.PUBLISHED || computedStatus === DOCUMENT_SHARE_STATUS.PENDING_DIRECTOR) && (
                                             <div className="flex flex-col">
                                                 <span className="text-xs text-muted">Approved By</span>
                                                 <span className="truncate font-medium">
@@ -599,7 +615,7 @@ const Inspector = ({ document, auditLog, onClose }) => {
                                             </div>
                                         )}
 
-                                        {document.status === DOCUMENTS_STATUS.PUBLISHED && (
+                                        {computedStatus === DOCUMENT_SHARE_STATUS.PUBLISHED && (
                                             <div className="flex flex-col">
                                                 <span className="text-xs text-muted">Published By</span>
                                                 <span className="truncate font-medium">
@@ -629,7 +645,7 @@ const Inspector = ({ document, auditLog, onClose }) => {
                                                     <span className="text-xs text-muted">Shared With</span>
                                                     <span className="flex flex-col font-medium">
                                                         {docShares.map(share => {
-                                                            if (document.status === DOCUMENTS_STATUS.ATTACHMENT || share.document_request_id) {
+                                                            if (computedStatus === DOCUMENT_SHARE_STATUS.ATTACHMENT || share.document_request_id) {
                                                                 const u = users.find(u => u.id === share.recipient_id);
                                                                 const label = u ? (u.id === user.id ? 'Me' : `${u.first_name} ${u.last_name}`) : 'Ticket Attachment';
                                                                 return (
@@ -646,8 +662,8 @@ const Inspector = ({ document, auditLog, onClose }) => {
                                                                 return (
                                                                     <span key={share.id} className="truncate">
                                                                         {share.department_id ? deptLabel : ''}
-                                                                        {share.department_id && document.status === DOCUMENTS_STATUS.PUBLISHED ? ' => ' : ''}
-                                                                        {document.status === DOCUMENTS_STATUS.PUBLISHED ? userLabel : ''}
+                                                                        {share.department_id && computedStatus === DOCUMENT_SHARE_STATUS.PUBLISHED ? ' => ' : ''}
+                                                                        {computedStatus === DOCUMENT_SHARE_STATUS.PUBLISHED ? userLabel : ''}
                                                                     </span>
                                                                 );
                                                             }
@@ -907,7 +923,7 @@ const Inspector = ({ document, auditLog, onClose }) => {
                     {/* Right Pane: Share Selection (Conditional based on status) */}
                     {docShares.length > 0 && (
                         <div className="flex flex-col gap-6 border-border pl-0">
-                            {document?.status === DOCUMENTS_STATUS.UPLOADED || document?.status === DOCUMENTS_STATUS.PENDING_OFFICER || document?.status === DOCUMENTS_STATUS.PENDING_DIRECTOR ? (
+                            {computedStatus === DOCUMENT_SHARE_STATUS.UPLOADED || computedStatus === DOCUMENT_SHARE_STATUS.PENDING_OFFICER || computedStatus === DOCUMENT_SHARE_STATUS.PENDING_DIRECTOR ? (
                                 <div className="flex flex-col gap-3 h-full">
                                     <label className="text-sm font-semibold text-main">Manage Shared Departments</label>
                                     <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface-hover p-3 flex-1 max-h-[400px]">
@@ -941,7 +957,7 @@ const Inspector = ({ document, auditLog, onClose }) => {
                                         </div>
                                     </div>
                                 </div>
-                            ) : document?.status === DOCUMENTS_STATUS.PUBLISHED ? (
+                            ) : computedStatus === DOCUMENT_SHARE_STATUS.PUBLISHED ? (
                                 <div className="flex flex-col gap-3 h-full">
                                     <label className="text-sm font-semibold text-main">Manage Published Users</label>
                                     <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface-hover p-3 flex-1 max-h-[400px]">
@@ -1043,7 +1059,7 @@ const Inspector = ({ document, auditLog, onClose }) => {
                 title="Confirm Unarchive"
                 description={`Are you sure you want to unarchive ${document?.name}? It will be restored to its original uploaded state.`}
                 confirmText="Confirm Unarchive"
-                onConfirm={() => updateDocument(document.id, { status: DOCUMENTS_STATUS.UPLOADED })}
+                onConfirm={() => updateDocument(document.id, { status: 'UPLOADED' })}
                 isDestructive={false}
             />
 

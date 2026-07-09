@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react';
 import { FileText, FileClock, XCircle, Clock, Activity } from 'lucide-react';
 
 import { useAuthentication, useDocument, useCoordinatorRequest, useDocumentRequest, useDocumentVersion, useDocumentShare, useAuditLog, useUser } from '../stores';
-import { USERS_ROLE, COORDINATOR_REQUESTS_STATUS, DOCUMENT_REQUESTS_STATUS, DOCUMENTS_STATUS } from '../constants';
+import { USERS_ROLE, COORDINATOR_REQUESTS_STATUS, DOCUMENT_REQUESTS_STATUS, DOCUMENT_SHARE_STATUS } from '../constants';
 
 import MetricCard from '../components/dashboard/MetricCard';
 import AuditBrowser from '../components/dashboard/AuditBrowser';
@@ -74,12 +74,12 @@ export default function Dashboard() {
         , [documentVersions]);
 
     const pendingApproval = useMemo(() =>
-        visibleDocuments.filter(d => d.status === DOCUMENTS_STATUS.PENDING_OFFICER).length
-        , [visibleDocuments]);
+        documentShares.filter(s => s.status === DOCUMENT_SHARE_STATUS.PENDING_APPROVAL).length
+        , [documentShares]);
 
     const pendingPublication = useMemo(() =>
-        visibleDocuments.filter(d => d.status === DOCUMENTS_STATUS.PENDING_DIRECTOR).length
-        , [visibleDocuments]);
+        documentShares.filter(s => s.status === DOCUMENT_SHARE_STATUS.APPROVED).length
+        , [documentShares]);
 
     // ==============================================================================
     // SECTION 4: DOCUMENT SETS (folders excluded, files only for now)
@@ -88,15 +88,15 @@ export default function Dashboard() {
     // Prep for folder navigation: currentFolderId logic is in place for future expansion
     const pendingApprovalDocs = useMemo(() => {
         return visibleDocuments
-            .filter(d => d.status === DOCUMENTS_STATUS.PENDING_OFFICER)
+            .filter(d => documentShares.some(s => s.document_id === d.id && s.status === DOCUMENT_SHARE_STATUS.PENDING_APPROVAL))
             .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
-    }, [visibleDocuments]);
+    }, [visibleDocuments, documentShares]);
 
     const pendingPublicationDocs = useMemo(() => {
         return visibleDocuments
-            .filter(d => d.status === DOCUMENTS_STATUS.PENDING_DIRECTOR)
+            .filter(d => documentShares.some(s => s.document_id === d.id && s.status === DOCUMENT_SHARE_STATUS.APPROVED))
             .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
-    }, [visibleDocuments]);
+    }, [visibleDocuments, documentShares]);
 
     const sharedDocsList = useMemo(() => {
         const sharedDocs = documentShares
@@ -108,9 +108,9 @@ export default function Dashboard() {
 
     const publishedDocs = useMemo(() => {
         return visibleDocuments
-            .filter(d => d.status === DOCUMENTS_STATUS.PUBLISHED)
+            .filter(d => documentShares.some(s => s.document_id === d.id && s.status === DOCUMENT_SHARE_STATUS.PUBLISHED))
             .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
-    }, [visibleDocuments]);
+    }, [visibleDocuments, documentShares]);
 
     const requestedDocs = useMemo(() => {
         const reqDocs = documentShares

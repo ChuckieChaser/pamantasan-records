@@ -2,7 +2,6 @@ import { useState, useRef } from 'react';
 import { UploadCloud, FileText, Folder, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { useAuthentication, useDocument, useDocumentVersion } from '../../stores';
 import { Modal, PrimaryButton, SecondaryButton, DestructiveButton, ConfirmActionModal } from '../ui';
-import { DOCUMENTS_STATUS } from '../../constants';
 
 // Recursive helper to read FileSystemEntry (drag and drop)
 const readEntry = async (entry, currentPath = '') => {
@@ -173,7 +172,6 @@ export default function UploadDocumentsModal({ isOpen, onClose, currentFolderId 
                             is_folder: true,
                             parent_id: parentId,
                             uploader_id: user.id,
-                            status: DOCUMENTS_STATUS.UPLOADED,
                         });
                         docId = folder.id;
                     } else {
@@ -182,7 +180,6 @@ export default function UploadDocumentsModal({ isOpen, onClose, currentFolderId 
                             is_folder: false,
                             parent_id: parentId,
                             uploader_id: user.id,
-                            status: DOCUMENTS_STATUS.UPLOADED,
                         });
                         docId = doc.id;
                     }

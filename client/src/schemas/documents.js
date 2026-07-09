@@ -1,8 +1,8 @@
 import { z } from 'zod';
-import { DOCUMENTS_STATUS, DOCUMENT_REQUESTS_STATUS } from '../constants';
+import { DOCUMENT_SHARE_STATUS, DOCUMENT_REQUESTS_STATUS } from '../constants';
 
 // --- Domains ---
-export const DocumentsStatusSchema = z.enum(Object.keys(DOCUMENTS_STATUS));
+export const DocumentShareStatusSchema = z.enum(Object.keys(DOCUMENT_SHARE_STATUS));
 export const DocumentRequestsStatusSchema = z.enum(Object.keys(DOCUMENT_REQUESTS_STATUS));
 
 // --- Tables ---
@@ -21,7 +21,7 @@ export const DocumentsSchema = z.object({
         .optional()
         .refine((v) => v == null || v.length === 1536, { message: 'Embedding vector must be length 1536 when present.' }),
 
-    status: DocumentsStatusSchema,
+    is_archived: z.boolean(),
 
     created_at: z.string().datetime(),
     updated_at: z.string().datetime(),
@@ -70,24 +70,20 @@ export const DocumentRequestMessagesSchema = z.object({
     created_at: z.string().datetime(),
 });
 
-export const DocumentSharesSchema = z
-    .object({
-        id: z.string().uuid(),
-        document_id: z.string().uuid(),
-        sharer_id: z.string().uuid(),
-        recipient_id: z.string().uuid().nullable().optional(),
+export const DocumentSharesSchema = z.object({
+    id: z.string().uuid(),
+    document_id: z.string().uuid(),
+    sharer_id: z.string().uuid(),
+    recipient_id: z.string().uuid().nullable().optional(),
+    department_id: z.string().uuid(),
+    status: DocumentShareStatusSchema,
+    created_at: z.string().datetime(),
+});
 
-        department_id: z.string().uuid().nullable().optional(),
-        document_request_id: z.string().uuid().nullable().optional(),
-
-        created_at: z.string().datetime(),
-    })
-    .refine(
-        (data) => {
-            const hasDepartmentId = data.department_id != null;
-            const hasDocumentRequestId = data.document_request_id != null;
-
-            return (hasDepartmentId && !hasDocumentRequestId) || (!hasDepartmentId && hasDocumentRequestId);
-        },
-        { message: 'A document share must route to EITHER a department OR a document request ticket, not both.' }
-    );
+export const DocumentRequestAttachmentsSchema = z.object({
+    id: z.string().uuid(),
+    document_request_id: z.string().uuid(),
+    document_id: z.string().uuid(),
+    attached_by_id: z.string().uuid(),
+    created_at: z.string().datetime(),
+});

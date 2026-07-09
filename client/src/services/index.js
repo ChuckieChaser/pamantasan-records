@@ -57,7 +57,7 @@ export const documentSharesService          = {
     getByDocumentId:     (docId)   => documentsApi.getSharesByDocId(docId),
     getByDepartmentId:   ()        => documentsApi.getShares(),
     create:              (data)    => documentsApi.createShare(data),
-    update:              ()        => Promise.resolve(),
+    update:              (id, data)=> documentsApi.updateShare(id, data),
     delete:              (id)      => documentsApi.deleteShare(id),
 };
 

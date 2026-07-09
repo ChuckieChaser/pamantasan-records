@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuthentication, useDocument, useDocumentVersion } from '../stores';
-import { DOCUMENTS_STATUS, USERS_ROLE } from '../constants';
+import { USERS_ROLE } from '../constants';
 import DocumentBrowser from '../components/documents/DocumentBrowser';
 
 // ==============================================================================
@@ -34,7 +34,7 @@ export default function Archives() {
             return [];
         }
         return documents
-            .filter(d => d.status === DOCUMENTS_STATUS.ARCHIVED && d.parent_id === currentFolderId)
+            .filter(d => d.is_archived && d.parent_id === currentFolderId)
             .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
     }, [documents, user, currentFolderId]);
 

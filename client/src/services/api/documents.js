@@ -23,6 +23,7 @@ export const documentsApi = {
     getShares:        ()             => apiClient.get('/documents/shares/all').then(r => r.data),
     getSharesByDocId: (docId)        => apiClient.get('/documents/shares/all', { params: { document_id: docId } }).then(r => r.data),
     createShare:      (data)         => apiClient.post('/documents/shares', data).then(r => r.data),
+    updateShare:      (id, data)     => apiClient.patch(`/documents/shares/${id}`, data).then(r => r.data),
     deleteShare:      (id)           => apiClient.delete(`/documents/shares/${id}`).then(r => r.data),
 
     // --- Requests ---

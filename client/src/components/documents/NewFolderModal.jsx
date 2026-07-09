@@ -2,7 +2,6 @@ import { useState, useMemo } from 'react';
 import { useAuthentication, useDocument, useDocumentVersion } from '../../stores';
 import { Modal, InputField, PrimaryButton, SecondaryButton } from '../ui';
 import { Folder } from 'lucide-react';
-import { DOCUMENTS_STATUS } from '../../constants';
 
 export default function NewFolderModal({ isOpen, onClose, currentFolderId, currentPathSegments }) {
     const { user } = useAuthentication();
@@ -38,7 +37,6 @@ export default function NewFolderModal({ isOpen, onClose, currentFolderId, curre
                 is_folder: true,
                 parent_id: currentFolderId || null,
                 uploader_id: user.id,
-                status: DOCUMENTS_STATUS.UPLOADED, 
             });
             
             setName('');

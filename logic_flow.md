@@ -17,8 +17,8 @@ There are 5 roles within the system, each role has their own permissions:
 
 - Administrator: Can do almost everything within the system.
 - Coordinator: Can do almost everything within the system but requires Administrator permission to do so.
-- Officer: First line of pipeline manager. Can approve, unapprove, reject, request, view, and download.
-- Director: Last line of the pipeline manager, Can publish, unpublish, reject, request, view and download.
+- Officer: Approver of the documents. Can approve, unapprove, reject, request, view, and download.
+- Director: Publisher of the documents, Can publish, unpublish, request, view and download.
 - Member: End users. Can only request, view and download.
 
 ### Users Workflow
@@ -46,9 +46,11 @@ List of statuses for users
 
 - Only Administrator and Coordinator may upload and create a document, be it a folder or a file. Once they upload or create a document, its status is flagged as `UPLOADED`. This states that the document is, well, uploaded and not shared.
 
-- It then get puts into the server storage (a dedicated directory) with its filename obfuscated. This will also be diagnose by the locally installed AI by summarizing the content of it, the summarized content will be put into the summary column of the database. It also get its content extracted as embedding for the semantic search.
+- It then get puts into the server storage (a dedicated directory) with its filename obfuscated with its corresponding uuid. This will also be diagnose by the locally installed AI by summarizing the content of it, the summarized content will be put into the summary column of the database. It also get its content extracted as embedding for the semantic search.
 
 - Alongside the insertion of documents, this will also create an insert to the document_versions. Basically, whenever a file is uploaded, it always create its first version of that detail. This also will be run by ai to look for any changes and put it in the changes_summary column of the version. Folders do not get versions.
+
+- they can revert to a selected version on the inspector's version tab. 
 
 - If an existing document gets uploaded twice, a prompt must pop stating that a document already exist in the document and must choose an option before continouing the process.
 
@@ -69,20 +71,20 @@ _ can open (since we cannot view a folder)
 _ can download (download it as zip)
 _ can edit (rename the filename, or edit the comment and share settings)
 Both (Major action events):
-_ Share/Unshare (share the folder via department scope and change its status to `PENDING_OFFICER` or simply unshare it to change the document status back to `UPLOADED`)
+_ Share/Unshare (share the folder via department scope and change its status to `PENDING_APPROVAL` or simply unshare it to change the document status back to `UPLOADED`)
 _ Archive/Unarchive (Change the status of the document to `ARCHIVED` or `UPLOADED`) \* Delete (Permanently delete the document, along with its content and versions in the database)
 
 They cannot archive a document if it is shared, they first must unshare before doing so.
 
+Delete only appears once the documented is archived.
+
 - Folders act like another view for the table, like you can open a folder and view its content. With breadcrumbs on the Topbar acting as your navigation URL.
 
-- Any major events that changes the status of a folder with content, will cascade through that content. If you have a folder named `capstone` and it has a file named `capstone_reviewer.pdf` and another folder called `project` with content of `system_design.exe`, if you try and share, delete, approve, or any major action event, it will cascade through all the contents.
+- Once shared to departments (documents can be shared to multiple departments), its status is changed to `PENDING_APPROVAL`. This allows the pipeline managers to see the shared file but only within and past their corresponding role.
 
-- Once shared to departments (documents can be shared to multiple departments), its status is changed to `PENDING_OFFICER`. This allows the pipeline managers to see the shared file but only within and past their corresponding role.
+- Officers and Directors have this nifty trick that, as long as a document is shared to a department that also corresponds to their department, they are 1 flag away from seeing it. This is done so we do not need to manually put their id to the recipient.
 
-- Officers and Directors have this nifty trick that, as long as a document is shared to a department that also corresponds to their department, they are 1 flag away from seeing it.
-
-- Officers will only be able to see the document if the status is flagged as `PENDING_OFFICER` and past it (meaning they still can see the document after its status is changed unless it is `UPLOADED` or `ARCHIVED`).
+- Officers will only be able to see the document if the status is flagged as `PENDING_APPROVAL` and past it (meaning they still can see the document after its status is changed unless it is `UPLOADED` or `ARCHIVED`).
 
 - The officer can do the following to the document shared to their department:
 
@@ -93,14 +95,14 @@ Folder:
 _ can open (since we cannot view a folder)
 _ can download (download it as zip)
 Both (Major action events):
-_ Approve/Unapprove (Change the status of the document to `PENDING_DIRECTOR` or `PENDING_OFFICER`)
+_ Approve/Unapprove (Change the status of the document to `APPROVED` or `PENDING_APPROVAL`)
 _ Reject (Change the status of the document to `UPLOADED` and set the versions reject columns the rejecting officer and the rejection reason)
 
-They can still unapprove once the status of the document reaches `PENDING_DIRECTOR`, this will only be unavailable once the Director publishes it.
+They can still unapprove once the status of the document reaches `APPROVED`, this will only be unavailable once the Director publishes it.
 
 They cannot reject an approved document. They must first unapprove before doing so.
 
-- Director will only be able to see the document if the status is flagged as `PENDING_DIRECTOR` and past it (meaning they still can see the document after its status is changed unless it is `UPLOADED` or `ARCHIVED`).
+- Director will only be able to see the document if the status is flagged as `APPROVED` and past it (meaning they still can see the document after its status is changed unless it is `UPLOADED` or `ARCHIVED`).
 
 - The director can do the following to the document shared to their department:
 
@@ -111,7 +113,35 @@ Folder:
 _ can open (since we cannot view a folder)
 _ can download (download it as zip)
 Both (Major action events):
-_ Publish/Unpublish (Change the status of the document to `PUBLISHED` or `PENDING_DIRECTOR`)
-_ Reject (Change the status of the document to `UPLOADED` and set the versions reject columns the rejecting officer and the rejection reason)
+_ Publish/Unpublish (Change the status of the document to `PUBLISHED` or `APPROVED`)
 
 Publish in this case works similar to Share ability of the Administrator, but instead of per department they share this through the members of their corresponding departments.
+
+In the database, a null recipient_id means everyone in the departments will see this. If it has a value, it means specific users onyl sees this.
+
+Basically if the administrator shares per departments, director shares (or publish) per users
+
+- members can only see the document if the status of the document is `PUBLISHED` and is shared to them specifically or through all via the recipient_id null.
+
+- members are only allowed to view, open, and download a document
+
+- Any major events that changes the status of a folder with content, will cascade through that content. If you have a folder named `capstone` and it has a file named `capstone_reviewer.pdf` and another folder called `project` with content of `system_design.exe`, if you try and share, delete, approve, or any major action event, it will cascade through all the contents and will be audited accordingly
+
+### Document Request Worflow
+
+- unlike the document pipeline, this is different. A document can be shared via department or via document request. 
+
+- any non admin and non coordinator can request a document. All they have to do is to request a ticket for this.
+
+- the document request system works like a chatbox for ticketing. The admin and coordinators sees the incoming request and can choose to comply and resolve by sending and chatting over to the requesting user or simply deny the request.
+
+- this will bypass the document workflow where document is shared via scope. This however is a straight peer to peer connection sharing. Only the admin/coordinator and the requesting party can see the attached file.
+
+- i dont know how will this be achieved, but the idea is. If the requesting party wants a file that already been sent to, say, other department that is not theirs, the admin/coordinator can deny or share them the documents. In the database, we do not allow both department id and ticket id to live within the same row, so im not sure how will we handle this. Also the `ATTACHMENT` flag on the status must be get rid as this will interfere with the document pipeline.
+
+Status of the Documents
+- UPLOADED: Locally in the system, not shared
+- PENDING_APPROVAL: Waiting for the Officer's Approval
+- APPROVED: Approved and awaiting for the Director's Publication
+- PUBLISHED: Published and ready to be viewed by the Members
+- ARCHIVED: No longer available to be seen by anyone except the Administrator and Coordinator.

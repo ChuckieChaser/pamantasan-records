@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Search, ArrowUpDown, ArrowUp, ArrowDown, Filter, LayoutGrid, List, Plus } from 'lucide-react';
+import { Search, ArrowUpDown, ArrowUp, ArrowDown, Filter, LayoutGrid, List, Plus, Share2, Archive, XCircle, CheckCircle, MessageSquare } from 'lucide-react';
 import { Card } from '../ui/Containers';
 import { Badge } from '../ui/Badges';
 import { InputField } from '../ui/Textfields';
@@ -8,7 +8,7 @@ import { getFileIcon } from '../ui/FileIcon';
 import { FilterMenu } from '../ui/Menus';
 import DocumentCard from './DocumentCard';
 import { DOCUMENT_SHARE_STATUS } from '../../constants';
-import { useDocumentShare, useAuthentication } from '../../stores';
+import { useDocumentShare, useAuthentication, useUser } from '../../stores';
 
 // ==============================================================================
 // SECTION 1: UTILITIES
@@ -63,6 +63,7 @@ export default function DocumentBrowser({ title, description, documents, documen
     
     const { documentShares } = useDocumentShare();
     const { user } = useAuthentication();
+    const { users } = useUser();
 
     const getDocumentStatus = (doc) => {
         if (doc.is_archived) return 'ARCHIVED';
@@ -86,7 +87,7 @@ export default function DocumentBrowser({ title, description, documents, documen
             clickTimeoutRef.current = setTimeout(() => {
                 if (onDocumentClick) onDocumentClick(id);
                 clickTimeoutRef.current = null;
-            }, 100);
+            }, 150);
         }
     };
 
@@ -196,7 +197,7 @@ export default function DocumentBrowser({ title, description, documents, documen
                 displayDocuments.length === 0 ? (
                     <div className="p-8 text-center text-sm text-muted">No documents found.</div>
                 ) : (
-                    <div className="grid gap-4 grid-cols-[repeat(auto-fill,minmax(260px,1fr))]">
+                    <div className="grid max-h-[480px] overflow-y-auto gap-4 grid-cols-[repeat(auto-fill,minmax(260px,1fr))] pr-2">
                         {displayDocuments.map(doc => {
                             const latestVersion = documentVersions.find(v => v.document_id === doc.id);
                             const isShared = documentShares.some(s => s.document_id === doc.id);
@@ -207,6 +208,13 @@ export default function DocumentBrowser({ title, description, documents, documen
                                     latestVersion={latestVersion}
                                     isSelected={activeDocumentId === doc.id}
                                     isShared={isShared}
+                                    hasRejected={documentShares.some(s => s.document_id === doc.id && s.status === 'REJECTED')}
+                                    hasApproved={documentShares.some(s => s.document_id === doc.id && s.status === 'APPROVED')}
+                                    hasComment={!!doc.comment}
+                                    authorName={(() => {
+                                        const uploader = users.find(u => u.id === doc.uploader_id);
+                                        return uploader ? (uploader.id === user?.id ? 'Me' : `${uploader.first_name} ${uploader.last_name}`) : 'Unknown';
+                                    })()}
                                     onClick={() => handleRowClick(doc.id)}
                                 />
                             );
@@ -214,9 +222,9 @@ export default function DocumentBrowser({ title, description, documents, documen
                     </div>
                 )
             ) : (
-                <Card className="overflow-hidden">
+                <Card className="max-h-[480px] overflow-y-auto">
                     <table className="w-full text-left text-sm text-main">
-                        <thead className="border-b border-border bg-surface text-xs font-semibold uppercase text-muted">
+                        <thead className="sticky top-0 z-10 border-b border-border bg-surface text-xs font-semibold uppercase text-muted">
                             <tr>
                                 <th
                                     className="cursor-pointer px-4 py-3 transition-colors duration-200 hover:text-accent"
@@ -224,20 +232,17 @@ export default function DocumentBrowser({ title, description, documents, documen
                                 >
                                     <div className="flex items-center gap-1">Document Name {renderSortIcon('NAME', sortCol, sortState)}</div>
                                 </th>
-                                <th
-                                    className={`px-4 py-3 ${customStatus ? '' : 'cursor-pointer transition-colors duration-200 hover:text-accent'}`}
-                                    onClick={() => !customStatus && handleSort('STATUS')}
-                                >
-                                    <div className="flex items-center gap-1">
-                                        {customStatus ? customStatus.header : (sortCol === 'STATUS' && sortState !== 'DEFAULT' ? `Status (${sortState.replace(/_/g, ' ')})` : 'Status')}
-                                        {!customStatus && renderSortIcon('STATUS', sortCol, sortState, 'FILTER')}
-                                    </div>
+                                <th className="px-4 py-3">
+                                    <div className="flex items-center gap-1">Author</div>
+                                </th>
+                                <th className="px-4 py-3">
+                                    <div className="flex items-center gap-1">Version</div>
                                 </th>
                                 <th
                                     className="cursor-pointer px-4 py-3 transition-colors duration-200 hover:text-accent"
                                     onClick={() => handleSort('DATE')}
                                 >
-                                    <div className="flex items-center gap-1">Last Updated {renderSortIcon('DATE', sortCol, sortState)}</div>
+                                    <div className="flex items-center gap-1">Modified {renderSortIcon('DATE', sortCol, sortState)}</div>
                                 </th>
                             </tr>
                         </thead>
@@ -261,21 +266,34 @@ export default function DocumentBrowser({ title, description, documents, documen
                                                     <div className={`flex items-center justify-center ${isSelected ? 'text-accent' : 'text-muted'}`}>
                                                         {getFileIcon(doc.is_folder, latestVersion?.mime_type, 'size-4')}
                                                     </div>
-                                                    <span className={`max-w-xs truncate font-bold md:max-w-md ${isSelected ? 'text-accent' : 'text-main'}`}>
-                                                        {doc.name}
-                                                    </span>
-                                                    {documentShares.some(s => s.document_id === doc.id) && (
-                                                        <div className="flex-shrink-0 ml-2" title="This document is shared">
-                                                            <Badge label="Shared" variant="success" size="small" />
+                                                    <div className="flex items-center gap-2 max-w-[200px] md:max-w-xs">
+                                                        <span className={`truncate font-bold ${isSelected ? 'text-accent' : 'text-main'}`}>
+                                                            {doc.name}
+                                                        </span>
+                                                        <div className="flex shrink-0 gap-1">
+                                                            {doc.is_archived ? <Archive className="size-3.5 text-muted" /> : (documentShares.some(s => s.document_id === doc.id) && <Share2 className="size-3.5 text-success" />)}
+                                                            {(() => {
+                                                                const docSpecificShares = documentShares.filter(s => s.document_id === doc.id);
+                                                                if (docSpecificShares.some(s => s.status === 'REJECTED')) return <XCircle className="size-3.5 text-error" />;
+                                                                if (docSpecificShares.some(s => s.status === 'APPROVED')) return <CheckCircle className="size-3.5 text-success" />;
+                                                                return null;
+                                                            })()}
+                                                            {doc.comment && <MessageSquare className="size-3.5 text-warning" />}
                                                         </div>
-                                                    )}
+                                                    </div>
                                                 </div>
                                             </td>
-                                            <td className="px-4 py-4">
-                                                {customStatus ? customStatus.render(doc) : <Badge label={getDocumentStatus(doc)} variant="neutral" size="small" />}
+                                            <td className="px-4 py-4 text-muted truncate max-w-[120px]">
+                                                {(() => {
+                                                    const uploader = users.find(u => u.id === doc.uploader_id);
+                                                    return uploader ? (uploader.id === user?.id ? 'Me' : `${uploader.first_name} ${uploader.last_name}`) : 'Unknown';
+                                                })()}
+                                            </td>
+                                            <td className="px-4 py-4 text-muted">
+                                                {doc.is_folder ? '-' : `v${latestVersion?.version || 1}`}
                                             </td>
                                             <td className="px-4 py-4 font-medium text-muted">
-                                                {new Date(doc.updated_at).toLocaleDateString()}
+                                                {new Date(doc.updated_at).toLocaleString()}
                                             </td>
                                         </tr>
                                     );

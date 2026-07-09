@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { documentsService } from '../../services';
 import { action } from '../utilities';
+import { useDocumentVersion } from './useDocumentVersion';
+import { useDocumentShare } from './useShare';
 
 export const useDocument = create((set, get) => ({
     // --- States ---
@@ -43,25 +45,22 @@ export const useDocument = create((set, get) => ({
     create: action(set, async (data) => {
         const createdDocument = await documentsService.create(data);
 
-        const documents = get().documents;
-        const newDocuments = [...documents, createdDocument];
+        await get().getAll();
+        useDocumentVersion.getState().getAll();
+        useDocumentShare.getState().getAll();
 
-        set({ documents: newDocuments });
         return createdDocument;
     }),
     update: action(set, async (id, data) => {
         const updatedDocument = await documentsService.update(id, data);
 
-        const documents = get().documents;
-        const newDocuments = documents.map((nd) => (nd.id === id ? updatedDocument : nd));
+        await get().getAll();
+        useDocumentVersion.getState().getAll();
+        useDocumentShare.getState().getAll();
 
-        const activeDocument = get().activeDocument;
-        const newActiveDocument = activeDocument?.id === id ? updatedDocument : activeDocument;
-
-        set({
-            documents: newDocuments,
-            activeDocument: newActiveDocument,
-        });
+        if (get().activeDocument?.id === id) {
+            set({ activeDocument: updatedDocument });
+        }
 
         return updatedDocument;
     }),
@@ -70,6 +69,8 @@ export const useDocument = create((set, get) => ({
 
         // Resynchronize the entire tree from the backend to ensure cascading deletes (like archived children) are removed from the store
         await get().getAll();
+        useDocumentVersion.getState().getAll();
+        useDocumentShare.getState().getAll();
 
         const activeDocument = get().activeDocument;
         const newActiveDocument = activeDocument?.id === id ? null : activeDocument;

@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Search, PanelRight } from 'lucide-react';
 
-import { useAuthentication, useNotification, useDocument } from '../../stores';
+import { useAuthentication, useNotification, useDocument, useDocumentRequest, useCoordinatorRequest, useUser, useDepartment } from '../../stores';
 import { IconButton, InputField, NotificationMenu, Breadcrumb } from '../ui';
 
 // ==============================================================================
@@ -17,6 +17,8 @@ const Topbar = ({ onToggleInspector, isInspectorOpen }) => {
     const { user } = useAuthentication();
     const { notifications, unreadCount, getGroupedByRecipientId, update: updateNotification } = useNotification();
     const { documents } = useDocument();
+    const { users } = useUser();
+    const { departments } = useDepartment();
 
     // --- Load notifications when the authenticated user changes ---
     useEffect(() => {
@@ -55,20 +57,59 @@ const Topbar = ({ onToggleInspector, isInspectorOpen }) => {
     const notificationItems = notifications.map((notification) => {
         const isPlural = notification.interaction_count > 1;
         
-        // Handle either string/array actor_ids for name parsing if needed, but for now we fallback 
-        // to generic terms since actor_name isn't in vw_notifications directly. Wait! vw_notifications 
-        // doesn't return actor_name, it returns actor_ids. Does the backend join them?
-        // Ah, the frontend previously used `notification.group_count`, `notification.actor_name` which don't exist in vw_notifications!
-        // vw_notifications returns interaction_count, actor_ids.
-        const actorText = isPlural ? 'Multiple users' : 'A user';
+        let actorName = 'System';
+        if (notification.actor_ids && notification.actor_ids.length > 0) {
+            const firstActorId = notification.actor_ids[0];
+            const foundUser = users.find(u => u.id === firstActorId);
+            if (foundUser) {
+                actorName = `${foundUser.first_name} ${foundUser.last_name}`;
+            } else {
+                actorName = 'A user';
+            }
+        }
+        
+        const actorText = isPlural ? `${actorName} and others` : actorName;
+        const actionText = notification.action ? notification.action.replace(/_/g, ' ').toLowerCase() : 'interacted with';
+        
+        let targetText = notification.entity_type;
+        switch (notification.entity_type) {
+            case 'DOCUMENT':
+            case 'DOCUMENT_VERSION':
+            case 'DOCUMENT_SHARE': {
+                const doc = documents.find(d => d.id === notification.entity_id);
+                targetText = doc ? doc.name : 'a document';
+                break;
+            }
+            case 'USER':
+            case 'USER_CREDENTIAL':
+            case 'USER_SESSION':
+            case 'USER_SETTING': {
+                const u = users.find(u => u.id === notification.entity_id);
+                targetText = u ? `${u.first_name} ${u.last_name}` : 'a user';
+                break;
+            }
+            case 'DEPARTMENT': {
+                const dept = departments.find(d => d.id === notification.entity_id);
+                targetText = dept ? dept.name : 'a department';
+                break;
+            }
+            case 'DOCUMENT_REQUEST':
+            case 'DOCUMENT_REQUEST_ATTACHMENT':
+            case 'DOCUMENT_REQUEST_MESSAGE':
+                targetText = 'a document request';
+                break;
+            case 'COORDINATOR_REQUEST':
+                targetText = 'a coordinator request';
+                break;
+        }
 
         const titleNode = (
             <span className="text-main">
                 <span className="font-semibold text-accent">{actorText}</span>
                 {' '}
-                <span className="lowercase">{notification.action?.replace(/_/g, ' ')}</span>
-                {' on '}
-                <span className="font-semibold text-accent">{notification.entity_type}</span>
+                <span>{actionText}</span>
+                {' '}
+                <span className="font-semibold text-accent">{targetText}</span>
             </span>
         );
 
@@ -77,10 +118,41 @@ const Topbar = ({ onToggleInspector, isInspectorOpen }) => {
             message: null,
             time: new Date(notification.last_interaction_at).toLocaleString(),
             count: notification.interaction_count,
-            avatar: null,
+            avatar: foundUser ? foundUser.avatar_path : null,
+            is_read: notification.is_read,
             onClick: async () => {
                 if (notification.notification_ids && !notification.is_read) {
                     await updateNotification(notification.notification_ids.join(','), { is_read: true });
+                }
+                
+                switch(notification.entity_type) {
+                    case 'DOCUMENT':
+                    case 'DOCUMENT_VERSION':
+                    case 'DOCUMENT_SHARE':
+                        navigate('/documents');
+                        useDocument.getState().selectActiveDocument(notification.entity_id);
+                        break;
+                    case 'DOCUMENT_REQUEST':
+                    case 'DOCUMENT_REQUEST_ATTACHMENT':
+                    case 'DOCUMENT_REQUEST_MESSAGE':
+                        navigate('/management/requests');
+                        useDocumentRequest.getState().selectActiveDocumentRequest(notification.entity_id);
+                        break;
+                    case 'COORDINATOR_REQUEST':
+                        navigate('/management/coordinator');
+                        useCoordinatorRequest.getState().selectActiveCoordinatorRequest(notification.entity_id);
+                        break;
+                    case 'USER':
+                    case 'USER_CREDENTIAL':
+                    case 'USER_SESSION':
+                    case 'USER_SETTING':
+                        navigate('/management/users');
+                        useUser.getState().selectActiveUser(notification.entity_id);
+                        break;
+                    case 'DEPARTMENT':
+                        navigate('/management/departments');
+                        useDepartment.getState().selectActiveDepartment(notification.entity_id);
+                        break;
                 }
             }
         };

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, ArrowUpDown, ArrowUp, ArrowDown, Filter, Activity } from 'lucide-react';
+import { Search, ArrowUpDown, ArrowUp, ArrowDown, Filter, FileText, FileClock, XCircle, Clock, Activity, User, Building, MessageSquare } from 'lucide-react';
 import { Card } from '../ui/Containers';
 import { Badge } from '../ui/Badges';
 import { InputField } from '../ui/Textfields';
@@ -140,14 +140,14 @@ export default function AuditBrowser({ title, description, audits, activeAuditLo
     return (
         <section className="flex flex-col gap-4">
             {/* --- Header --- */}
-            <div className="flex items-end justify-between">
+            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
                 <div>
                     <h2 className="text-xl font-bold text-main">{title}</h2>
                     {description && <p className="mt-1 text-xs text-muted">{description}</p>}
                 </div>
 
-                <div className="flex items-center gap-2">
-                    <div className="w-64">
+                <div className="flex flex-wrap items-center gap-2">
+                    <div className="w-full md:w-64">
                         <InputField
                             leftIcon={Search}
                             placeholder={`Search logs...`}
@@ -195,7 +195,28 @@ export default function AuditBrowser({ title, description, audits, activeAuditLo
                                         <td className="px-4 py-4">
                                         <div className="flex items-center gap-3">
                                             <div className={`flex items-center justify-center ${isSelected ? 'text-accent' : 'text-muted'}`}>
-                                                <Activity className="size-4" />
+                                                {(() => {
+                                                    switch (audit.entity_type) {
+                                                        case 'DOCUMENT':
+                                                        case 'DOCUMENT_VERSION':
+                                                        case 'DOCUMENT_SHARE':
+                                                            return <FileText className="size-4" />;
+                                                        case 'USER':
+                                                        case 'USER_CREDENTIAL':
+                                                        case 'USER_SESSION':
+                                                        case 'USER_SETTING':
+                                                            return <User className="size-4" />;
+                                                        case 'DEPARTMENT':
+                                                            return <Building className="size-4" />;
+                                                        case 'DOCUMENT_REQUEST':
+                                                        case 'DOCUMENT_REQUEST_ATTACHMENT':
+                                                        case 'DOCUMENT_REQUEST_MESSAGE':
+                                                        case 'COORDINATOR_REQUEST':
+                                                            return <MessageSquare className="size-4" />;
+                                                        default:
+                                                            return <Activity className="size-4" />;
+                                                    }
+                                                })()}
                                             </div>
                                             <span className={`font-bold ${isSelected ? 'text-accent' : 'text-main'}`}>
                                                 {audit.action.replace(/_/g, ' ')}

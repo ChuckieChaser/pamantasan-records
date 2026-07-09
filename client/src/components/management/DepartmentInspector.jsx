@@ -54,11 +54,11 @@ export default function DepartmentInspector({ department, onClose }) {
                             <div className="mt-2 flex flex-col gap-2 rounded bg-surface-hover p-2 text-sm text-main">
                                 <div className="flex flex-col">
                                     <span className="text-xs text-muted">Created</span>
-                                    <span className="font-medium">{new Date(department.created_at).toLocaleDateString()}</span>
+                                    <span className="font-medium">{new Date(department.created_at).toLocaleString()}</span>
                                 </div>
                                 <div className="flex flex-col">
                                     <span className="text-xs text-muted">Modified</span>
-                                    <span className="font-medium">{new Date(department.updated_at).toLocaleDateString()}</span>
+                                    <span className="font-medium">{new Date(department.updated_at).toLocaleString()}</span>
                                 </div>
                             </div>
                         </div>

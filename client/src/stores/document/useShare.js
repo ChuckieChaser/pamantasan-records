@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { documentSharesService } from '../../services';
 import { action } from '../utilities';
+import { useDocument } from './useDocument';
 
 export const useDocumentShare = create((set, get) => ({
     // --- States ---
@@ -33,6 +34,7 @@ export const useDocumentShare = create((set, get) => ({
         const createdDocumentShare = await documentSharesService.create(data);
 
         await get().getAll();
+        useDocument.getState().getAll();
 
         return createdDocumentShare;
     }),
@@ -40,6 +42,7 @@ export const useDocumentShare = create((set, get) => ({
         const updatedDocumentShare = await documentSharesService.update(id, data);
 
         await get().getAll();
+        useDocument.getState().getAll();
 
         return updatedDocumentShare;
     }),
@@ -47,6 +50,7 @@ export const useDocumentShare = create((set, get) => ({
         await documentSharesService.delete(id);
 
         await get().getAll();
+        useDocument.getState().getAll();
 
         return id;
     }),

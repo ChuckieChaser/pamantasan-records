@@ -122,12 +122,14 @@ BEGIN
 
     -- For Directors:
     IF is_director_role() THEN
-        -- Directors can only toggle between APPROVED and PUBLISHED
+        -- Directors can toggle APPROVED <-> PUBLISHED, or APPROVED <-> STASHED
         IF (OLD.status = 'APPROVED' AND NEW.status = 'PUBLISHED') OR
-           (OLD.status = 'PUBLISHED' AND NEW.status = 'APPROVED') THEN
+           (OLD.status = 'PUBLISHED' AND NEW.status = 'APPROVED') OR
+           (OLD.status = 'APPROVED' AND NEW.status = 'STASHED') OR
+           (OLD.status = 'STASHED' AND NEW.status = 'APPROVED') THEN
             RETURN NEW;
         ELSE
-            RAISE EXCEPTION 'Directors can only transition shares between APPROVED and PUBLISHED. Attempted: % -> %', OLD.status, NEW.status;
+            RAISE EXCEPTION 'Directors can only transition shares between APPROVED and PUBLISHED/STASHED. Attempted: % -> %', OLD.status, NEW.status;
         END IF;
     END IF;
 

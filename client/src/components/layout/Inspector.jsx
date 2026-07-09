@@ -16,11 +16,12 @@ import DefaultAvatar from '../../assets/avatar.png';
 // ==============================================================================
 
 const formatBytes = (bytes) => {
-    if (bytes === 0) return '0 Bytes';
+    const b = Number(bytes);
+    if (isNaN(b) || b === 0) return '0 Bytes';
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    const i = Math.floor(Math.log(b) / Math.log(k));
+    return parseFloat((b / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
 // ==============================================================================
@@ -236,9 +237,10 @@ const Inspector = ({ document, auditLog, onClose }) => {
             } else if (computedStatus === DOCUMENT_SHARE_STATUS.APPROVED) {
                 await updateShare(share.id, { status: DOCUMENT_SHARE_STATUS.PUBLISHED });
             }
-            setIsApproveModalOpen(false);
         } catch (error) {
             console.error('Failed to approve document', error);
+        } finally {
+            setIsApproveModalOpen(false);
         }
     };
 
@@ -260,9 +262,10 @@ const Inspector = ({ document, auditLog, onClose }) => {
                 status: DOCUMENT_SHARE_STATUS.PUBLISHED,
                 recipient_id: recipientId
             });
-            setIsPublishModalOpen(false);
         } catch (error) {
             console.error('Failed to publish document', error);
+        } finally {
+            setIsPublishModalOpen(false);
         }
     };
 
@@ -326,10 +329,10 @@ const Inspector = ({ document, auditLog, onClose }) => {
                     }
                 }
             }
-            
-            setDestructiveAction(null);
         } catch (error) {
             console.error('Failed to perform action', error);
+        } finally {
+            setDestructiveAction(null);
         }
     };
 
@@ -398,7 +401,13 @@ const Inspector = ({ document, auditLog, onClose }) => {
                     const share = docShares.find(s => s.department_id === user.department_id);
                     if (share) return share.status;
                 }
-                if (docShares.length > 0) return docShares[0].status;
+                if (docShares.length > 0) {
+                    if (docShares.some(s => s.status === DOCUMENT_SHARE_STATUS.PUBLISHED)) return DOCUMENT_SHARE_STATUS.PUBLISHED;
+                    if (docShares.some(s => s.status === DOCUMENT_SHARE_STATUS.APPROVED)) return DOCUMENT_SHARE_STATUS.APPROVED;
+                    if (docShares.some(s => s.status === DOCUMENT_SHARE_STATUS.PENDING_APPROVAL)) return DOCUMENT_SHARE_STATUS.PENDING_APPROVAL;
+                    if (docShares.some(s => s.status === DOCUMENT_SHARE_STATUS.STASHED)) return DOCUMENT_SHARE_STATUS.STASHED;
+                    return docShares[0].status;
+                }
                 return 'UPLOADED';
             };
             const computedStatus = getComputedStatus();
@@ -561,9 +570,24 @@ const Inspector = ({ document, auditLog, onClose }) => {
                                                 <Tag className="size-3.5" />
                                                 <span className="text-xs font-bold uppercase tracking-wide">Status</span>
                                             </div>
-                                            <div className="mt-2 rounded bg-surface-hover p-2 text-sm font-medium text-main">
-                                                {computedStatus.replace(/_/g, ' ')}
-                                            </div>
+                                            {docShares.length > 0 ? (
+                                                <div className="mt-2 flex flex-col gap-1 rounded bg-surface-hover p-2">
+                                                    {docShares.map(share => {
+                                                        const dept = departments.find(d => d.id === share.department_id);
+                                                        const deptName = dept ? dept.code : 'System/Admin';
+                                                        return (
+                                                            <div key={share.id} className="flex justify-between text-sm">
+                                                                <span className="font-medium text-main">{deptName}</span>
+                                                                <span className="text-muted">{share.status.replace(/_/g, ' ')}</span>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            ) : (
+                                                <div className="mt-2 rounded bg-surface-hover p-2 text-sm font-medium text-main">
+                                                    {computedStatus.replace(/_/g, ' ')}
+                                                </div>
+                                            )}
                                         </div>
 
                                         {/* Summary */}
@@ -716,11 +740,11 @@ const Inspector = ({ document, auditLog, onClose }) => {
                                             <div className="mt-2 flex flex-col gap-2 rounded bg-surface-hover p-2 text-sm text-main">
                                                 <div className="flex flex-col">
                                                     <span className="text-xs text-muted">Created</span>
-                                                    <span className="font-medium">{new Date(document.created_at).toLocaleDateString()}</span>
+                                                    <span className="font-medium">{new Date(document.created_at).toLocaleString()}</span>
                                                 </div>
                                                 <div className="flex flex-col">
                                                     <span className="text-xs text-muted">Modified</span>
-                                                    <span className="font-medium">{new Date(document.updated_at).toLocaleDateString()}</span>
+                                                    <span className="font-medium">{new Date(document.updated_at).toLocaleString()}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -759,7 +783,7 @@ const Inspector = ({ document, auditLog, onClose }) => {
                                                                 </span>
                                                                 {isCurrent && <span className="text-[10px] font-bold uppercase tracking-wider text-accent">Current Version</span>}
                                                             </div>
-                                                            <span className="text-xs font-medium text-muted">{new Date(v.created_at).toLocaleDateString()}</span>
+                                                            <span className="text-xs font-medium text-muted">{new Date(v.created_at).toLocaleString()}</span>
                                                         </div>
                                                         <div className="flex flex-col">
                                                             <span className="text-xs text-muted">Size</span>
@@ -856,7 +880,7 @@ const Inspector = ({ document, auditLog, onClose }) => {
                                                     const formattedKey = key.replace(/_/g, ' ').toUpperCase();
 
                                                     let displayValue;
-                                                    if (key === 'size_bytes' && typeof value === 'number') {
+                                                    if (key === 'size_bytes' && !isNaN(Number(value))) {
                                                         displayValue = <span className="break-words font-medium">{formatBytes(value)}</span>;
                                                     } else if (typeof value === 'object' && value !== null) {
                                                         displayValue = (

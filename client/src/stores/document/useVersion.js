@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { documentVersionsService } from '../../services';
 import { action } from '../utilities';
+import { useDocument } from './useDocument';
 
 export const useDocumentVersion = create((set, get) => ({
     // --- States ---
@@ -37,6 +38,10 @@ export const useDocumentVersion = create((set, get) => ({
         try {
             const newVersion = await documentVersionsService.revert(docId, { version_id: versionId, uploader_id: uploaderId });
             set({ documentVersions: [...get().documentVersions, newVersion], isLoading: false });
+            
+            // Sync up the document store
+            useDocument.getState().getAll();
+            
             return newVersion;
         } catch (error) {
             set({ error: error.response?.data?.error || error.message, isLoading: false });

@@ -6,11 +6,12 @@ import { useUser, useCoordinatorRequest, useDepartment } from '../../stores';
 import { COORDINATOR_REQUESTS_STATUS } from '../../constants';
 
 const formatBytes = (bytes) => {
-    if (bytes === 0) return '0 Bytes';
+    const b = Number(bytes);
+    if (isNaN(b) || b === 0) return '0 Bytes';
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    const i = Math.floor(Math.log(b) / Math.log(k));
+    return parseFloat((b / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
 // ==============================================================================
@@ -113,7 +114,7 @@ export default function CoordinatorRequestInspector({ request, onClose }) {
                                         const formattedKey = key.replace(/_/g, ' ').toUpperCase();
 
                                         let displayValue;
-                                        if (key === 'size_bytes' && typeof value === 'number') {
+                                        if (key === 'size_bytes' && !isNaN(Number(value))) {
                                             displayValue = <span className="break-words font-medium">{formatBytes(value)}</span>;
                                         } else if (key === 'user_id' && typeof value === 'string') {
                                             const targetUser = users.find(u => u.id === value);

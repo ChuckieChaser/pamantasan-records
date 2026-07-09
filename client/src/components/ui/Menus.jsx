@@ -41,36 +41,37 @@ export const NotificationMenu = ({ hasUnread = false, notifications = [], classN
                     <MenuContainer className="top-full right-0 w-96">
                         <MenuHeader title="Notifications" />
 
-                        <MenuBody className="max-h-80">
+                        <MenuBody className="max-h-96">
                             {isEmpty ? (
-                                <div className="px-4 py-6 text-center text-sm text-muted">
+                                <div className="px-4 py-8 text-center text-sm text-muted">
                                     No new notifications.
                                 </div>
                             ) : (
                                 notifications.map((notification, index) => (
                                     <MenuButton
                                         key={index}
+                                        className={`mb-1 border-l-4 ${!notification.is_read ? 'border-accent bg-accent-background/30 hover:bg-accent-background/50' : 'border-transparent hover:bg-surface-hover'}`}
                                         onClick={() => {
                                             if (notification.onClick) notification.onClick();
                                             handleClose();
                                         }}
                                     >
-                                        <div className="flex w-full items-center justify-between gap-4">
+                                        <div className="flex w-full items-start justify-between gap-3">
                                             {/* Left side: Avatar + Information */}
-                                            <div className="flex items-center gap-3">
-                                                <div className="size-10 shrink-0 overflow-hidden rounded-full border border-border">
+                                            <div className="flex flex-1 items-start gap-3">
+                                                <div className="mt-0.5 size-10 shrink-0 overflow-hidden rounded-full border border-border shadow-sm">
                                                     <img src={notification.avatar || avatar} alt="Actor" className="h-full w-full object-cover" />
                                                 </div>
-                                                <div className="flex flex-col">
-                                                    {notification.title && <span className="text-sm font-medium">{notification.title}</span>}
-                                                    {notification.message && <span className="text-xs text-muted">{notification.message}</span>}
-                                                    {notification.time && <span className="mt-1 text-xs text-muted">{notification.time}</span>}
+                                                <div className="flex flex-col gap-1 pr-2">
+                                                    {notification.title && <span className="text-sm font-medium leading-snug">{notification.title}</span>}
+                                                    {notification.message && <span className="text-xs text-muted leading-snug">{notification.message}</span>}
+                                                    {notification.time && <span className="text-[10px] font-semibold uppercase tracking-wider text-muted">{notification.time}</span>}
                                                 </div>
                                             </div>
 
                                             {/* Right side: Interaction count */}
                                             {notification.count > 1 && (
-                                                <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-bold text-surface">
+                                                <div className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-accent text-[10px] font-bold text-surface shadow-sm">
                                                     {notification.count}
                                                 </div>
                                             )}

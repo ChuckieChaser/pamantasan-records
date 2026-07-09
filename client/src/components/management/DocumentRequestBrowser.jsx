@@ -102,14 +102,14 @@ export default function DocumentRequestBrowser({ title, description, requests, u
     return (
         <section className="flex flex-col gap-4">
             {/* --- Header --- */}
-            <div className="flex items-end justify-between">
+            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
                 <div>
                     <h2 className="text-xl font-bold text-main">{title}</h2>
                     {description && <p className="mt-1 text-xs text-muted">{description}</p>}
                 </div>
 
-                <div className="flex items-center gap-2">
-                    <div className="w-64">
+                <div className="flex flex-wrap items-center gap-2">
+                    <div className="w-full md:w-64">
                         <InputField
                             leftIcon={Search}
                             placeholder={`Search subjects...`}

@@ -12,11 +12,11 @@ import { action } from '../utilities';
 
 export const useAuthentication = create((set) => ({
     // --- States ---
-    user:            null,
-    settings:        null,
+    user: null,
+    settings: null,
     isAuthenticated: false,
-    isLoading:       false,
-    error:           null,
+    isLoading: false,
+    error: null,
 
     // --- Actions ---
     login: action(set, async (university_id, password) => {
@@ -51,13 +51,20 @@ export const useAuthentication = create((set) => ({
         return user;
     }),
 
+    updateUser: (updatedUser) => set((state) => {
+        if (!state.user) return state;
+        const newUser = { ...state.user, ...updatedUser };
+        localStorage.setItem('pamantasan_user', JSON.stringify(newUser));
+        return { user: newUser };
+    }),
+
     logout: () => {
         localStorage.removeItem('pamantasan_user');
         set({
-            user:            null,
-            settings:        null,
+            user: null,
+            settings: null,
             isAuthenticated: false,
-            error:           null,
+            error: null,
         });
     },
 }));

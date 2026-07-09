@@ -45,7 +45,7 @@ export default function DepartmentModal({ isOpen, onClose, department = null }) 
                         data: {
                             id: department.id,
                             name: name.trim(),
-                            type: code.trim().toUpperCase(),
+                            code: code.trim().toUpperCase(),
                         }
                     });
                 } else {
@@ -54,7 +54,7 @@ export default function DepartmentModal({ isOpen, onClose, department = null }) 
                         action: 'DEPARTMENT_CREATE',
                         data: {
                             name: name.trim(),
-                            type: code.trim().toUpperCase(),
+                            code: code.trim().toUpperCase(),
                         }
                     });
                 }
@@ -62,12 +62,12 @@ export default function DepartmentModal({ isOpen, onClose, department = null }) 
                 if (isEditMode) {
                     await update(department.id, {
                         name: name.trim(),
-                        type: code.trim().toUpperCase(),
+                        code: code.trim().toUpperCase(),
                     });
                 } else {
                     await create({
                         name: name.trim(),
-                        type: code.trim().toUpperCase(),
+                        code: code.trim().toUpperCase(),
                     });
                 }
             }

@@ -12,6 +12,7 @@ import { notificationsApi } from './api/notifications';
 import { auditsApi }       from './api/audits';
 
 // --- Departments ---
+export { documentsApi };
 export const departmentsService = departmentsApi;
 
 // --- Users ---

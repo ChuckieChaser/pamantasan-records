@@ -9,11 +9,11 @@ const { Pool } = pkg;
 // ==============================================================================
 
 export const pool = new Pool({
-    user:     process.env.POSTGRES_USER     || 'admin',
+    user: process.env.POSTGRES_USER || 'admin',
     password: process.env.POSTGRES_PASSWORD || 'admin',
-    host:     process.env.POSTGRES_HOST     || '127.0.0.1',
-    port:     parseInt(process.env.POSTGRES_PORT || '5433'),
-    database: process.env.POSTGRES_DB       || 'pamantasan_records',
+    host: process.env.POSTGRES_HOST || '127.0.0.1',
+    port: parseInt(process.env.POSTGRES_PORT || '5433'),
+    database: process.env.POSTGRES_DB || 'pamantasan_records',
 });
 
 // ==============================================================================
@@ -27,9 +27,13 @@ export async function withRLS(client, context, callback) {
     try {
         await client.query('BEGIN');
         await client.query(`SET LOCAL ROLE app_user`);
-        await client.query(`SET LOCAL app.user_current_id          = '${context.userId         || ''}'`);
-        await client.query(`SET LOCAL app.user_current_role        = '${context.role           || 'SYSTEM'}'`);
-        await client.query(`SET LOCAL app.user_current_department_id = '${context.departmentId || ''}'`);
+        const cleanUserId = context.userId === 'null' || context.userId === 'undefined' ? '' : context.userId || '';
+        const cleanRole = context.role === 'null' || context.role === 'undefined' ? 'SYSTEM' : context.role || 'SYSTEM';
+        const cleanDeptId = context.departmentId === 'null' || context.departmentId === 'undefined' ? '' : context.departmentId || '';
+
+        await client.query(`SET LOCAL app.user_current_id          = '${cleanUserId}'`);
+        await client.query(`SET LOCAL app.user_current_role        = '${cleanRole}'`);
+        await client.query(`SET LOCAL app.user_current_department_id = '${cleanDeptId}'`);
 
         const result = await callback(client);
 

@@ -11,6 +11,7 @@ import Documents from './pages/Documents';
 import Archives from './pages/Archives';
 import Management from './pages/Management';
 import Requests from './pages/Requests';
+import Onboarding from './pages/Onboarding';
 
 // ==============================================================================
 // SECTION 1: GUARDS
@@ -18,8 +19,11 @@ import Requests from './pages/Requests';
 
 const ProtectedRoute = ({ children }) => {
     const isAuthenticated = useAuthentication((state) => state.isAuthenticated);
+    const user = useAuthentication((state) => state.user);
 
     if (!isAuthenticated) return <Navigate to="/" replace />;
+    if (user && user.status !== 'VERIFIED') return <Navigate to="/onboarding" replace />;
+
     return children;
 };
 
@@ -28,11 +32,23 @@ const ProtectedRoute = ({ children }) => {
 // ==============================================================================
 
 export default function App() {
+    const isAuthenticated = useAuthentication((state) => state.isAuthenticated);
+
     return (
         <BrowserRouter>
             <Routes>
                 <Route element={<AuthenticationLayout />}>
                     <Route path="/" element={<Login />} />
+                    <Route 
+                        path="/onboarding" 
+                        element={
+                            isAuthenticated ? (
+                                <Onboarding />
+                            ) : (
+                                <Navigate to="/" replace />
+                            )
+                        } 
+                    />
                 </Route>
 
                 <Route

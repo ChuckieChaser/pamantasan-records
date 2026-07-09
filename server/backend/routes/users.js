@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { pool, withRLS } from '../db.js';
 import { logAudit } from '../services/audit.js';
 import { createNotification } from '../services/notification.js';
+import bcrypt from 'bcrypt';
 
 const router = Router();
 
@@ -51,7 +52,7 @@ router.get('/:id', async (req, res) => {
 
 // POST /api/users
 router.post('/', async (req, res) => {
-    const { university_id, department_id, role, email, first_name, middle_name, last_name } = req.body;
+    const { university_id, department_id, role, email, first_name, middle_name, last_name, password } = req.body;
     if (!university_id || !department_id || !role || !email || !first_name || !last_name) {
         return res.status(400).json({ error: 'Missing required fields' });
     }
@@ -70,6 +71,16 @@ router.post('/', async (req, res) => {
             const userRow = result.rows[0];
             const userId = getRLSContext(req).userId;
             const userRole = getRLSContext(req).role;
+
+            if (password && password !== university_id) {
+                const hash = await bcrypt.hash(password, 10);
+                try {
+                    await c.query(`SET LOCAL app.user_current_role = 'SYSTEM'`);
+                    await c.query(`UPDATE user_credentials SET password_hash = $1 WHERE user_id = $2`, [hash, userRow.id]);
+                } finally {
+                    await c.query(`SET LOCAL app.user_current_role = '${userRole || 'GUEST'}'`);
+                }
+            }
 
             await logAudit(c, {
                 actor_id: userId,
@@ -91,6 +102,7 @@ router.post('/', async (req, res) => {
         });
     } catch (err) {
         if (err.code === '23505') return res.status(409).json({ error: 'University ID or email already exists' });
+        if (err.code === '23514') return res.status(400).json({ error: 'Invalid format for University ID or Email. Please use 00-00000 format and @pamantasan.edu.ph' });
         res.status(500).json({ error: err.message });
     } finally {
         client.release();
@@ -99,24 +111,43 @@ router.post('/', async (req, res) => {
 
 // PATCH /api/users/:id
 router.patch('/:id', async (req, res) => {
-    const allowed = ['role', 'email', 'first_name', 'middle_name', 'last_name', 'status', 'avatar_path'];
+    const allowed = ['role', 'email', 'first_name', 'middle_name', 'last_name', 'status', 'avatar_path', 'department_id', 'university_id'];
     const updates = Object.entries(req.body)
         .filter(([k]) => allowed.includes(k))
         .map(([k, v], i) => [`${k} = $${i + 2}`, v]);
 
-    if (updates.length === 0) return res.status(400).json({ error: 'No valid fields provided' });
+    if (updates.length === 0 && !req.body.password) return res.status(400).json({ error: 'No valid fields provided' });
 
     const client = await pool.connect();
     try {
         await withRLS(client, getRLSContext(req), async (c) => {
-            const result = await c.query(
-                `UPDATE users SET ${updates.map(u => u[0]).join(', ')} WHERE id = $1 RETURNING *`,
-                [req.params.id, ...updates.map(u => u[1])]
-            );
-            if (result.rows.length === 0) return res.status(404).json({ error: 'User not found' });
-            const userRow = result.rows[0];
+            let userRow = null;
+            if (updates.length > 0) {
+                const result = await c.query(
+                    `UPDATE users SET ${updates.map(u => u[0]).join(', ')} WHERE id = $1 RETURNING *`,
+                    [req.params.id, ...updates.map(u => u[1])]
+                );
+                if (result.rows.length === 0) return res.status(404).json({ error: 'User not found' });
+                userRow = result.rows[0];
+            } else {
+                const result = await c.query('SELECT * FROM users WHERE id = $1', [req.params.id]);
+                if (result.rows.length === 0) return res.status(404).json({ error: 'User not found' });
+                userRow = result.rows[0];
+            }
+
             const userId = getRLSContext(req).userId;
             const userRole = getRLSContext(req).role;
+
+            if (req.body.password) {
+                const hash = await bcrypt.hash(req.body.password, 10);
+                try {
+                    await c.query(`SET LOCAL app.user_current_role = 'SYSTEM'`);
+                    await c.query(`UPDATE user_credentials SET password_hash = $1 WHERE user_id = $2`, [hash, req.params.id]);
+                } finally {
+                    await c.query(`SET LOCAL app.user_current_role = '${userRole || 'GUEST'}'`);
+                }
+            }
+            
             const actionVerb = 'status' in req.body && req.body.status === 'SUSPENDED' ? 'SUSPENDED' : 'UPDATED';
 
             await logAudit(c, {
@@ -140,6 +171,8 @@ router.patch('/:id', async (req, res) => {
             res.json(userRow);
         });
     } catch (err) {
+        if (err.code === '23505') return res.status(409).json({ error: 'University ID or email already exists' });
+        if (err.code === '23514') return res.status(400).json({ error: 'Invalid format for University ID or Email. Please use 00-00000 format and @pamantasan.edu.ph' });
         res.status(500).json({ error: err.message });
     } finally {
         client.release();

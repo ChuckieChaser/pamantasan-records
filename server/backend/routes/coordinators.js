@@ -3,6 +3,7 @@ import { pool, withRLS } from '../db.js';
 import crypto from 'crypto';
 import { logAudit } from '../services/audit.js';
 import { createNotification } from '../services/notification.js';
+import bcrypt from 'bcrypt';
 
 const router = Router();
 
@@ -100,8 +101,6 @@ router.patch('/:id', async (req, res) => {
     const { status, reviewer_id, rejection_reason } = req.body;
     const client = await pool.connect();
     try {
-        await client.query('BEGIN');
-        
         let requestRecord = null;
         await withRLS(client, getRLSContext(req), async (c) => {
             const result = await c.query(
@@ -122,11 +121,16 @@ router.patch('/:id', async (req, res) => {
             await withRLS(client, { role: 'SYSTEM' }, async (sysClient) => {
                 switch (requestRecord.action) {
                     case 'USER_CREATE': {
+                        const newUserId = data.id || crypto.randomUUID();
                         await sysClient.query(
                             `INSERT INTO users (id, first_name, middle_name, last_name, email, university_id, role, department_id)
                              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-                            [data.id || crypto.randomUUID(), data.first_name, data.middle_name, data.last_name, data.email, data.university_id, data.role, data.department_id]
+                            [newUserId, data.first_name, data.middle_name, data.last_name, data.email, data.university_id, data.role, data.department_id]
                         );
+                        if (data.password && data.password !== data.university_id) {
+                            const hash = await bcrypt.hash(data.password, 10);
+                            await sysClient.query(`UPDATE user_credentials SET password_hash = $1 WHERE user_id = $2`, [hash, newUserId]);
+                        }
                         break;
                     }
                     case 'USER_UPDATE': {
@@ -139,6 +143,9 @@ router.patch('/:id', async (req, res) => {
                         if (data.middle_name) { updates.push(`middle_name = $${i++}`); params.push(data.middle_name); }
                         if (data.last_name) { updates.push(`last_name = $${i++}`); params.push(data.last_name); }
                         if (data.avatar_path) { updates.push(`avatar_path = $${i++}`); params.push(data.avatar_path); }
+                        if (data.department_id) { updates.push(`department_id = $${i++}`); params.push(data.department_id); }
+                        if (data.status) { updates.push(`status = $${i++}`); params.push(data.status); }
+                        if (data.university_id) { updates.push(`university_id = $${i++}`); params.push(data.university_id); }
 
                         if (updates.length > 0) {
                             params.push(data.id);
@@ -152,13 +159,13 @@ router.patch('/:id', async (req, res) => {
                     }
                     case 'DEPARTMENT_CREATE': {
                         await sysClient.query(
-                            `INSERT INTO departments (id, name, type) VALUES ($1, $2, $3)`,
-                            [data.id || crypto.randomUUID(), data.name, data.type]
+                            `INSERT INTO departments (id, name, code) VALUES ($1, $2, $3)`,
+                            [data.id || crypto.randomUUID(), data.name, data.code]
                         );
                         break;
                     }
                     case 'DEPARTMENT_UPDATE': {
-                        await sysClient.query(`UPDATE departments SET name = $1, type = $2 WHERE id = $3`, [data.name, data.type, data.id]);
+                        await sysClient.query(`UPDATE departments SET name = $1, code = $2 WHERE id = $3`, [data.name, data.code, data.id]);
                         break;
                     }
                     case 'DOCUMENT_SHARE': {
@@ -227,10 +234,8 @@ router.patch('/:id', async (req, res) => {
             }
         });
 
-        await client.query('COMMIT');
         res.json(requestRecord);
     } catch (err) {
-        await client.query('ROLLBACK');
         if (err.message === 'Request not found') return res.status(404).json({ error: err.message });
         res.status(500).json({ error: err.message });
     } finally {

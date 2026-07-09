@@ -16,7 +16,8 @@ export const action = (set, callback) => {
                 error: error.message,
             });
 
-            return null;
+            // Re-throw so the calling component's try/catch can surface the error.
+            throw error;
         }
     };
 };

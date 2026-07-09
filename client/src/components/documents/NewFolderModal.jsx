@@ -1,12 +1,11 @@
 import { useState, useMemo } from 'react';
-import { useAuthentication, useDocument, useDocumentVersion } from '../../stores';
+import { useAuthentication, useDocument } from '../../stores';
 import { Modal, InputField, PrimaryButton, SecondaryButton } from '../ui';
 import { Folder } from 'lucide-react';
 
 export default function NewFolderModal({ isOpen, onClose, currentFolderId, currentPathSegments }) {
     const { user } = useAuthentication();
     const { create: createDocument } = useDocument();
-    const { create: createDocumentVersion } = useDocumentVersion();
     
     const [name, setName] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);

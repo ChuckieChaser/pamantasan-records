@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { pool, withRLS } from '../db.js';
 import { logger } from '../services/logger.js';
+import bcrypt from 'bcrypt';
 
 const router = Router();
 
@@ -31,8 +32,7 @@ router.post('/login', async (req, res) => {
                  FROM users u
                  LEFT JOIN user_credentials uc ON uc.user_id = u.id
                  LEFT JOIN user_settings    us ON us.user_id = u.id
-                 WHERE u.university_id = $1
-                   AND u.status = 'VERIFIED'`,
+                 WHERE u.university_id = $1`,
                 [university_id]
             );
 
@@ -41,10 +41,17 @@ router.post('/login', async (req, res) => {
             }
 
             const row = userResult.rows[0];
+            
+            if (row.status === 'SUSPENDED') {
+                return res.status(403).json({ error: 'Your account is suspended' });
+            }
 
-            // 2. Simple plaintext comparison for dev phase
-            // TODO: Replace with bcrypt.compare() when passwords are properly hashed
-            const isValid = password === 'password'; // dev default — all users use "password"
+            let isValid = false;
+            if (row.password_hash.startsWith('$2b$')) {
+                isValid = await bcrypt.compare(password, row.password_hash).catch(() => false);
+            } else {
+                isValid = password === row.password_hash;
+            }
 
             if (!isValid) {
                 return res.status(401).json({ error: 'Invalid credentials' });

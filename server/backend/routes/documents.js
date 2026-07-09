@@ -77,349 +77,6 @@ router.get('/', async (req, res) => {
     }
 });
 
-// GET /api/documents/:id
-router.get('/:id', async (req, res) => {
-    const client = await pool.connect();
-    try {
-        await withRLS(client, getRLSContext(req), async (c) => {
-            const result = await c.query('SELECT * FROM documents WHERE id = $1', [req.params.id]);
-            if (result.rows.length === 0) return res.status(404).json({ error: 'Document not found' });
-            res.json(result.rows[0]);
-        });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    } finally {
-        client.release();
-    }
-});
-
-// GET /api/documents/:id/versions
-router.get('/:id/versions', async (req, res) => {
-    const client = await pool.connect();
-    try {
-        await withRLS(client, getRLSContext(req), async (c) => {
-            const result = await c.query(
-                'SELECT * FROM document_versions WHERE document_id = $1 ORDER BY version DESC',
-                [req.params.id]
-            );
-            res.json(result.rows);
-        });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    } finally {
-        client.release();
-    }
-});
-
-// GET /api/documents/:id/download
-router.get('/:id/download', async (req, res) => {
-    const client = await pool.connect();
-    try {
-        await withRLS(client, getRLSContext(req), async (c) => {
-            const docResult = await c.query('SELECT name, is_folder FROM documents WHERE id = $1', [req.params.id]);
-            if (docResult.rows.length === 0) return res.status(404).json({ error: 'Document not found' });
-            if (docResult.rows[0].is_folder) return res.status(400).json({ error: 'Is a folder, use download-zip' });
-
-            const verResult = await c.query('SELECT path FROM document_versions WHERE document_id = $1 ORDER BY version DESC LIMIT 1', [req.params.id]);
-            if (verResult.rows.length === 0) return res.status(404).json({ error: 'No versions found' });
-
-            const physicalPath = path.join(DOCUMENTS_PATH, verResult.rows[0].path);
-            if (!fs.existsSync(physicalPath)) return res.status(404).json({ error: 'Physical file not found' });
-
-            res.download(physicalPath, docResult.rows[0].name);
-        });
-    } catch (err) {
-        if (!res.headersSent) res.status(500).json({ error: err.message });
-    } finally {
-        client.release();
-    }
-});
-
-// GET /api/documents/:id/download-zip
-router.get('/:id/download-zip', async (req, res) => {
-    const client = await pool.connect();
-    try {
-        await withRLS(client, getRLSContext(req), async (c) => {
-            // Check if document exists and is a folder
-            const folderResult = await c.query('SELECT name, is_folder FROM documents WHERE id = $1', [req.params.id]);
-            if (folderResult.rows.length === 0) return res.status(404).json({ error: 'Folder not found' });
-            if (!folderResult.rows[0].is_folder) return res.status(400).json({ error: 'Not a folder' });
-
-            const folderName = folderResult.rows[0].name;
-
-            // Recursive CTE to get all files and their logical relative paths
-            const result = await c.query(`
-                WITH RECURSIVE DocumentTree AS (
-                    SELECT id, parent_id, name, is_folder, name::text AS relative_path
-                    FROM documents
-                    WHERE parent_id = $1
-                    UNION ALL
-                    SELECT d.id, d.parent_id, d.name, d.is_folder, (dt.relative_path || '/' || d.name)
-                    FROM documents d
-                    INNER JOIN DocumentTree dt ON d.parent_id = dt.id
-                )
-                SELECT dt.id, dt.name, dt.relative_path,
-                       (SELECT path FROM document_versions dv WHERE dv.document_id = dt.id ORDER BY version DESC LIMIT 1) as physical_path
-                FROM DocumentTree dt
-                WHERE dt.is_folder = false;
-            `, [req.params.id]);
-
-            res.setHeader('Content-Type', 'application/zip');
-            res.setHeader('Content-Disposition', `attachment; filename="${folderName}.zip"`);
-
-            const archive = archiver('zip', { zlib: { level: 9 } });
-            archive.on('error', (err) => { throw err; });
-            archive.pipe(res);
-
-            for (const file of result.rows) {
-                if (file.physical_path) {
-                    const fullPath = path.join(DOCUMENTS_PATH, file.physical_path);
-                    if (fs.existsSync(fullPath)) {
-                        archive.file(fullPath, { name: file.relative_path });
-                    }
-                }
-            }
-
-            await archive.finalize();
-        });
-    } catch (err) {
-        if (!res.headersSent) {
-            res.status(500).json({ error: err.message });
-        }
-    } finally {
-        client.release();
-    }
-});
-
-// POST /api/documents — Create a document record (folder or file metadata)
-router.post('/', async (req, res) => {
-    const { parent_id, uploader_id, name, comment, is_folder } = req.body;
-    if (!uploader_id || !name) return res.status(400).json({ error: 'uploader_id and name are required' });
-
-    const client = await pool.connect();
-    try {
-        await withRLS(client, getRLSContext(req), async (c) => {
-            const result = await c.query(
-                `INSERT INTO documents (parent_id, uploader_id, name, comment, is_folder)
-                 VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-                [parent_id || null, uploader_id, name, comment || null, is_folder || false]
-            );
-            
-            await logAudit(c, {
-                actor_id: uploader_id,
-                entity_type: 'DOCUMENT',
-                entity_id: result.rows[0].id,
-                action: 'CREATED',
-                data: result.rows[0]
-            });
-
-            res.status(201).json(result.rows[0]);
-        });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    } finally {
-        client.release();
-    }
-});
-
-// POST /api/documents/:id/upload — Upload a physical file version
-router.post('/:id/upload', upload.single('file'), async (req, res) => {
-    if (!req.file) return res.status(400).json({ error: 'No file provided' });
-
-    const { uploader_id, change_summary } = req.body;
-    if (!uploader_id) return res.status(400).json({ error: 'uploader_id is required' });
-
-    const client = await pool.connect();
-    try {
-        await withRLS(client, getRLSContext(req), async (c) => {
-            // Get current max version for this document
-            const versionResult = await c.query(
-                'SELECT COALESCE(MAX(version), 0) + 1 AS next_version FROM document_versions WHERE document_id = $1',
-                [req.params.id]
-            );
-            const nextVersion = versionResult.rows[0].next_version;
-
-            const ext = path.extname(req.file.filename);
-            const uuid = path.basename(req.file.filename, ext);
-
-            const result = await c.query(
-                `INSERT INTO document_versions
-                    (id, document_id, uploader_id, version, path, size_bytes, mime_type, change_summary)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-                [
-                    uuid,
-                    req.params.id,
-                    uploader_id,
-                    nextVersion,
-                    req.file.filename, // UUID-obfuscated filename stored here
-                    req.file.size,
-                    req.file.mimetype,
-                    change_summary || null,
-                ]
-            );
-            
-            await logAudit(c, {
-                actor_id: uploader_id,
-                entity_type: 'DOCUMENT_VERSION',
-                entity_id: result.rows[0].id,
-                action: 'UPLOADED',
-                data: result.rows[0]
-            });
-
-            res.status(201).json(result.rows[0]);
-        });
-    } catch (err) {
-        // Clean up the uploaded file if DB insert fails
-        if (req.file) fs.unlink(path.join(DOCUMENTS_PATH, req.file.filename), () => { });
-        res.status(500).json({ error: err.message });
-    } finally {
-        client.release();
-    }
-});
-
-// POST /api/documents/:id/revert — Revert to a previous version
-router.post('/:id/revert', async (req, res) => {
-    const { version_id, uploader_id } = req.body;
-    if (!version_id || !uploader_id) return res.status(400).json({ error: 'version_id and uploader_id are required' });
-
-    const client = await pool.connect();
-    try {
-        await withRLS(client, getRLSContext(req), async (c) => {
-            const targetRes = await c.query('SELECT * FROM document_versions WHERE id = $1', [version_id]);
-            if (targetRes.rows.length === 0) return res.status(404).json({ error: 'Version not found' });
-
-            const targetVersion = targetRes.rows[0];
-
-            const versionResult = await c.query(
-                'SELECT COALESCE(MAX(version), 0) + 1 AS next_version FROM document_versions WHERE document_id = $1',
-                [req.params.id]
-            );
-            const nextVersion = versionResult.rows[0].next_version;
-
-            const newId = crypto.randomUUID();
-
-            const result = await c.query(
-                `INSERT INTO document_versions
-                    (id, document_id, uploader_id, version, path, size_bytes, mime_type, change_summary)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-                [
-                    newId,
-                    req.params.id,
-                    uploader_id,
-                    nextVersion,
-                    targetVersion.path,
-                    targetVersion.size_bytes,
-                    targetVersion.mime_type,
-                    `Reverted to version ${targetVersion.version}`,
-                ]
-            );
-            res.status(201).json(result.rows[0]);
-        });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    } finally {
-        client.release();
-    }
-});
-
-// PATCH /api/documents/:id — Update a document record
-router.patch('/:id', async (req, res) => {
-    const { is_archived, parent_id, name, comment, summary } = req.body;
-    const documentId = req.params.id;
-
-    const client = await pool.connect();
-    try {
-        await withRLS(client, getRLSContext(req), async (c) => {
-            const updates = [];
-            const params = [];
-            let i = 1;
-
-            if (is_archived !== undefined) { updates.push(`is_archived = $${i++}`); params.push(is_archived); }
-            if (parent_id !== undefined) { updates.push(`parent_id = $${i++}`); params.push(parent_id === 'null' ? null : parent_id); }
-            if (name !== undefined) { updates.push(`name = $${i++}`); params.push(name); }
-            if (comment !== undefined) { updates.push(`comment = $${i++}`); params.push(comment); }
-            if (summary !== undefined) { updates.push(`summary = $${i++}`); params.push(summary); }
-
-            if (updates.length === 0) return res.json({ message: 'No updates provided' });
-
-            params.push(documentId);
-
-            const query = `UPDATE documents SET ${updates.join(', ')} WHERE id = $${i} RETURNING *`;
-            const result = await c.query(query, params);
-            res.json(result.rows[0]);
-        });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    } finally {
-        client.release();
-    }
-});
-
-// DELETE /api/documents/:id
-router.delete('/:id', async (req, res) => {
-    const client = await pool.connect();
-    try {
-        await withRLS(client, getRLSContext(req), async (c) => {
-            // Find all descendant documents (including self)
-            const docResult = await c.query(`
-                WITH RECURSIVE DocumentTree AS (
-                    SELECT id FROM documents WHERE id = $1
-                    UNION ALL
-                    SELECT d.id FROM documents d
-                    INNER JOIN DocumentTree dt ON d.parent_id = dt.id
-                )
-                SELECT id FROM DocumentTree;
-            `, [req.params.id]);
-
-            const docIds = docResult.rows.map(row => row.id);
-
-            if (docIds.length > 0) {
-                // Fetch all versions for these documents
-                const verResult = await c.query(
-                    `SELECT path FROM document_versions WHERE document_id = ANY($1)`,
-                    [docIds]
-                );
-
-                // Delete the physical files
-                for (const row of verResult.rows) {
-                    if (row.path) {
-                        const fullPath = path.join(DOCUMENTS_PATH, row.path);
-                        if (fs.existsSync(fullPath)) {
-                            fs.unlinkSync(fullPath);
-                        }
-                    }
-                }
-            }
-
-            await c.query('DELETE FROM documents WHERE id = $1', [req.params.id]);
-            res.json({ success: true });
-        });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    } finally {
-        client.release();
-    }
-});
-
-// ==============================================================================
-// DOCUMENT SHARES ROUTES
-// ==============================================================================
-
-// GET /api/documents/shares/all
-router.get('/shares/all', async (req, res) => {
-    const client = await pool.connect();
-    try {
-        await withRLS(client, getRLSContext(req), async (c) => {
-            const result = await c.query('SELECT * FROM document_shares ORDER BY created_at DESC');
-            res.json(result.rows);
-        });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    } finally {
-        client.release();
-    }
-});
-
 // POST /api/documents/shares — Share a document (and cascade to children)
 router.post('/shares', async (req, res) => {
     const { document_id, sharer_id, recipient_id, department_id, document_request_id } = req.body;
@@ -790,6 +447,27 @@ router.post('/attachments', async (req, res) => {
     }
 });
 
+// GET /api/documents/shares/all — must be before /:id routes
+router.get('/shares/all', async (req, res) => {
+    const client = await pool.connect();
+    try {
+        await withRLS(client, getRLSContext(req), async (c) => {
+            const { document_id, department_id } = req.query;
+            let query = 'SELECT ds.*, d.name AS document_name, d.is_folder FROM document_shares ds LEFT JOIN documents d ON d.id = ds.document_id WHERE 1=1';
+            const params = [];
+            if (document_id) { params.push(document_id); query += ` AND ds.document_id = $${params.length}`; }
+            if (department_id) { params.push(department_id); query += ` AND ds.department_id = $${params.length}`; }
+            query += ' ORDER BY ds.created_at DESC';
+            const result = await c.query(query, params);
+            res.json(result.rows);
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
 // DELETE /api/documents/attachments/:id
 router.delete('/attachments/:id', async (req, res) => {
     const client = await pool.connect();
@@ -804,5 +482,359 @@ router.delete('/attachments/:id', async (req, res) => {
         client.release();
     }
 });
+
+// GET /api/documents/:id
+router.get('/:id', async (req, res) => {
+    const client = await pool.connect();
+    try {
+        await withRLS(client, getRLSContext(req), async (c) => {
+            const result = await c.query('SELECT * FROM documents WHERE id = $1', [req.params.id]);
+            if (result.rows.length === 0) return res.status(404).json({ error: 'Document not found' });
+            res.json(result.rows[0]);
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+// GET /api/documents/:id/versions
+router.get('/:id/versions', async (req, res) => {
+    const client = await pool.connect();
+    try {
+        await withRLS(client, getRLSContext(req), async (c) => {
+            const result = await c.query(
+                'SELECT * FROM document_versions WHERE document_id = $1 ORDER BY version DESC',
+                [req.params.id]
+            );
+            res.json(result.rows);
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+// GET /api/documents/:id/download
+router.get('/:id/download', async (req, res) => {
+    const client = await pool.connect();
+    try {
+        await withRLS(client, getRLSContext(req), async (c) => {
+            const docResult = await c.query('SELECT name, is_folder FROM documents WHERE id = $1', [req.params.id]);
+            if (docResult.rows.length === 0) return res.status(404).json({ error: 'Document not found' });
+            if (docResult.rows[0].is_folder) return res.status(400).json({ error: 'Is a folder, use download-zip' });
+
+            const verResult = await c.query('SELECT path FROM document_versions WHERE document_id = $1 ORDER BY version DESC LIMIT 1', [req.params.id]);
+            if (verResult.rows.length === 0) return res.status(404).json({ error: 'No versions found' });
+
+            const physicalPath = path.join(DOCUMENTS_PATH, verResult.rows[0].path);
+            if (!fs.existsSync(physicalPath)) return res.status(404).json({ error: 'Physical file not found' });
+
+            res.download(physicalPath, docResult.rows[0].name);
+        });
+    } catch (err) {
+        if (!res.headersSent) res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+// GET /api/documents/:id/download-zip
+router.get('/:id/download-zip', async (req, res) => {
+    const client = await pool.connect();
+    try {
+        await withRLS(client, getRLSContext(req), async (c) => {
+            // Check if document exists and is a folder
+            const folderResult = await c.query('SELECT name, is_folder FROM documents WHERE id = $1', [req.params.id]);
+            if (folderResult.rows.length === 0) return res.status(404).json({ error: 'Folder not found' });
+            if (!folderResult.rows[0].is_folder) return res.status(400).json({ error: 'Not a folder' });
+
+            const folderName = folderResult.rows[0].name;
+
+            // Recursive CTE to get all files and their logical relative paths
+            const result = await c.query(`
+                WITH RECURSIVE DocumentTree AS (
+                    SELECT id, parent_id, name, is_folder, name::text AS relative_path
+                    FROM documents
+                    WHERE parent_id = $1
+                    UNION ALL
+                    SELECT d.id, d.parent_id, d.name, d.is_folder, (dt.relative_path || '/' || d.name)
+                    FROM documents d
+                    INNER JOIN DocumentTree dt ON d.parent_id = dt.id
+                )
+                SELECT dt.id, dt.name, dt.relative_path,
+                       (SELECT path FROM document_versions dv WHERE dv.document_id = dt.id ORDER BY version DESC LIMIT 1) as physical_path
+                FROM DocumentTree dt
+                WHERE dt.is_folder = false;
+            `, [req.params.id]);
+
+            res.setHeader('Content-Type', 'application/zip');
+            res.setHeader('Content-Disposition', `attachment; filename="${folderName}.zip"`);
+
+            const archive = archiver('zip', { zlib: { level: 9 } });
+            archive.on('error', (err) => { throw err; });
+            archive.pipe(res);
+
+            for (const file of result.rows) {
+                if (file.physical_path) {
+                    const fullPath = path.join(DOCUMENTS_PATH, file.physical_path);
+                    if (fs.existsSync(fullPath)) {
+                        archive.file(fullPath, { name: file.relative_path });
+                    }
+                }
+            }
+
+            await archive.finalize();
+        });
+    } catch (err) {
+        if (!res.headersSent) {
+            res.status(500).json({ error: err.message });
+        }
+    } finally {
+        client.release();
+    }
+});
+
+// POST /api/documents — Create a document record (folder or file metadata)
+router.post('/', async (req, res) => {
+    const { parent_id, uploader_id, name, comment, is_folder } = req.body;
+    if (!uploader_id || !name) return res.status(400).json({ error: 'uploader_id and name are required' });
+
+    const client = await pool.connect();
+    try {
+        await withRLS(client, getRLSContext(req), async (c) => {
+            const result = await c.query(
+                `INSERT INTO documents (parent_id, uploader_id, name, comment, is_folder)
+                 VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+                [parent_id || null, uploader_id, name, comment || null, is_folder || false]
+            );
+            
+            await logAudit(c, {
+                actor_id: uploader_id,
+                entity_type: 'DOCUMENT',
+                entity_id: result.rows[0].id,
+                action: 'CREATED',
+                data: result.rows[0]
+            });
+
+            res.status(201).json(result.rows[0]);
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+// POST /api/documents/:id/upload — Upload a physical file version
+router.post('/:id/upload', upload.single('file'), async (req, res) => {
+    if (!req.file) return res.status(400).json({ error: 'No file provided' });
+
+    const { uploader_id, change_summary } = req.body;
+    if (!uploader_id) return res.status(400).json({ error: 'uploader_id is required' });
+
+    const client = await pool.connect();
+    try {
+        await withRLS(client, getRLSContext(req), async (c) => {
+            // Get current max version for this document
+            const versionResult = await c.query(
+                'SELECT COALESCE(MAX(version), 0) + 1 AS next_version FROM document_versions WHERE document_id = $1',
+                [req.params.id]
+            );
+            const nextVersion = versionResult.rows[0].next_version;
+
+            const ext = path.extname(req.file.filename);
+            const uuid = path.basename(req.file.filename, ext);
+
+            const result = await c.query(
+                `INSERT INTO document_versions
+                    (id, document_id, uploader_id, version, path, size_bytes, mime_type, change_summary)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+                [
+                    uuid,
+                    req.params.id,
+                    uploader_id,
+                    nextVersion,
+                    req.file.filename, // UUID-obfuscated filename stored here
+                    req.file.size,
+                    req.file.mimetype,
+                    change_summary || null,
+                ]
+            );
+            
+            await logAudit(c, {
+                actor_id: uploader_id,
+                entity_type: 'DOCUMENT_VERSION',
+                entity_id: result.rows[0].id,
+                action: 'UPLOADED',
+                data: result.rows[0]
+            });
+
+            res.status(201).json(result.rows[0]);
+        });
+    } catch (err) {
+        // Clean up the uploaded file if DB insert fails
+        if (req.file) fs.unlink(path.join(DOCUMENTS_PATH, req.file.filename), () => { });
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+// POST /api/documents/:id/revert — Revert to a previous version
+router.post('/:id/revert', async (req, res) => {
+    const { version_id, uploader_id } = req.body;
+    if (!version_id || !uploader_id) return res.status(400).json({ error: 'version_id and uploader_id are required' });
+
+    const client = await pool.connect();
+    try {
+        await withRLS(client, getRLSContext(req), async (c) => {
+            const targetRes = await c.query('SELECT * FROM document_versions WHERE id = $1', [version_id]);
+            if (targetRes.rows.length === 0) return res.status(404).json({ error: 'Version not found' });
+
+            const targetVersion = targetRes.rows[0];
+
+            const versionResult = await c.query(
+                'SELECT COALESCE(MAX(version), 0) + 1 AS next_version FROM document_versions WHERE document_id = $1',
+                [req.params.id]
+            );
+            const nextVersion = versionResult.rows[0].next_version;
+
+            const newId = crypto.randomUUID();
+
+            const result = await c.query(
+                `INSERT INTO document_versions
+                    (id, document_id, uploader_id, version, path, size_bytes, mime_type, change_summary)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+                [
+                    newId,
+                    req.params.id,
+                    uploader_id,
+                    nextVersion,
+                    targetVersion.path,
+                    targetVersion.size_bytes,
+                    targetVersion.mime_type,
+                    `Reverted to version ${targetVersion.version}`,
+                ]
+            );
+            res.status(201).json(result.rows[0]);
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+// PATCH /api/documents/:id — Update a document record
+router.patch('/:id', async (req, res) => {
+    const { is_archived, parent_id, name, comment, summary } = req.body;
+    const documentId = req.params.id;
+
+    const client = await pool.connect();
+    try {
+        await withRLS(client, getRLSContext(req), async (c) => {
+            const updates = [];
+            const params = [];
+            let i = 1;
+
+            if (is_archived !== undefined) { updates.push(`is_archived = $${i++}`); params.push(is_archived); }
+            if (parent_id !== undefined) { updates.push(`parent_id = $${i++}`); params.push(parent_id === 'null' ? null : parent_id); }
+            if (name !== undefined) { updates.push(`name = $${i++}`); params.push(name); }
+            if (comment !== undefined) { updates.push(`comment = $${i++}`); params.push(comment); }
+            if (summary !== undefined) { updates.push(`summary = $${i++}`); params.push(summary); }
+
+            if (updates.length === 0) return res.json({ message: 'No updates provided' });
+
+            params.push(documentId);
+
+            const query = `UPDATE documents SET ${updates.join(', ')} WHERE id = $${i} RETURNING *`;
+            const result = await c.query(query, params);
+            if (result.rows.length === 0) return res.status(404).json({ error: 'Document not found' });
+
+            await logAudit(c, {
+                actor_id: getRLSContext(req).userId,
+                entity_type: 'DOCUMENT',
+                entity_id: documentId,
+                action: is_archived !== undefined ? (is_archived ? 'ARCHIVED' : 'UNARCHIVED') : 'UPDATED',
+                data: req.body
+            });
+
+            res.json(result.rows[0]);
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+// DELETE /api/documents/:id
+router.delete('/:id', async (req, res) => {
+    const client = await pool.connect();
+    try {
+        await withRLS(client, getRLSContext(req), async (c) => {
+            // Find all descendant documents (including self)
+            const docResult = await c.query(`
+                WITH RECURSIVE DocumentTree AS (
+                    SELECT id FROM documents WHERE id = $1
+                    UNION ALL
+                    SELECT d.id FROM documents d
+                    INNER JOIN DocumentTree dt ON d.parent_id = dt.id
+                )
+                SELECT id FROM DocumentTree;
+            `, [req.params.id]);
+
+            const docIds = docResult.rows.map(row => row.id);
+
+            if (docIds.length > 0) {
+                // Fetch all versions for these documents
+                const verResult = await c.query(
+                    `SELECT path FROM document_versions WHERE document_id = ANY($1)`,
+                    [docIds]
+                );
+
+                // Delete the physical files
+                for (const row of verResult.rows) {
+                    if (row.path) {
+                        const fullPath = path.join(DOCUMENTS_PATH, row.path);
+                        if (fs.existsSync(fullPath)) {
+                            fs.unlinkSync(fullPath);
+                        }
+                    }
+                }
+            }
+
+            await c.query('DELETE FROM documents WHERE id = $1', [req.params.id]);
+            res.json({ success: true });
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+// ==============================================================================
+// DOCUMENT SHARES ROUTES
+// ==============================================================================
+
+// GET /api/documents/shares/all
+router.get('/shares/all', async (req, res) => {
+    const client = await pool.connect();
+    try {
+        await withRLS(client, getRLSContext(req), async (c) => {
+            const result = await c.query('SELECT * FROM document_shares ORDER BY created_at DESC');
+            res.json(result.rows);
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
 
 export default router;

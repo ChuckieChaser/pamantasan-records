@@ -51,7 +51,16 @@ export default function Login() {
                         id="university_id"
                         type="text"
                         value={universityId}
-                        onChange={(e) => setUniversityId(e.target.value)}
+                        onChange={(e) => {
+                            let val = e.target.value.replace(/[^0-9]/g, '');
+                            if (val.length > 2) {
+                                val = val.substring(0, 2) + '-' + val.substring(2);
+                            }
+                            if (val.length > 8) {
+                                val = val.substring(0, 8);
+                            }
+                            setUniversityId(val);
+                        }}
                         placeholder="e.g. 20-00001"
                         required
                         className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-main placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"

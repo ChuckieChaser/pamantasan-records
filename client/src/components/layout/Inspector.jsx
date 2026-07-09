@@ -126,34 +126,10 @@ const Inspector = ({ document, auditLog, onClose }) => {
     };
 
     const handleRevertSubmit = async () => {
-        if (!document || !activeVersionId) return;
-        const targetVersion = documentVersions.find(v => v.id === activeVersionId);
-        if (!targetVersion) return;
-        
-        try {
-            // Find latest version number
-            const docVers = documentVersions.filter(v => v.document_id === document.id);
-            const maxVersion = Math.max(...docVers.map(v => v.version), 0);
-            
-            await createVersion({
-                document_id: document.id,
-                uploader_id: user.id,
-                version: maxVersion + 1,
-                path: targetVersion.path,
-                size_bytes: targetVersion.size_bytes,
-                mime_type: targetVersion.mime_type,
-                change_summary: `Reverted to version ${targetVersion.version}`,
-            });
-            setIsRevertModalOpen(false);
-        } catch (error) {
-            console.error('Failed to revert version', error);
-        }
-    };
-
-    const handleRevertSubmit = async () => {
         if (!activeVersionId || !document) return;
         try {
             await revertVersion(document.id, activeVersionId, user.id);
+            setIsRevertModalOpen(false);
         } catch (error) {
             console.error('Failed to revert version', error);
         }

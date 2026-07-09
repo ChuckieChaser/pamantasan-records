@@ -7,7 +7,7 @@ import { getFileIcon } from '../ui/FileIcon';
 // ==============================================================================
 
 // --- DocumentCard: single card in the grid card view for any document browser ---
-export default function DocumentCard({ document, latestVersion, isSelected, onClick, onDoubleClick }) {
+export default function DocumentCard({ document, latestVersion, isSelected, onClick, onDoubleClick, isShared }) {
     return (
         <Card
             className={`cursor-pointer transition-colors duration-200 ${isSelected ? 'border-accent bg-surface-hover ring-1 ring-accent' : 'hover:border-accent'}`}
@@ -24,6 +24,11 @@ export default function DocumentCard({ document, latestVersion, isSelected, onCl
                             {document.name}
                         </span>
                     </div>
+                    {isShared && (
+                        <div className="flex-shrink-0" title="This document is shared">
+                            <Badge label="Shared" variant="success" size="small" />
+                        </div>
+                    )}
                 </div>
                 <div className="mt-auto flex items-center justify-between">
                     <Badge label={document.status} variant="neutral" size="small" />

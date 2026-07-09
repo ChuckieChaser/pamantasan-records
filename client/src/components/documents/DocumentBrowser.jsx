@@ -8,6 +8,7 @@ import { getFileIcon } from '../ui/FileIcon';
 import { FilterMenu } from '../ui/Menus';
 import DocumentCard from './DocumentCard';
 import { DOCUMENTS_STATUS } from '../../constants';
+import { useDocumentShare } from '../../stores';
 
 // ==============================================================================
 // SECTION 1: UTILITIES
@@ -48,13 +49,16 @@ const renderSortIcon = (col, currentSortCol, currentSortState, type = 'ARROW') =
  *   customStatus     — { header: string, render: (doc) => ReactNode }
  *   canAddDocuments  — boolean
  *   onAddDocuments   — () => void
+ *   isArchiveBrowser — boolean
  */
-export default function DocumentBrowser({ title, description, documents, documentVersions, activeDocumentId, onDocumentClick, onDocumentDoubleClick, customStatus, canAddDocuments, onAddDocuments }) {
+export default function DocumentBrowser({ title, description, documents, documentVersions, activeDocumentId, onDocumentClick, onDocumentDoubleClick, customStatus, canAddDocuments, onAddDocuments, isArchiveBrowser = false }) {
     const [filter, setFilter] = useState('');
     const [selectedStatuses, setSelectedStatuses] = useState([]);
     const [sortCol, setSortCol] = useState('DATE');
     const [sortState, setSortState] = useState('DEFAULT');
     const [view, setView] = useState('TABLE'); // 'TABLE' | 'CARD'
+    
+    const { documentShares } = useDocumentShare();
 
     const toggleStatus = (status) => {
         setSelectedStatuses(prev => prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]);
@@ -94,6 +98,12 @@ export default function DocumentBrowser({ title, description, documents, documen
     // --- Filtered + sorted documents ---
     const displayDocuments = (() => {
         let result = [...documents];
+
+        if (!isArchiveBrowser) {
+            result = result.filter(d => d.status !== 'ARCHIVED');
+        } else {
+            result = result.filter(d => d.status === 'ARCHIVED');
+        }
 
         if (filter) {
             result = result.filter(d => d.name.toLowerCase().includes(filter.toLowerCase()));
@@ -163,12 +173,14 @@ export default function DocumentBrowser({ title, description, documents, documen
                     <div className="grid gap-4 grid-cols-[repeat(auto-fill,minmax(260px,1fr))]">
                         {displayDocuments.map(doc => {
                             const latestVersion = documentVersions.find(v => v.document_id === doc.id);
+                            const isShared = documentShares.some(s => s.document_id === doc.id);
                             return (
                                 <DocumentCard
                                     key={doc.id}
                                     document={doc}
                                     latestVersion={latestVersion}
                                     isSelected={activeDocumentId === doc.id}
+                                    isShared={isShared}
                                     onClick={() => onDocumentClick(doc.id)}
                                     onDoubleClick={() => onDocumentDoubleClick && onDocumentDoubleClick(doc.id)}
                                 />
@@ -228,6 +240,11 @@ export default function DocumentBrowser({ title, description, documents, documen
                                                     <span className={`max-w-xs truncate font-bold md:max-w-md ${isSelected ? 'text-accent' : 'text-main'}`}>
                                                         {doc.name}
                                                     </span>
+                                                    {documentShares.some(s => s.document_id === doc.id) && (
+                                                        <div className="flex-shrink-0 ml-2" title="This document is shared">
+                                                            <Badge label="Shared" variant="success" size="small" />
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </td>
                                             <td className="px-4 py-4">

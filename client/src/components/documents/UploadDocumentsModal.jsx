@@ -36,6 +36,7 @@ export default function UploadDocumentsModal({ isOpen, onClose, currentFolderId 
     const { create: createDocumentVersion } = useDocumentVersion();
     
     const [isDragging, setIsDragging] = useState(false);
+    const [uploadQueue, setUploadQueue] = useState([]);
     const [isUploading, setIsUploading] = useState(false);
     const [conflictState, setConflictState] = useState(null); // { item, existingDoc }
     const { documents } = useDocument();
@@ -175,16 +176,6 @@ export default function UploadDocumentsModal({ isOpen, onClose, currentFolderId 
                             status: DOCUMENTS_STATUS.UPLOADED,
                         });
                         docId = folder.id;
-                        
-                        await createDocumentVersion({
-                            document_id: docId,
-                            uploader_id: user.id,
-                            version: 1,
-                            path: 'Virtual Folder',
-                            size_bytes: 0,
-                            mime_type: 'folder',
-                            change_summary: 'Created folder',
-                        });
                     } else {
                         const doc = await createDocument({
                             name: finalName,
@@ -200,6 +191,7 @@ export default function UploadDocumentsModal({ isOpen, onClose, currentFolderId 
                 if (!item.isFolder) {
                     const formData = new FormData();
                     formData.append('file', item.file);
+                    formData.append('uploader_id', user.id);
                     await createDocumentVersion(docId, formData);
                 }
 

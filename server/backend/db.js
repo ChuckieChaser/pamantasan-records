@@ -26,6 +26,7 @@ export const pool = new Pool({
 export async function withRLS(client, context, callback) {
     try {
         await client.query('BEGIN');
+        await client.query(`SET LOCAL ROLE app_user`);
         await client.query(`SET LOCAL app.user_current_id          = '${context.userId         || ''}'`);
         await client.query(`SET LOCAL app.user_current_role        = '${context.role           || 'SYSTEM'}'`);
         await client.query(`SET LOCAL app.user_current_department_id = '${context.departmentId || ''}'`);

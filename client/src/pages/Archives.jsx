@@ -81,6 +81,7 @@ export default function Archives() {
                 activeDocumentId={activeDocument?.id}
                 onDocumentClick={handleDocumentClick}
                 onDocumentDoubleClick={handleDocumentDoubleClick}
+                isArchiveBrowser={true}
             />
         </div>
     );

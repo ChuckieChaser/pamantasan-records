@@ -23,27 +23,22 @@ export default function NewFolderModal({ isOpen, onClose, currentFolderId, curre
         e.preventDefault();
         if (!name.trim()) return;
 
+        // Check for conflict
+        const { documents } = useDocument.getState();
+        const conflict = documents.some(d => d.parent_id === (currentFolderId || null) && d.name.toLowerCase() === name.trim().toLowerCase());
+        if (conflict) {
+            alert('A folder or file with this name already exists here.');
+            return;
+        }
+
         setIsSubmitting(true);
         try {
-            const folder = await createDocument({
+            await createDocument({
                 name: name.trim(),
                 is_folder: true,
                 parent_id: currentFolderId || null,
                 uploader_id: user.id,
                 status: DOCUMENTS_STATUS.UPLOADED, 
-                // Using UPLOADED default for folders, or we can use PUBLISHED immediately if we want it visible to all.
-                // Depending on the role, folders might not need approval pipeline, but let's stick to UPLOADED for safety.
-            });
-            
-            // create initial version placeholder for folder (size 0, mime type 'folder')
-            await createDocumentVersion({
-                document_id: folder.id,
-                uploader_id: user.id,
-                version: 1,
-                path: 'Virtual Folder',
-                size_bytes: 0,
-                mime_type: 'folder',
-                change_summary: 'Created folder',
             });
             
             setName('');

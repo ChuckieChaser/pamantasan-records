@@ -4,7 +4,8 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
-import archiver from 'archiver';
+import * as archiverLib from 'archiver';
+const archiver = archiverLib.default || archiverLib;
 
 const router = Router();
 
@@ -36,8 +37,8 @@ const upload = multer({
 });
 
 const getRLSContext = (req) => ({
-    userId:       req.headers['x-user-id'] || '00000000-0000-0000-0000-000000000000',
-    role:         req.headers['x-user-role'] || 'ANONYMOUS',
+    userId: req.headers['x-user-id'] || '00000000-0000-0000-0000-000000000000',
+    role: req.headers['x-user-role'] || 'ANONYMOUS',
     departmentId: req.headers['x-user-dept'] || '00000000-0000-0000-0000-000000000000',
 });
 
@@ -58,7 +59,7 @@ router.get('/', async (req, res) => {
                 params.push(parent_id === 'null' ? null : parent_id);
                 query += ` AND parent_id ${parent_id === 'null' ? 'IS NULL' : `= $${params.length}`}`;
             }
-            if (status)    { params.push(status);    query += ` AND status = $${params.length}`; }
+            if (status) { params.push(status); query += ` AND status = $${params.length}`; }
             if (is_folder) { params.push(is_folder === 'true'); query += ` AND is_folder = $${params.length}`; }
 
             query += ' ORDER BY is_folder DESC, name ASC';
@@ -140,7 +141,7 @@ router.get('/:id/download-zip', async (req, res) => {
             const folderResult = await c.query('SELECT name, is_folder FROM documents WHERE id = $1', [req.params.id]);
             if (folderResult.rows.length === 0) return res.status(404).json({ error: 'Folder not found' });
             if (!folderResult.rows[0].is_folder) return res.status(400).json({ error: 'Not a folder' });
-            
+
             const folderName = folderResult.rows[0].name;
 
             // Recursive CTE to get all files and their logical relative paths
@@ -161,7 +162,7 @@ router.get('/:id/download-zip', async (req, res) => {
             `, [req.params.id]);
 
             res.setHeader('Content-Type', 'application/zip');
-            res.setHeader('Content-Disposition', \`attachment; filename="\${folderName}.zip"\`);
+            res.setHeader('Content-Disposition', `attachment; filename="${folderName}.zip"`);
 
             const archive = archiver('zip', { zlib: { level: 9 } });
             archive.on('error', (err) => { throw err; });
@@ -248,7 +249,7 @@ router.post('/:id/upload', upload.single('file'), async (req, res) => {
         });
     } catch (err) {
         // Clean up the uploaded file if DB insert fails
-        if (req.file) fs.unlink(path.join(DOCUMENTS_PATH, req.file.filename), () => {});
+        if (req.file) fs.unlink(path.join(DOCUMENTS_PATH, req.file.filename), () => { });
         res.status(500).json({ error: err.message });
     } finally {
         client.release();
@@ -265,7 +266,7 @@ router.post('/:id/revert', async (req, res) => {
         await withRLS(client, getRLSContext(req), async (c) => {
             const targetRes = await c.query('SELECT * FROM document_versions WHERE id = $1', [version_id]);
             if (targetRes.rows.length === 0) return res.status(404).json({ error: 'Version not found' });
-            
+
             const targetVersion = targetRes.rows[0];
 
             const versionResult = await c.query(
@@ -312,22 +313,22 @@ router.patch('/:id', async (req, res) => {
             const params = [];
             let i = 1;
 
-            if (status !== undefined)    { updates.push(`status = $${i++}`); params.push(status); }
+            if (status !== undefined) { updates.push(`status = $${i++}`); params.push(status); }
             if (parent_id !== undefined) { updates.push(`parent_id = $${i++}`); params.push(parent_id === 'null' ? null : parent_id); }
-            if (name !== undefined)      { updates.push(`name = $${i++}`); params.push(name); }
-            if (comment !== undefined)   { updates.push(`comment = $${i++}`); params.push(comment); }
-            if (summary !== undefined)   { updates.push(`summary = $${i++}`); params.push(summary); }
+            if (name !== undefined) { updates.push(`name = $${i++}`); params.push(name); }
+            if (comment !== undefined) { updates.push(`comment = $${i++}`); params.push(comment); }
+            if (summary !== undefined) { updates.push(`summary = $${i++}`); params.push(summary); }
 
             if (updates.length === 0) return res.json({ message: 'No updates provided' });
 
             params.push(documentId);
-            
+
             // If status is updated, we need to cascade it to all descendants
             if (status !== undefined) {
                 // Perform normal update first
                 const updateQuery = `UPDATE documents SET ${updates.join(', ')} WHERE id = $${i} RETURNING *`;
                 const result = await c.query(updateQuery, params);
-                
+
                 // Perform cascade for status only
                 await c.query(`
                     WITH RECURSIVE DocumentTree AS (
@@ -438,7 +439,7 @@ router.post('/shares', async (req, res) => {
                 SELECT id FROM DocumentTree;
             `;
             const docResult = await c.query(findQuery, [document_id]);
-            
+
             const results = [];
             for (const docRow of docResult.rows) {
                 const result = await c.query(
@@ -450,7 +451,7 @@ router.post('/shares', async (req, res) => {
                     results.push(result.rows[0]); // Return the main document's share record
                 }
             }
-            
+
             res.status(201).json(results[0]);
         });
     } catch (err) {
@@ -473,7 +474,7 @@ router.get('/requests', async (req, res) => {
             let query = 'SELECT * FROM document_requests WHERE 1=1';
             const params = [];
             if (requester_id) { params.push(requester_id); query += ` AND requester_id = $${params.length}`; }
-            if (status)       { params.push(status);        query += ` AND status = $${params.length}`; }
+            if (status) { params.push(status); query += ` AND status = $${params.length}`; }
             query += ' ORDER BY created_at DESC';
             const result = await c.query(query, params);
             res.json(result.rows);

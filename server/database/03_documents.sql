@@ -119,6 +119,12 @@ CREATE TRIGGER cascade_folder_status
     FOR EACH ROW
     EXECUTE FUNCTION trigger_cascade_folder_status();
 
+DROP TRIGGER IF EXISTS enforce_share_status_transition ON document_shares;
+CREATE TRIGGER enforce_share_status_transition
+    BEFORE UPDATE OF status ON document_shares
+    FOR EACH ROW
+    EXECUTE FUNCTION trigger_enforce_share_status_transition();
+
 -- Attach the global timestamp triggers
 DROP TRIGGER IF EXISTS set_timestamp_documents ON documents;
 CREATE TRIGGER set_timestamp_documents BEFORE UPDATE ON documents FOR EACH ROW EXECUTE FUNCTION trigger_set_timestamp();

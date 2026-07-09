@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Building2, Hash } from 'lucide-react';
 import { Modal, InputField, PrimaryButton, SecondaryButton } from '../ui';
-import { useDepartment } from '../../stores';
+import { useDepartment, useAuthentication, useCoordinatorRequest } from '../../stores';
+import { USERS_ROLE } from '../../constants';
 
 // ==============================================================================
 // SECTION 1: COMPONENT
@@ -9,6 +10,8 @@ import { useDepartment } from '../../stores';
 
 export default function DepartmentModal({ isOpen, onClose, department = null }) {
     const { create, update } = useDepartment();
+    const { user: currentUser } = useAuthentication();
+    const { create: createCoordinatorRequest } = useCoordinatorRequest();
     
     const [name, setName] = useState('');
     const [code, setCode] = useState('');
@@ -34,16 +37,39 @@ export default function DepartmentModal({ isOpen, onClose, department = null }) 
 
         try {
             setIsSubmitting(true);
-            if (isEditMode) {
-                await update(department.id, {
-                    name: name.trim(),
-                    code: code.trim().toUpperCase(),
-                });
+            if (currentUser?.role === USERS_ROLE.COORDINATOR) {
+                if (isEditMode) {
+                    await createCoordinatorRequest({
+                        requester_id: currentUser.id,
+                        action: 'DEPARTMENT_UPDATE',
+                        data: {
+                            id: department.id,
+                            name: name.trim(),
+                            type: code.trim().toUpperCase(),
+                        }
+                    });
+                } else {
+                    await createCoordinatorRequest({
+                        requester_id: currentUser.id,
+                        action: 'DEPARTMENT_CREATE',
+                        data: {
+                            name: name.trim(),
+                            type: code.trim().toUpperCase(),
+                        }
+                    });
+                }
             } else {
-                await create({
-                    name: name.trim(),
-                    code: code.trim().toUpperCase(),
-                });
+                if (isEditMode) {
+                    await update(department.id, {
+                        name: name.trim(),
+                        type: code.trim().toUpperCase(),
+                    });
+                } else {
+                    await create({
+                        name: name.trim(),
+                        type: code.trim().toUpperCase(),
+                    });
+                }
             }
             onClose();
         } catch (error) {
@@ -76,7 +102,7 @@ export default function DepartmentModal({ isOpen, onClose, department = null }) 
                     </div>
 
                     <div className="flex flex-col gap-1.5">
-                        <label className="text-sm font-semibold text-main">Department Code</label>
+                        <label className="text-sm font-semibold text-main">Department Type</label>
                         <InputField 
                             leftIcon={Hash}
                             placeholder="e.g. COS"

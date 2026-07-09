@@ -42,15 +42,17 @@ router.get('/', async (req, res) => {
 // PATCH /api/notifications/:id — Mark as read
 router.patch('/:id', async (req, res) => {
     const { is_read } = req.body;
+    const ids = req.params.id.split(',');
     const client = await pool.connect();
     try {
         await withRLS(client, getRLSContext(req), async (c) => {
             const result = await c.query(
-                'UPDATE notifications SET is_read = COALESCE($2, is_read) WHERE id = $1 RETURNING *',
-                [req.params.id, is_read]
+                'UPDATE notifications SET is_read = COALESCE($2, is_read) WHERE id = ANY($1::uuid[]) RETURNING *',
+                [ids, is_read]
             );
             if (result.rows.length === 0) return res.status(404).json({ error: 'Notification not found' });
-            res.json(result.rows[0]);
+            // Return array if multiple, else single object for backward compatibility
+            res.json(ids.length > 1 ? result.rows : result.rows[0]);
         });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -61,10 +63,11 @@ router.patch('/:id', async (req, res) => {
 
 // DELETE /api/notifications/:id
 router.delete('/:id', async (req, res) => {
+    const ids = req.params.id.split(',');
     const client = await pool.connect();
     try {
         await withRLS(client, getRLSContext(req), async (c) => {
-            await c.query('DELETE FROM notifications WHERE id = $1', [req.params.id]);
+            await c.query('DELETE FROM notifications WHERE id = ANY($1::uuid[])', [ids]);
             res.json({ success: true });
         });
     } catch (err) {

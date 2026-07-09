@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { User, Hash, Building2, Shield, Mail, Lock, Key, Camera } from 'lucide-react';
 import { Modal, InputField, PasswordField, SelectField, PrimaryButton, SecondaryButton } from '../ui';
-import { useUser, useDepartment } from '../../stores';
+import { useUser, useDepartment, useAuthentication, useCoordinatorRequest } from '../../stores';
 import { USERS_ROLE, USERS_STATUS } from '../../constants';
 
 // ==============================================================================
@@ -11,6 +11,8 @@ import { USERS_ROLE, USERS_STATUS } from '../../constants';
 export default function UserModal({ isOpen, onClose, user = null }) {
     const { create, update } = useUser();
     const { departments } = useDepartment();
+    const { user: currentUser } = useAuthentication();
+    const { create: createCoordinatorRequest } = useCoordinatorRequest();
 
     const [avatarPath, setAvatarPath] = useState('');
     const [firstName, setFirstName] = useState('');
@@ -97,31 +99,67 @@ export default function UserModal({ isOpen, onClose, user = null }) {
 
         try {
             setIsSubmitting(true);
-            if (isEditMode) {
-                await update(user.id, {
-                    avatar_path: avatarPath.trim() || null,
-                    first_name: firstName.trim(),
-                    middle_name: middleName.trim() || null,
-                    last_name: lastName.trim(),
-                    department_id: departmentId,
-                    role: role,
-                    // Note: Admin cannot change email, password, or university_id in standard flows
-                });
+            if (currentUser?.role === USERS_ROLE.COORDINATOR) {
+                if (isEditMode) {
+                    await createCoordinatorRequest({
+                        requester_id: currentUser.id,
+                        action: 'USER_UPDATE',
+                        data: {
+                            id: user.id,
+                            avatar_path: avatarPath.trim() || null,
+                            first_name: firstName.trim(),
+                            middle_name: middleName.trim() || null,
+                            last_name: lastName.trim(),
+                            department_id: departmentId,
+                            role: role,
+                        }
+                    });
+                } else {
+                    const finalPassword = password.trim() || universityId.trim();
+                    await createCoordinatorRequest({
+                        requester_id: currentUser.id,
+                        action: 'USER_CREATE',
+                        data: {
+                            avatar_path: avatarPath.trim() || null,
+                            first_name: firstName.trim(),
+                            middle_name: middleName.trim() || null,
+                            last_name: lastName.trim(),
+                            university_id: universityId.trim(),
+                            department_id: departmentId,
+                            role: role,
+                            email: email.trim(),
+                            password: finalPassword,
+                            status: USERS_STATUS.PENDING_PASSWORD
+                        }
+                    });
+                }
             } else {
-                const finalPassword = password.trim() || universityId.trim();
-                
-                await create({
-                    avatar_path: avatarPath.trim() || null,
-                    first_name: firstName.trim(),
-                    middle_name: middleName.trim() || null,
-                    last_name: lastName.trim(),
-                    university_id: universityId.trim(),
-                    department_id: departmentId,
-                    role: role,
-                    email: email.trim(),
-                    password: finalPassword,
-                    status: USERS_STATUS.PENDING_PASSWORD
-                });
+                if (isEditMode) {
+                    await update(user.id, {
+                        avatar_path: avatarPath.trim() || null,
+                        first_name: firstName.trim(),
+                        middle_name: middleName.trim() || null,
+                        last_name: lastName.trim(),
+                        department_id: departmentId,
+                        role: role,
+                        // Note: Admin cannot change email, password, or university_id in standard flows
+                    });
+                } else {
+                    const finalPassword = password.trim() || universityId.trim();
+                    
+                    await create({
+                        avatar_path: avatarPath.trim() || null,
+                        first_name: firstName.trim(),
+                        middle_name: middleName.trim() || null,
+                        last_name: lastName.trim(),
+                        university_id: universityId.trim(),
+                        department_id: departmentId,
+                        role: role,
+                        email: email.trim(),
+                        password: finalPassword,
+                        status: USERS_STATUS.PENDING_PASSWORD
+                    });
+                }
             }
             onClose();
         } catch (error) {

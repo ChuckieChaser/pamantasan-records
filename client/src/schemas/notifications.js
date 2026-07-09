@@ -7,17 +7,17 @@ export const NotificationsActionSchema = z.enum(Object.keys(NOTIFICATIONS_ACTION
 
 // --- Tables ---
 export const NotificationsSchema = z.object({
-    id: z.string().uuid(),
     recipient_id: z.string().uuid(),
-    actor_id: z.string().uuid().nullable().optional(),
+    actor_ids: z.array(z.string().uuid()).nullable().optional(),
 
     entity_type: NotificationsEntityTypeSchema,
     entity_id: z.string().uuid(),
     action: NotificationsActionSchema,
 
-    is_read: z.boolean(),
-    is_emailed: z.boolean(),
+    interaction_count: z.number().int().nonnegative(),
+    notification_ids: z.array(z.string().uuid()),
 
-    created_at: z.string().datetime(),
-    updated_at: z.string().datetime(),
+    is_read: z.boolean(),
+
+    last_interaction_at: z.string().datetime(),
 });

@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { X, User as UserIcon, Calendar, Edit, Building2, Tag, Shield, Mail, Hash } from 'lucide-react';
 import { IconButton, PrimaryButton, DestructiveButton, SecondaryButton, Modal } from '../ui';
 import UserModal from './UserModal';
-import { useDepartment, useUser } from '../../stores';
-import { USERS_STATUS } from '../../constants';
+import { useDepartment, useUser, useAuthentication, useCoordinatorRequest } from '../../stores';
+import { USERS_STATUS, USERS_ROLE } from '../../constants';
 
 // ==============================================================================
 // SECTION 1: COMPONENT
@@ -12,13 +12,23 @@ import { USERS_STATUS } from '../../constants';
 export default function UserInspector({ user, onClose }) {
     const { departments } = useDepartment();
     const { update } = useUser();
+    const { user: currentUser } = useAuthentication();
+    const { create: createCoordinatorRequest } = useCoordinatorRequest();
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isSuspendModalOpen, setIsSuspendModalOpen] = useState(false);
     const [isUnsuspendModalOpen, setIsUnsuspendModalOpen] = useState(false);
 
     const handleSuspend = async () => {
         try {
-            await update(user.id, { status: USERS_STATUS.SUSPENDED });
+            if (currentUser?.role === USERS_ROLE.COORDINATOR) {
+                await createCoordinatorRequest({
+                    requester_id: currentUser.id,
+                    action: 'USER_SUSPEND',
+                    data: { id: user.id, status: USERS_STATUS.SUSPENDED }
+                });
+            } else {
+                await update(user.id, { status: USERS_STATUS.SUSPENDED });
+            }
             setIsSuspendModalOpen(false);
         } catch (error) {
             console.error('Failed to suspend user', error);
@@ -28,7 +38,15 @@ export default function UserInspector({ user, onClose }) {
     const handleUnsuspend = async () => {
         try {
             // Un-suspending defaults to VERIFIED usually, or whatever is proper.
-            await update(user.id, { status: USERS_STATUS.VERIFIED });
+            if (currentUser?.role === USERS_ROLE.COORDINATOR) {
+                await createCoordinatorRequest({
+                    requester_id: currentUser.id,
+                    action: 'USER_SUSPEND',
+                    data: { id: user.id, status: USERS_STATUS.VERIFIED }
+                });
+            } else {
+                await update(user.id, { status: USERS_STATUS.VERIFIED });
+            }
             setIsUnsuspendModalOpen(false);
         } catch (error) {
             console.error('Failed to unsuspend user', error);

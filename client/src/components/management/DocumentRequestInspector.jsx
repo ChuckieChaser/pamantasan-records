@@ -2,8 +2,9 @@ import { useEffect, useState, useRef } from 'react';
 import { X, FileText, Send, CheckCircle, XCircle, Paperclip, Monitor, HardDrive, Tag, User as UserIcon, Calendar } from 'lucide-react';
 import { IconButton, PrimaryButton, SecondaryButton, DestructiveButton, InputField, Badge } from '../ui';
 import { TransparentBackdrop, MenuContainer, MenuBody, MenuButton, Modal } from '../ui';
-import { useAuthentication, useDocumentRequestMessage, useUser, useDocumentShare, useDocumentRequest, useDocument } from '../../stores';
-import { DOCUMENT_REQUESTS_STATUS } from '../../constants';
+import { useAuthentication, useDocumentRequestMessage, useUser, useDocumentRequest, useDocument, useCoordinatorRequest } from '../../stores';
+import { DOCUMENT_REQUESTS_STATUS, USERS_ROLE } from '../../constants';
+import { documentsApi, coordinatorRequestsService } from '../../services';
 import DocumentPickerModal from './DocumentPickerModal';
 
 // ==============================================================================
@@ -28,7 +29,7 @@ export default function DocumentRequestInspector({ request, onClose }) {
 
     const scrollRef = useRef(null);
     const fileInputRef = useRef(null);
-    const { create: createShare } = useDocumentShare();
+    const { create: createCoordinatorRequest } = useCoordinatorRequest();
 
     // --- Load Messages ---
     useEffect(() => {
@@ -59,25 +60,37 @@ export default function DocumentRequestInspector({ request, onClose }) {
             const attachmentIds = [];
 
             for (const att of stagedAttachments) {
+                let docId = att.documentId;
                 if (att.type === 'local') {
                     const doc = await createDocument({
                         uploader_id: user.id,
                         name: att.file.name,
                         is_folder: false,
                     });
-                    attachmentIds.push(doc.id);
-                    await createShare({
-                        document_id: doc.id,
-                        sharer_id: user.id,
-                        recipient_id: request.requester_id,
-                        document_request_id: request.id,
+                    docId = doc.id;
+                    
+                    // Upload the file to the document
+                    const formData = new FormData();
+                    formData.append('document', att.file);
+                    await documentsApi.upload(docId, formData);
+                }
+                
+                attachmentIds.push(docId);
+                
+                if (user.role === USERS_ROLE.COORDINATOR) {
+                    await createCoordinatorRequest({
+                        requester_id: user.id,
+                        action: 'DOCUMENT_ATTACH',
+                        data: {
+                            document_id: docId,
+                            attached_by_id: user.id,
+                            document_request_id: request.id,
+                        }
                     });
-                } else if (att.type === 'system') {
-                    attachmentIds.push(att.documentId);
-                    await createShare({
-                        document_id: att.documentId,
-                        sharer_id: user.id,
-                        recipient_id: request.requester_id,
+                } else {
+                    await documentsApi.createAttachment({
+                        document_id: docId,
+                        attached_by_id: user.id,
                         document_request_id: request.id,
                     });
                 }

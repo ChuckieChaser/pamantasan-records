@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { pool, withRLS } from '../db.js';
+import { logAudit } from '../services/audit.js';
+import { createNotification } from '../services/notification.js';
 
 const router = Router();
 
@@ -63,13 +65,29 @@ router.post('/', async (req, res) => {
                 [university_id, department_id, role, email, first_name, middle_name || null, last_name]
             );
 
-            // Also create default user_settings row
-            await c.query(
-                'INSERT INTO user_settings (user_id) VALUES ($1) ON CONFLICT DO NOTHING',
-                [result.rows[0].id]
-            );
+            // Note: user_settings and user_credentials are automatically created by the trigger_initialize_user_data trigger on the database level.
 
-            res.status(201).json(result.rows[0]);
+            const userRow = result.rows[0];
+            const userId = getRLSContext(req).userId;
+            const userRole = getRLSContext(req).role;
+
+            await logAudit(c, {
+                actor_id: userId,
+                entity_type: 'USER',
+                entity_id: userRow.id,
+                action: 'CREATED',
+                data: userRow
+            });
+
+            await createNotification(c, userRole, {
+                recipient_id: userRow.id,
+                actor_id: userId,
+                entity_type: 'USER',
+                entity_id: userRow.id,
+                action: 'CREATED'
+            });
+
+            res.status(201).json(userRow);
         });
     } catch (err) {
         if (err.code === '23505') return res.status(409).json({ error: 'University ID or email already exists' });
@@ -96,7 +114,30 @@ router.patch('/:id', async (req, res) => {
                 [req.params.id, ...updates.map(u => u[1])]
             );
             if (result.rows.length === 0) return res.status(404).json({ error: 'User not found' });
-            res.json(result.rows[0]);
+            const userRow = result.rows[0];
+            const userId = getRLSContext(req).userId;
+            const userRole = getRLSContext(req).role;
+            const actionVerb = 'status' in req.body && req.body.status === 'SUSPENDED' ? 'SUSPENDED' : 'UPDATED';
+
+            await logAudit(c, {
+                actor_id: userId,
+                entity_type: 'USER',
+                entity_id: userRow.id,
+                action: actionVerb,
+                data: req.body
+            });
+
+            if (userId !== userRow.id) {
+                await createNotification(c, userRole, {
+                    recipient_id: userRow.id,
+                    actor_id: userId,
+                    entity_type: 'USER',
+                    entity_id: userRow.id,
+                    action: actionVerb
+                });
+            }
+
+            res.json(userRow);
         });
     } catch (err) {
         res.status(500).json({ error: err.message });

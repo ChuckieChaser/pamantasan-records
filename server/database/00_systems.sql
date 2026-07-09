@@ -100,6 +100,42 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Enforce strict role-based status transitions for document_shares
+CREATE OR REPLACE FUNCTION trigger_enforce_share_status_transition()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- If status isn't changing or action is done by SYSTEM or ADMIN, allow it
+    IF OLD.status = NEW.status OR is_system_role() OR is_administrator_role() THEN
+        RETURN NEW;
+    END IF;
+
+    -- For Officers:
+    IF is_officer_role() THEN
+        -- Officers can only toggle between PENDING_APPROVAL and APPROVED
+        IF (OLD.status = 'PENDING_APPROVAL' AND NEW.status = 'APPROVED') OR
+           (OLD.status = 'APPROVED' AND NEW.status = 'PENDING_APPROVAL') THEN
+            RETURN NEW;
+        ELSE
+            RAISE EXCEPTION 'Officers can only transition shares between PENDING_APPROVAL and APPROVED. Attempted: % -> %', OLD.status, NEW.status;
+        END IF;
+    END IF;
+
+    -- For Directors:
+    IF is_director_role() THEN
+        -- Directors can only toggle between APPROVED and PUBLISHED
+        IF (OLD.status = 'APPROVED' AND NEW.status = 'PUBLISHED') OR
+           (OLD.status = 'PUBLISHED' AND NEW.status = 'APPROVED') THEN
+            RETURN NEW;
+        ELSE
+            RAISE EXCEPTION 'Directors can only transition shares between APPROVED and PUBLISHED. Attempted: % -> %', OLD.status, NEW.status;
+        END IF;
+    END IF;
+
+    -- For any other role, block the transition
+    RAISE EXCEPTION 'Unauthorized state transition by current role. Attempted: % -> %', OLD.status, NEW.status;
+END;
+$$ LANGUAGE plpgsql;
+
 -- Standard timestamp automation
 CREATE OR REPLACE FUNCTION trigger_set_timestamp()
 RETURNS TRIGGER AS $$

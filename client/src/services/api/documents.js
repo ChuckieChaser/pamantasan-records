@@ -34,7 +34,8 @@ export const documentsApi = {
     updateRequest:    (id, data)     => apiClient.patch(`/documents/requests/${id}`, data).then(r => r.data),
     deleteRequest:    (id)           => apiClient.delete(`/documents/requests/${id}`).then(r => r.data),
 
-    // --- Messages ---
+    // --- Messages & Attachments ---
     getMessages:      (reqId)        => apiClient.get(`/documents/requests/${reqId}/messages`).then(r => r.data),
     createMessage:    (reqId, data)  => apiClient.post(`/documents/requests/${reqId}/messages`, data).then(r => r.data),
+    createAttachment: (data)         => apiClient.post(`/documents/attachments`, data).then(r => r.data),
 };

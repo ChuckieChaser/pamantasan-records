@@ -4,8 +4,11 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
-import * as archiverLib from 'archiver';
-const archiver = archiverLib.default || archiverLib;
+import { logAudit } from '../services/audit.js';
+import { createNotification } from '../services/notification.js';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const archiver = require('archiver');
 
 const router = Router();
 
@@ -201,6 +204,15 @@ router.post('/', async (req, res) => {
                  VALUES ($1, $2, $3, $4, $5) RETURNING *`,
                 [parent_id || null, uploader_id, name, comment || null, is_folder || false]
             );
+            
+            await logAudit(c, {
+                actor_id: uploader_id,
+                entity_type: 'DOCUMENT',
+                entity_id: result.rows[0].id,
+                action: 'CREATED',
+                data: result.rows[0]
+            });
+
             res.status(201).json(result.rows[0]);
         });
     } catch (err) {
@@ -245,6 +257,15 @@ router.post('/:id/upload', upload.single('file'), async (req, res) => {
                     change_summary || null,
                 ]
             );
+            
+            await logAudit(c, {
+                actor_id: uploader_id,
+                entity_type: 'DOCUMENT_VERSION',
+                entity_id: result.rows[0].id,
+                action: 'UPLOADED',
+                data: result.rows[0]
+            });
+
             res.status(201).json(result.rows[0]);
         });
     } catch (err) {
@@ -428,6 +449,40 @@ router.post('/shares', async (req, res) => {
                 );
                 if (docRow.id === document_id) {
                     results.push(result.rows[0]); // Return the main document's share record
+                    
+                    // 1. Audit Log
+                    await logAudit(c, {
+                        actor_id: sharer_id,
+                        entity_type: 'DOCUMENT',
+                        entity_id: document_id,
+                        action: 'SHARED',
+                        data: { recipient_id, department_id }
+                    });
+
+                    // 2. Notification(s)
+                    const userRole = req.headers['x-user-role'];
+                    if (recipient_id) {
+                        await createNotification(c, userRole, {
+                            recipient_id: recipient_id,
+                            actor_id: sharer_id,
+                            entity_type: 'DOCUMENT',
+                            entity_id: document_id,
+                            action: 'SHARED'
+                        });
+                    } else if (department_id) {
+                        const deptUsers = await c.query('SELECT id FROM users WHERE department_id = $1', [department_id]);
+                        for (const u of deptUsers.rows) {
+                            if (u.id !== sharer_id) {
+                                await createNotification(c, userRole, {
+                                    recipient_id: u.id,
+                                    actor_id: sharer_id,
+                                    entity_type: 'DOCUMENT',
+                                    entity_id: document_id,
+                                    action: 'SHARED'
+                                });
+                            }
+                        }
+                    }
                 }
             }
 
@@ -453,7 +508,46 @@ router.patch('/shares/:id', async (req, res) => {
                 [status, req.params.id]
             );
             if (result.rows.length === 0) return res.status(404).json({ error: 'Share not found' });
-            res.json(result.rows[0]);
+            
+            const share = result.rows[0];
+            const userId = getRLSContext(req).userId;
+            const userRole = getRLSContext(req).role;
+
+            // 1. Cross-update document_versions for Approvals/Publishing
+            if (['APPROVED', 'PUBLISHED', 'REJECTED'].includes(status)) {
+                let updateField = '';
+                if (status === 'APPROVED') updateField = 'approver_id';
+                if (status === 'PUBLISHED') updateField = 'publisher_id';
+                if (status === 'REJECTED') updateField = 'rejecter_id';
+
+                await c.query(
+                    `UPDATE document_versions 
+                     SET ${updateField} = $1 
+                     WHERE document_id = $2 
+                     AND version = (SELECT MAX(version) FROM document_versions WHERE document_id = $2)`,
+                    [userId, share.document_id]
+                );
+            }
+
+            // 2. Audit Log
+            await logAudit(c, {
+                actor_id: userId,
+                entity_type: 'DOCUMENT',
+                entity_id: share.document_id,
+                action: status, // status enum matches action enum directly! (APPROVED, PUBLISHED, REJECTED)
+                data: { share_id: share.id, status }
+            });
+
+            // 3. Notification to the Sharer (who uploaded/shared it)
+            await createNotification(c, userRole, {
+                recipient_id: share.sharer_id,
+                actor_id: userId,
+                entity_type: 'DOCUMENT',
+                entity_id: share.document_id,
+                action: status
+            });
+
+            res.json(share);
         });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -514,7 +608,27 @@ router.post('/requests', async (req, res) => {
                 'INSERT INTO document_requests (requester_id, subject) VALUES ($1, $2) RETURNING *',
                 [requester_id, subject]
             );
-            res.status(201).json(result.rows[0]);
+            
+            const reqRow = result.rows[0];
+            const userRole = getRLSContext(req).role;
+
+            await logAudit(c, {
+                actor_id: requester_id,
+                entity_type: 'DOCUMENT_REQUEST',
+                entity_id: reqRow.id,
+                action: 'CREATED',
+                data: reqRow
+            });
+
+            await createNotification(c, userRole, {
+                recipient_id: requester_id,
+                actor_id: requester_id,
+                entity_type: 'DOCUMENT_REQUEST',
+                entity_id: reqRow.id,
+                action: 'CREATED'
+            });
+
+            res.status(201).json(reqRow);
         });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -536,7 +650,30 @@ router.patch('/requests/:id', async (req, res) => {
                 [req.params.id, status, resolver_id]
             );
             if (result.rows.length === 0) return res.status(404).json({ error: 'Request not found' });
-            res.json(result.rows[0]);
+            
+            const reqRow = result.rows[0];
+            const userId = getRLSContext(req).userId;
+            const userRole = getRLSContext(req).role;
+
+            if (status === 'RESOLVED') {
+                await logAudit(c, {
+                    actor_id: userId,
+                    entity_type: 'DOCUMENT_REQUEST',
+                    entity_id: reqRow.id,
+                    action: 'RESOLVED',
+                    data: reqRow
+                });
+
+                await createNotification(c, userRole, {
+                    recipient_id: reqRow.requester_id,
+                    actor_id: userId,
+                    entity_type: 'DOCUMENT_REQUEST',
+                    entity_id: reqRow.id,
+                    action: 'RESOLVED'
+                });
+            }
+
+            res.json(reqRow);
         });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -575,7 +712,91 @@ router.post('/requests/:id/messages', async (req, res) => {
                 'INSERT INTO document_request_messages (document_request_id, user_id, message) VALUES ($1, $2, $3) RETURNING *',
                 [req.params.id, user_id || null, message]
             );
-            res.status(201).json(result.rows[0]);
+            
+            const msgRow = result.rows[0];
+            const userRole = getRLSContext(req).role;
+
+            await logAudit(c, {
+                actor_id: user_id,
+                entity_type: 'DOCUMENT_REQUEST',
+                entity_id: req.params.id,
+                action: 'COMMENTED',
+                data: msgRow
+            });
+
+            // Notify the requester that someone commented (if the comment isn't from the requester themselves)
+            const drResult = await c.query('SELECT requester_id FROM document_requests WHERE id = $1', [req.params.id]);
+            if (drResult.rows.length > 0 && drResult.rows[0].requester_id !== user_id) {
+                await createNotification(c, userRole, {
+                    recipient_id: drResult.rows[0].requester_id,
+                    actor_id: user_id,
+                    entity_type: 'DOCUMENT_REQUEST',
+                    entity_id: req.params.id,
+                    action: 'COMMENTED'
+                });
+            }
+
+            res.status(201).json(msgRow);
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+// POST /api/documents/attachments
+router.post('/attachments', async (req, res) => {
+    const { document_request_id, document_id, attached_by_id } = req.body;
+    if (!document_request_id || !document_id || !attached_by_id) return res.status(400).json({ error: 'document_request_id, document_id, attached_by_id are required' });
+
+    const client = await pool.connect();
+    try {
+        await withRLS(client, getRLSContext(req), async (c) => {
+            const result = await c.query(
+                `INSERT INTO document_request_attachments (document_request_id, document_id, attached_by_id)
+                 VALUES ($1, $2, $3) RETURNING *`,
+                [document_request_id, document_id, attached_by_id]
+            );
+            
+            const attRow = result.rows[0];
+            const userRole = getRLSContext(req).role;
+
+            await logAudit(c, {
+                actor_id: attached_by_id,
+                entity_type: 'DOCUMENT_REQUEST',
+                entity_id: document_request_id,
+                action: 'ATTACHED',
+                data: attRow
+            });
+
+            const drResult = await c.query('SELECT requester_id FROM document_requests WHERE id = $1', [document_request_id]);
+            if (drResult.rows.length > 0 && drResult.rows[0].requester_id !== attached_by_id) {
+                await createNotification(c, userRole, {
+                    recipient_id: drResult.rows[0].requester_id,
+                    actor_id: attached_by_id,
+                    entity_type: 'DOCUMENT_REQUEST',
+                    entity_id: document_request_id,
+                    action: 'ATTACHED'
+                });
+            }
+
+            res.status(201).json(attRow);
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+// DELETE /api/documents/attachments/:id
+router.delete('/attachments/:id', async (req, res) => {
+    const client = await pool.connect();
+    try {
+        await withRLS(client, getRLSContext(req), async (c) => {
+            await c.query('DELETE FROM document_request_attachments WHERE id = $1', [req.params.id]);
+            res.json({ success: true });
         });
     } catch (err) {
         res.status(500).json({ error: err.message });

@@ -103,7 +103,7 @@ Because `COORDINATOR`s are operational workers but lack executive authority, the
 
 1. **Officers approving a Published Document:** Blocked by `documents_update_access` (requires `status IN ('PENDING_APPROVAL', 'APPROVED')`).
 2. **Members viewing Drafts:** Blocked by `documents_select_access` (requires `status = 'PUBLISHED'`).
-3. **Coordinators altering the pipeline directly:** Blocked by omission in `documents_insert_access`, `document_shares_insert_access`, and `document_request_attachments_insert_access` (forcing them to the Maker-Checker queue).
+3. **Coordinators altering the pipeline directly:** Blocked by omission in `document_shares_insert_access`, and `document_request_attachments_insert_access` (forcing them to the Maker-Checker queue). *Note: Coordinators are explicitly allowed to natively upload physical documents without a Maker-Checker request because uploaded files are invisible until a Share record is explicitly created.*
 4. **Directors sharing outside their department:** Blocked by `document_shares_insert_access` (requires `department_id = get_user_current_department_id()`).
 5. **Orphaned User Settings:** Blocked by `trigger_initialize_user_data` (guarantees credentials and settings exist for every user).
 6. **Attachment Conflict:** Blocked by structurally splitting `document_shares` and `document_request_attachments` into dedicated tables.

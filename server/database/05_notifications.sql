@@ -42,7 +42,9 @@ SELECT
     action,
     COUNT(*) as interaction_count,
     MAX(created_at) as last_interaction_at,
-    ARRAY_AGG(DISTINCT actor_id) as actor_ids
+    ARRAY_AGG(DISTINCT actor_id) as actor_ids,
+    ARRAY_AGG(id) as notification_ids,
+    BOOL_AND(is_read) as is_read
 FROM notifications
 GROUP BY
     recipient_id,

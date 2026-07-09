@@ -15,7 +15,7 @@ const Topbar = ({ onToggleInspector, isInspectorOpen }) => {
     const navigate = useNavigate();
 
     const { user } = useAuthentication();
-    const { notifications, unreadCount, getGroupedByRecipientId } = useNotification();
+    const { notifications, unreadCount, getGroupedByRecipientId, update: updateNotification } = useNotification();
     const { documents } = useDocument();
 
     // --- Load notifications when the authenticated user changes ---
@@ -53,25 +53,36 @@ const Topbar = ({ onToggleInspector, isInspectorOpen }) => {
 
     // --- Shape notifications for the menu component ---
     const notificationItems = notifications.map((notification) => {
-        const isPlural = notification.group_count > 1;
-        const actorText = isPlural ? `${notification.actor_name} and others` : notification.actor_name;
+        const isPlural = notification.interaction_count > 1;
+        
+        // Handle either string/array actor_ids for name parsing if needed, but for now we fallback 
+        // to generic terms since actor_name isn't in vw_notifications directly. Wait! vw_notifications 
+        // doesn't return actor_name, it returns actor_ids. Does the backend join them?
+        // Ah, the frontend previously used `notification.group_count`, `notification.actor_name` which don't exist in vw_notifications!
+        // vw_notifications returns interaction_count, actor_ids.
+        const actorText = isPlural ? 'Multiple users' : 'A user';
 
         const titleNode = (
             <span className="text-main">
                 <span className="font-semibold text-accent">{actorText}</span>
                 {' '}
-                <span className="lowercase">{notification.action.replace(/_/g, ' ')}</span>
+                <span className="lowercase">{notification.action?.replace(/_/g, ' ')}</span>
                 {' on '}
-                <span className="font-semibold text-accent">{notification.entity_name}</span>
+                <span className="font-semibold text-accent">{notification.entity_type}</span>
             </span>
         );
 
         return {
             title: titleNode,
             message: null,
-            time: new Date(notification.created_at).toLocaleString(),
-            count: notification.group_count,
-            avatar: notification.actor_avatar,
+            time: new Date(notification.last_interaction_at).toLocaleString(),
+            count: notification.interaction_count,
+            avatar: null,
+            onClick: async () => {
+                if (notification.notification_ids && !notification.is_read) {
+                    await updateNotification(notification.notification_ids.join(','), { is_read: true });
+                }
+            }
         };
     });
 

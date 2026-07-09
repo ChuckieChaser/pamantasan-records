@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { pool, withRLS } from '../db.js';
+import { logAudit } from '../services/audit.js';
+import { createNotification } from '../services/notification.js';
 
 const router = Router();
 
@@ -52,7 +54,31 @@ router.post('/', async (req, res) => {
                 'INSERT INTO departments (name, code) VALUES ($1, $2) RETURNING *',
                 [name, code]
             );
-            res.status(201).json(result.rows[0]);
+            
+            const deptRow = result.rows[0];
+            const userId = getRLSContext(req).userId;
+            const userRole = getRLSContext(req).role;
+
+            await logAudit(c, {
+                actor_id: userId,
+                entity_type: 'DEPARTMENT',
+                entity_id: deptRow.id,
+                action: 'CREATED',
+                data: deptRow
+            });
+
+            const admins = await c.query("SELECT id FROM users WHERE role = 'ADMINISTRATOR' AND status = 'VERIFIED'");
+            for (const admin of admins.rows) {
+                await createNotification(c, userRole, {
+                    recipient_id: admin.id,
+                    actor_id: userId,
+                    entity_type: 'DEPARTMENT',
+                    entity_id: deptRow.id,
+                    action: 'CREATED'
+                });
+            }
+
+            res.status(201).json(deptRow);
         });
     } catch (err) {
         if (err.code === '23505') return res.status(409).json({ error: 'Department name or code already exists' });
@@ -73,7 +99,31 @@ router.patch('/:id', async (req, res) => {
                 [name, code, req.params.id]
             );
             if (result.rows.length === 0) return res.status(404).json({ error: 'Department not found' });
-            res.json(result.rows[0]);
+            
+            const deptRow = result.rows[0];
+            const userId = getRLSContext(req).userId;
+            const userRole = getRLSContext(req).role;
+
+            await logAudit(c, {
+                actor_id: userId,
+                entity_type: 'DEPARTMENT',
+                entity_id: deptRow.id,
+                action: 'UPDATED',
+                data: deptRow
+            });
+
+            const admins = await c.query("SELECT id FROM users WHERE role = 'ADMINISTRATOR' AND status = 'VERIFIED'");
+            for (const admin of admins.rows) {
+                await createNotification(c, userRole, {
+                    recipient_id: admin.id,
+                    actor_id: userId,
+                    entity_type: 'DEPARTMENT',
+                    entity_id: deptRow.id,
+                    action: 'UPDATED'
+                });
+            }
+
+            res.json(deptRow);
         });
     } catch (err) {
         res.status(500).json({ error: err.message });

@@ -139,7 +139,7 @@ router.patch('/:id', async (req, res) => {
             let userRow = null;
             if (updates.length > 0) {
                 try {
-                    if (!isAdminOrSystem) await c.query(`SET LOCAL app.user_current_role = 'SYSTEM'`);
+                    if (!isAdminOrSystem) await c.query(`RESET ROLE`);
                     const result = await c.query(
                         `UPDATE users SET ${updates.map(u => u[0]).join(', ')} WHERE id = $1 RETURNING *`,
                         [req.params.id, ...updates.map(u => u[1])]
@@ -147,7 +147,7 @@ router.patch('/:id', async (req, res) => {
                     if (result.rows.length === 0) return res.status(404).json({ error: 'User not found' });
                     userRow = result.rows[0];
                 } finally {
-                    if (!isAdminOrSystem) await c.query(`SET LOCAL app.user_current_role = '${userRole || 'GUEST'}'`);
+                    if (!isAdminOrSystem) await c.query(`SET LOCAL ROLE app_user`);
                 }
             } else {
                 const result = await c.query('SELECT * FROM users WHERE id = $1', [req.params.id]);
@@ -162,10 +162,12 @@ router.patch('/:id', async (req, res) => {
             if (req.body.password) {
                 const hash = await bcrypt.hash(req.body.password, 10);
                 try {
-                    await c.query(`SET LOCAL app.user_current_role = 'SYSTEM'`);
+                    if (!isAdminOrSystem) await c.query(`RESET ROLE`);
+                    else await c.query(`SET LOCAL app.user_current_role = 'SYSTEM'`);
                     await c.query(`UPDATE user_credentials SET password_hash = $1 WHERE user_id = $2`, [hash, req.params.id]);
                 } finally {
-                    await c.query(`SET LOCAL app.user_current_role = '${userRole || 'GUEST'}'`);
+                    if (!isAdminOrSystem) await c.query(`SET LOCAL ROLE app_user`);
+                    else await c.query(`SET LOCAL app.user_current_role = '${auditUserRole || 'GUEST'}'`);
                 }
             }
             

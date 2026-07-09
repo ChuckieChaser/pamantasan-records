@@ -28,13 +28,10 @@ CREATE DOMAIN system_audit_logs_action AS VARCHAR
 CREATE TABLE IF NOT EXISTS audit_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     actor_id UUID NULL REFERENCES users(id) ON DELETE RESTRICT,
-
     entity_type system_audit_logs_entity_type NOT NULL,
     entity_id UUID NOT NULL,
     action system_audit_logs_action NOT NULL,
-
     data JSONB NOT NULL,
-
     created_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP
     -- NOTE: No updated_at column intentionally. Audit logs are append-only.
 );

@@ -47,22 +47,17 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE TABLE IF NOT EXISTS user_credentials (
     user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-
     password_hash VARCHAR(255) NOT NULL,
     google_id VARCHAR(255) NULL,
-
     created_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
     CONSTRAINT uq_user_credentials_google_id UNIQUE (google_id)
 );
 
 CREATE TABLE IF NOT EXISTS user_settings (
     user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-
     theme system_user_settings_theme NOT NULL DEFAULT 'SYSTEM',
     notification system_user_settings_notification NOT NULL DEFAULT 'ALL',
-
     created_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -70,14 +65,11 @@ CREATE TABLE IF NOT EXISTS user_settings (
 CREATE TABLE IF NOT EXISTS user_sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-
     token_hash VARCHAR(255) NOT NULL,
     ip_address VARCHAR(45) NULL,
     user_agent TEXT NULL,
-
     created_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
     expired_at timestamptz NULL,
-
     CONSTRAINT uq_user_sessions_token_hash UNIQUE (token_hash)
 );
 

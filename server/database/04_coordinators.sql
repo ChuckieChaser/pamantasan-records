@@ -23,13 +23,10 @@ CREATE TABLE IF NOT EXISTS coordinator_requests (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     requester_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
     reviewer_id UUID REFERENCES users(id) ON DELETE RESTRICT,
-
     action system_coordinator_requests_action NOT NULL,
     data JSONB NOT NULL,
-
     status system_coordinator_requests_status NOT NULL DEFAULT 'PENDING',
     rejection_reason TEXT NULL,
-
     created_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -41,10 +38,7 @@ CREATE INDEX IF NOT EXISTS idx_coordinator_requests_data ON coordinator_requests
 
 -- Attach the global timestamp trigger (Defined in 00_systems.sql)
 DROP TRIGGER IF EXISTS set_timestamp_coordinator_requests ON coordinator_requests;
-CREATE TRIGGER set_timestamp_coordinator_requests
-    BEFORE UPDATE ON coordinator_requests
-    FOR EACH ROW
-    EXECUTE FUNCTION trigger_set_timestamp();
+CREATE TRIGGER set_timestamp_coordinator_requests BEFORE UPDATE ON coordinator_requests FOR EACH ROW EXECUTE FUNCTION trigger_set_timestamp();
 
 -- ==============================================================================
 -- PHASE 2: ROW LEVEL SECURITY POLICIES

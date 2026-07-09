@@ -24,14 +24,11 @@ CREATE TABLE IF NOT EXISTS notifications (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     recipient_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     actor_id UUID NULL REFERENCES users(id) ON DELETE RESTRICT,
-
     entity_type system_notifications_entity_type NOT NULL,
     entity_id UUID NOT NULL,
     action system_notifications_action NOT NULL,
-
     is_read BOOLEAN NOT NULL DEFAULT FALSE,
     is_emailed BOOLEAN NOT NULL DEFAULT FALSE,
-
     created_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

@@ -21,6 +21,10 @@ There are 5 roles within the system, each role has their own permissions:
 - Director: Publisher of the documents, Can publish, unpublish, request, view and download.
 - Member: End users. Can only request, view and download.
 
+### Department Workflow
+
+- Adding department is easy, nothing much to say here.
+
 ### Users Workflow
 
 - Creating users is pretty much self explanatory. Administrator fills out the add user form. Temporary password can be set, altho when left untouch, it will default to the university id. Once created, the newly created user's status will be set by default as `PENDING_PASSWORD`.
@@ -127,6 +131,14 @@ Basically if the administrator shares per departments, director shares (or publi
 
 - Any major events that changes the status of a folder with content, will cascade through that content. If you have a folder named `capstone` and it has a file named `capstone_reviewer.pdf` and another folder called `project` with content of `system_design.exe`, if you try and share, delete, approve, or any major action event, it will cascade through all the contents and will be audited accordingly
 
+Status of the Documents
+
+- UPLOADED: Locally in the system, not shared
+- PENDING_APPROVAL: Waiting for the Officer's Approval
+- APPROVED: Approved and awaiting for the Director's Publication
+- PUBLISHED: Published and ready to be viewed by the Members
+- ARCHIVED: No longer available to be seen by anyone except the Administrator and Coordinator.
+
 ### Document Request Worflow
 
 - unlike the document pipeline, this is different. A document can be shared via department or via document request.
@@ -139,10 +151,26 @@ Basically if the administrator shares per departments, director shares (or publi
 
 - i dont know how will this be achieved, but the idea is. If the requesting party wants a file that already been sent to, say, other department that is not theirs, the admin/coordinator can deny or share them the documents. In the database, we do not allow both department id and ticket id to live within the same row, so im not sure how will we handle this. Also the `ATTACHMENT` flag on the status must be get rid as this will interfere with the document pipeline.
 
-Status of the Documents
+- For example, in the document_shares, initially it has a XOR constraint. Either you have a department_id or the ticket_id. The problem with this, is if you want to attach the file in a document requests, what would happen? Do we just create another row with the same document_id but this time no department_id? For me it is still a conflict and must be resolve.
 
-- UPLOADED: Locally in the system, not shared
-- PENDING_APPROVAL: Waiting for the Officer's Approval
-- APPROVED: Approved and awaiting for the Director's Publication
-- PUBLISHED: Published and ready to be viewed by the Members
-- ARCHIVED: No longer available to be seen by anyone except the Administrator and Coordinator.
+### Coordinator Workflow
+
+- The coordinator workflow is like always needing a verification before entering. This will be a headache sooner or later so we need to steel the foundation for this.
+
+- Adding user, adding departments, sharing, deleting, etc etc (any major action events) requires admin approval. Basically whenever a coordinator tries to do a these actions, they will be prompt to "It will be push in the coordinator request, wait for the admin to verify" and has 2 options like Confirm or Cancel.
+
+- For chats however this is different. They can send message instantly without ever getting the admin permission prompt. But they are required when trying to attach a file in the chats.
+
+- audits on this happens only after the admin approve of the action.
+
+### Notification
+
+- Everytime a user does a major change on the system, the other affected party gets notified, simple as that.
+
+### Audit Logs
+
+- Any major action even must be logged, alongside any other major events happen in the system must be logged.
+
+### Others
+
+- obviously this is still missing some functionalities so we need to deep dive on open questions

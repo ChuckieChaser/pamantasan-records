@@ -111,7 +111,22 @@ router.post('/', async (req, res) => {
 
 // PATCH /api/users/:id
 router.patch('/:id', async (req, res) => {
-    const allowed = ['role', 'email', 'first_name', 'middle_name', 'last_name', 'status', 'avatar_path', 'department_id', 'university_id'];
+    const userId = req.headers['x-user-id'];
+    const userRole = req.headers['x-user-role'];
+    const isAdminOrSystem = userRole === 'ADMINISTRATOR' || userRole === 'SYSTEM';
+
+    if (!isAdminOrSystem && req.params.id !== userId) {
+        return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    let allowed = [];
+    if (isAdminOrSystem) {
+        allowed = ['role', 'email', 'first_name', 'middle_name', 'last_name', 'status', 'avatar_path', 'department_id', 'university_id'];
+    } else {
+        // Self-update
+        allowed = ['avatar_path', 'status', 'first_name', 'middle_name', 'last_name', 'email'];
+    }
+
     const updates = Object.entries(req.body)
         .filter(([k]) => allowed.includes(k))
         .map(([k, v], i) => [`${k} = $${i + 2}`, v]);
@@ -123,20 +138,26 @@ router.patch('/:id', async (req, res) => {
         await withRLS(client, getRLSContext(req), async (c) => {
             let userRow = null;
             if (updates.length > 0) {
-                const result = await c.query(
-                    `UPDATE users SET ${updates.map(u => u[0]).join(', ')} WHERE id = $1 RETURNING *`,
-                    [req.params.id, ...updates.map(u => u[1])]
-                );
-                if (result.rows.length === 0) return res.status(404).json({ error: 'User not found' });
-                userRow = result.rows[0];
+                try {
+                    if (!isAdminOrSystem) await c.query(`SET LOCAL app.user_current_role = 'SYSTEM'`);
+                    const result = await c.query(
+                        `UPDATE users SET ${updates.map(u => u[0]).join(', ')} WHERE id = $1 RETURNING *`,
+                        [req.params.id, ...updates.map(u => u[1])]
+                    );
+                    if (result.rows.length === 0) return res.status(404).json({ error: 'User not found' });
+                    userRow = result.rows[0];
+                } finally {
+                    if (!isAdminOrSystem) await c.query(`SET LOCAL app.user_current_role = '${userRole || 'GUEST'}'`);
+                }
             } else {
                 const result = await c.query('SELECT * FROM users WHERE id = $1', [req.params.id]);
                 if (result.rows.length === 0) return res.status(404).json({ error: 'User not found' });
                 userRow = result.rows[0];
             }
 
-            const userId = getRLSContext(req).userId;
-            const userRole = getRLSContext(req).role;
+            // Get context variables which we may need for logging
+            const auditUserId = getRLSContext(req).userId;
+            const auditUserRole = getRLSContext(req).role;
 
             if (req.body.password) {
                 const hash = await bcrypt.hash(req.body.password, 10);
@@ -151,17 +172,17 @@ router.patch('/:id', async (req, res) => {
             const actionVerb = 'status' in req.body && req.body.status === 'SUSPENDED' ? 'SUSPENDED' : 'UPDATED';
 
             await logAudit(c, {
-                actor_id: userId,
+                actor_id: auditUserId,
                 entity_type: 'USER',
                 entity_id: userRow.id,
                 action: actionVerb,
                 data: req.body
             });
 
-            if (userId !== userRow.id) {
-                await createNotification(c, userRole, {
+            if (auditUserId !== userRow.id) {
+                await createNotification(c, auditUserRole, {
                     recipient_id: userRow.id,
-                    actor_id: userId,
+                    actor_id: auditUserId,
                     entity_type: 'USER',
                     entity_id: userRow.id,
                     action: actionVerb

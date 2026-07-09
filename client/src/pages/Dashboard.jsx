@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { FileText, FileClock, XCircle, Clock, Activity } from 'lucide-react';
 
-import { useAuthentication, useDocument, useCoordinatorRequest, useDocumentRequest, useDocumentVersion, useDocumentShare, useAuditLog, useUser } from '../stores';
+import { useAuthentication, useDocument, useCoordinatorRequest, useDocumentRequest, useDocumentVersion, useDocumentShare, useAttachment, useAuditLog, useUser } from '../stores';
 import { USERS_ROLE, COORDINATOR_REQUESTS_STATUS, DOCUMENT_REQUESTS_STATUS, DOCUMENT_SHARE_STATUS } from '../constants';
 
 import MetricCard from '../components/dashboard/MetricCard';
@@ -19,6 +19,7 @@ export default function Dashboard() {
     const { documentRequests, getAll: getDocumentRequests, getByRequesterId: getDocumentRequestsByRequesterId } = useDocumentRequest();
     const { documentVersions, getAll: getDocumentVersions } = useDocumentVersion();
     const { documentShares, getAll: getDocumentShares } = useDocumentShare();
+    const { attachments, getAll: getAttachments } = useAttachment();
     const { auditLogs, activeAuditLog, getAll: getAuditLogs, selectActiveAuditLog, deselectActiveAuditLog } = useAuditLog();
     const { users, getAll: getUsers } = useUser();
 
@@ -38,13 +39,14 @@ export default function Dashboard() {
 
         if (user?.id) {
             getDocumentShares();
+            getAttachments();
         }
 
         return () => {
             deselectActiveDocument();
             deselectActiveAuditLog();
         };
-    }, [user, getDocuments, getCoordinatorRequests, getDocumentRequests, getDocumentRequestsByRequesterId, getDocumentVersions, getDocumentShares, getAuditLogs, deselectActiveDocument, deselectActiveAuditLog, users.length, getUsers]);
+    }, [user, getDocuments, getCoordinatorRequests, getDocumentRequests, getDocumentRequestsByRequesterId, getDocumentVersions, getDocumentShares, getAttachments, getAuditLogs, deselectActiveDocument, deselectActiveAuditLog, users.length, getUsers]);
 
     // ==============================================================================
     // SECTION 2: ACCESS CONTROL
@@ -100,7 +102,6 @@ export default function Dashboard() {
 
     const sharedDocsList = useMemo(() => {
         const sharedDocs = documentShares
-            .filter(ds => !ds.document_request_id)
             .map(ds => visibleDocuments.find(d => d.id === ds.document_id))
             .filter(Boolean);
         return Array.from(new Set(sharedDocs.map(d => d.id))).map(id => sharedDocs.find(d => d.id === id));
@@ -111,14 +112,6 @@ export default function Dashboard() {
             .filter(d => documentShares.some(s => s.document_id === d.id && s.status === DOCUMENT_SHARE_STATUS.PUBLISHED))
             .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
     }, [visibleDocuments, documentShares]);
-
-    const requestedDocs = useMemo(() => {
-        const reqDocs = documentShares
-            .filter(ds => ds.document_request_id)
-            .map(ds => visibleDocuments.find(d => d.id === ds.document_id))
-            .filter(Boolean);
-        return Array.from(new Set(reqDocs.map(d => d.id))).map(id => reqDocs.find(d => d.id === id));
-    }, [documentShares, visibleDocuments]);
 
     // --- Handlers ---
     const handleDocumentClick = (id) => {
@@ -136,38 +129,6 @@ export default function Dashboard() {
         } else {
             if (activeDocument) deselectActiveDocument();
             selectActiveAuditLog(id);
-        }
-    };
-
-    const requestedDocsStatus = {
-        header: 'Provider',
-        render: (doc) => {
-            const share = documentShares.find(ds => ds.document_id === doc.id && ds.document_request_id);
-            if (!share) return <span className="font-medium text-muted">Unknown</span>;
-            const provider = users.find(u => u.id === share.sharer_id);
-            if (!provider) return <span className="font-medium text-main">Unknown</span>;
-            return (
-                <div className="flex items-center gap-2">
-                    <img src={provider.avatar_path || '/assets/default_avatar.jpg'} alt="Avatar" className="h-5 w-5 rounded-full object-cover shrink-0" />
-                    <span className="font-medium text-main">{provider.first_name} {provider.last_name}</span>
-                </div>
-            );
-        }
-    };
-
-    const dispatchedDocsStatus = {
-        header: 'Recipient',
-        render: (doc) => {
-            const share = documentShares.find(ds => ds.document_id === doc.id && ds.document_request_id);
-            if (!share) return <span className="font-medium text-muted">Unknown</span>;
-            const recipient = users.find(u => u.id === share.recipient_id);
-            if (!recipient) return <span className="font-medium text-main">Unknown</span>;
-            return (
-                <div className="flex items-center gap-2">
-                    <img src={recipient.avatar_path || '/assets/default_avatar.jpg'} alt="Avatar" className="h-5 w-5 rounded-full object-cover shrink-0" />
-                    <span className="font-medium text-main">{recipient.first_name} {recipient.last_name}</span>
-                </div>
-            );
         }
     };
 
@@ -244,19 +205,6 @@ export default function Dashboard() {
                 />
             )}
 
-            {/* --- Requested Documents (Member, Officer, Director) --- */}
-            {(user?.role === USERS_ROLE.MEMBER || user?.role === USERS_ROLE.OFFICER || user?.role === USERS_ROLE.DIRECTOR) && (
-                <DocumentBrowser
-                    title="Requested Documents"
-                    description="Documents that have been shared with you via document requests."
-                    documents={requestedDocs}
-                    documentVersions={documentVersions}
-                    activeDocumentId={activeDocument?.id}
-                    onDocumentClick={handleDocumentClick}
-                    customStatus={requestedDocsStatus}
-                />
-            )}
-
             {/* --- Shared Documents (Admin/Coordinator) --- */}
             {(user?.role === USERS_ROLE.ADMINISTRATOR || user?.role === USERS_ROLE.COORDINATOR) && (
                 <DocumentBrowser
@@ -266,19 +214,6 @@ export default function Dashboard() {
                     documentVersions={documentVersions}
                     activeDocumentId={activeDocument?.id}
                     onDocumentClick={handleDocumentClick}
-                />
-            )}
-
-            {/* --- Dispatched Documents (Admin/Coordinator) --- */}
-            {(user?.role === USERS_ROLE.ADMINISTRATOR || user?.role === USERS_ROLE.COORDINATOR) && (
-                <DocumentBrowser
-                    title="Dispatched Documents"
-                    description="Documents that were securely sent out to fulfill document requests."
-                    documents={requestedDocs}
-                    documentVersions={documentVersions}
-                    activeDocumentId={activeDocument?.id}
-                    onDocumentClick={handleDocumentClick}
-                    customStatus={dispatchedDocsStatus}
                 />
             )}
 

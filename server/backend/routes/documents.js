@@ -78,14 +78,15 @@ router.get('/', async (req, res) => {
 });
 
 // POST /api/documents/shares — Share a document (and cascade to children)
+// NOTE: document_request_id does NOT exist on document_shares table. Use document_request_attachments instead.
 router.post('/shares', async (req, res) => {
-    const { document_id, sharer_id, recipient_id, department_id, document_request_id } = req.body;
+    const { document_id, sharer_id, recipient_id, department_id } = req.body;
     if (!document_id || !sharer_id) return res.status(400).json({ error: 'document_id and sharer_id are required' });
 
     const client = await pool.connect();
     try {
         await withRLS(client, getRLSContext(req), async (c) => {
-            // Find all descendants of the document
+            // Find all descendants of the document (cascade share to folder children)
             const findQuery = `
                 WITH RECURSIVE DocumentTree AS (
                     SELECT id FROM documents WHERE id = $1
@@ -100,13 +101,13 @@ router.post('/shares', async (req, res) => {
             const results = [];
             for (const docRow of docResult.rows) {
                 const result = await c.query(
-                    `INSERT INTO document_shares (document_id, sharer_id, recipient_id, department_id, document_request_id)
-                     VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-                    [docRow.id, sharer_id, recipient_id || null, department_id || null, document_request_id || null]
+                    `INSERT INTO document_shares (document_id, sharer_id, recipient_id, department_id)
+                     VALUES ($1, $2, $3, $4) RETURNING *`,
+                    [docRow.id, sharer_id, recipient_id || null, department_id || null]
                 );
                 if (docRow.id === document_id) {
                     results.push(result.rows[0]); // Return the main document's share record
-                    
+
                     // 1. Audit Log
                     await logAudit(c, {
                         actor_id: sharer_id,
@@ -154,18 +155,26 @@ router.post('/shares', async (req, res) => {
 
 // PATCH /api/documents/shares/:id — Update a document share status
 router.patch('/shares/:id', async (req, res) => {
-    const { status } = req.body;
+    const { status, recipient_id } = req.body;
     if (!status) return res.status(400).json({ error: 'status is required' });
 
     const client = await pool.connect();
     try {
         await withRLS(client, getRLSContext(req), async (c) => {
+            const updateParts = ['status = $1'];
+            const params = [status];
+            if (recipient_id !== undefined) {
+                updateParts.push(`recipient_id = $${params.length + 1}`);
+                params.push(recipient_id);
+            }
+            params.push(req.params.id);
+
             const result = await c.query(
-                `UPDATE document_shares SET status = $1 WHERE id = $2 RETURNING *`,
-                [status, req.params.id]
+                `UPDATE document_shares SET ${updateParts.join(', ')} WHERE id = $${params.length} RETURNING *`,
+                params
             );
             if (result.rows.length === 0) return res.status(404).json({ error: 'Share not found' });
-            
+
             const share = result.rows[0];
             const userId = getRLSContext(req).userId;
             const userRole = getRLSContext(req).role;
@@ -178,9 +187,9 @@ router.patch('/shares/:id', async (req, res) => {
                 if (status === 'REJECTED') updateField = 'rejecter_id';
 
                 await c.query(
-                    `UPDATE document_versions 
-                     SET ${updateField} = $1 
-                     WHERE document_id = $2 
+                    `UPDATE document_versions
+                     SET ${updateField} = $1
+                     WHERE document_id = $2
                      AND version = (SELECT MAX(version) FROM document_versions WHERE document_id = $2)`,
                     [userId, share.document_id]
                 );
@@ -191,7 +200,7 @@ router.patch('/shares/:id', async (req, res) => {
                 actor_id: userId,
                 entity_type: 'DOCUMENT',
                 entity_id: share.document_id,
-                action: status, // status enum matches action enum directly! (APPROVED, PUBLISHED, REJECTED)
+                action: status,
                 data: { share_id: share.id, status }
             });
 
@@ -265,7 +274,7 @@ router.post('/requests', async (req, res) => {
                 'INSERT INTO document_requests (requester_id, subject) VALUES ($1, $2) RETURNING *',
                 [requester_id, subject]
             );
-            
+
             const reqRow = result.rows[0];
             const userRole = getRLSContext(req).role;
 
@@ -307,7 +316,7 @@ router.patch('/requests/:id', async (req, res) => {
                 [req.params.id, status, resolver_id]
             );
             if (result.rows.length === 0) return res.status(404).json({ error: 'Request not found' });
-            
+
             const reqRow = result.rows[0];
             const userId = getRLSContext(req).userId;
             const userRole = getRLSContext(req).role;
@@ -369,7 +378,7 @@ router.post('/requests/:id/messages', async (req, res) => {
                 'INSERT INTO document_request_messages (document_request_id, user_id, message) VALUES ($1, $2, $3) RETURNING *',
                 [req.params.id, user_id || null, message]
             );
-            
+
             const msgRow = result.rows[0];
             const userRole = getRLSContext(req).role;
 
@@ -415,7 +424,7 @@ router.post('/attachments', async (req, res) => {
                  VALUES ($1, $2, $3) RETURNING *`,
                 [document_request_id, document_id, attached_by_id]
             );
-            
+
             const attRow = result.rows[0];
             const userRole = getRLSContext(req).role;
 
@@ -439,6 +448,26 @@ router.post('/attachments', async (req, res) => {
             }
 
             res.status(201).json(attRow);
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+// GET /api/documents/attachments/all
+router.get('/attachments/all', async (req, res) => {
+    const client = await pool.connect();
+    try {
+        await withRLS(client, getRLSContext(req), async (c) => {
+            const { document_request_id } = req.query;
+            let query = 'SELECT dra.*, d.name AS document_name, d.is_folder FROM document_request_attachments dra LEFT JOIN documents d ON d.id = dra.document_id WHERE 1=1';
+            const params = [];
+            if (document_request_id) { params.push(document_request_id); query += ` AND dra.document_request_id = $${params.length}`; }
+            query += ' ORDER BY dra.created_at DESC';
+            const result = await c.query(query, params);
+            res.json(result.rows);
         });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -545,8 +574,8 @@ router.get('/:id/download', async (req, res) => {
 router.get('/:id/download-zip', async (req, res) => {
     const client = await pool.connect();
     try {
+        // Check if document exists and is a folder (WITHOUT withRLS to avoid potential conflicts on large queries)
         await withRLS(client, getRLSContext(req), async (c) => {
-            // Check if document exists and is a folder
             const folderResult = await c.query('SELECT name, is_folder FROM documents WHERE id = $1', [req.params.id]);
             if (folderResult.rows.length === 0) return res.status(404).json({ error: 'Folder not found' });
             if (!folderResult.rows[0].is_folder) return res.status(400).json({ error: 'Not a folder' });
@@ -610,7 +639,7 @@ router.post('/', async (req, res) => {
                  VALUES ($1, $2, $3, $4, $5) RETURNING *`,
                 [parent_id || null, uploader_id, name, comment || null, is_folder || false]
             );
-            
+
             await logAudit(c, {
                 actor_id: uploader_id,
                 entity_type: 'DOCUMENT',
@@ -663,7 +692,7 @@ router.post('/:id/upload', upload.single('file'), async (req, res) => {
                     change_summary || null,
                 ]
             );
-            
+
             await logAudit(c, {
                 actor_id: uploader_id,
                 entity_type: 'DOCUMENT_VERSION',
@@ -754,6 +783,20 @@ router.patch('/:id', async (req, res) => {
             const result = await c.query(query, params);
             if (result.rows.length === 0) return res.status(404).json({ error: 'Document not found' });
 
+            // If archiving/unarchiving a folder, cascade to all descendant documents
+            if (is_archived !== undefined) {
+                await c.query(`
+                    WITH RECURSIVE DocumentTree AS (
+                        SELECT id FROM documents WHERE id = $1
+                        UNION ALL
+                        SELECT d.id FROM documents d
+                        INNER JOIN DocumentTree dt ON d.parent_id = dt.id
+                    )
+                    UPDATE documents SET is_archived = $2
+                    WHERE id IN (SELECT id FROM DocumentTree) AND id != $1
+                `, [documentId, is_archived]);
+            }
+
             await logAudit(c, {
                 actor_id: getRLSContext(req).userId,
                 entity_type: 'DOCUMENT',
@@ -816,25 +859,5 @@ router.delete('/:id', async (req, res) => {
         client.release();
     }
 });
-
-// ==============================================================================
-// DOCUMENT SHARES ROUTES
-// ==============================================================================
-
-// GET /api/documents/shares/all
-router.get('/shares/all', async (req, res) => {
-    const client = await pool.connect();
-    try {
-        await withRLS(client, getRLSContext(req), async (c) => {
-            const result = await c.query('SELECT * FROM document_shares ORDER BY created_at DESC');
-            res.json(result.rows);
-        });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    } finally {
-        client.release();
-    }
-});
-
 
 export default router;

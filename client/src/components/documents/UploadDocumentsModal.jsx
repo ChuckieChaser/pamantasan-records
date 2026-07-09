@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { UploadCloud, FileText, Folder, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { UploadCloud, FileText, Folder, CheckCircle, XCircle, Loader2, AlertCircle } from 'lucide-react';
 import { useAuthentication, useDocument, useDocumentVersion } from '../../stores';
 import { Modal, PrimaryButton, SecondaryButton, DestructiveButton, ConfirmActionModal } from '../ui';
 
@@ -126,9 +126,10 @@ export default function UploadDocumentsModal({ isOpen, onClose, currentFolderId 
 
             const parentId = folderMapRef.current.get(item.path);
 
-            // Check for conflict
+            // Check for conflict (only among non-archived documents)
             if (!item.conflictResolution) {
                 const existingDoc = documents.find(d => 
+                    !d.is_archived &&
                     (d.parent_id === parentId || (!d.parent_id && !parentId)) && 
                     d.name === item.name && 
                     d.is_folder === item.isFolder
@@ -236,9 +237,35 @@ export default function UploadDocumentsModal({ isOpen, onClose, currentFolderId 
 
     return (
         <Modal isOpen={isOpen} onClose={handleClose} title="Upload Files & Folders" className="w-full max-w-2xl h-[85vh] flex flex-col">
-            <div className="flex flex-col flex-1 p-6 gap-6 overflow-hidden">
-                
-                {/* Drag and drop zone */}
+            {conflictState ? (
+                <div className="flex-1 flex flex-col items-center justify-center p-6 gap-6 overflow-hidden">
+                    <div className="flex flex-col items-center text-center gap-2 max-w-md">
+                        <AlertCircle className="size-12 text-error mb-2" />
+                        <h3 className="text-xl font-bold text-main">File Already Exists</h3>
+                        <p className="text-sm text-muted">
+                            A {conflictState.item.isFolder ? 'folder' : 'file'} named <strong>{conflictState.item.name}</strong> already exists in this location.
+                        </p>
+                        <p className="text-sm text-main mt-2">What would you like to do?</p>
+                    </div>
+                    <div className="flex flex-col gap-3 w-full max-w-sm">
+                        {!conflictState.item.isFolder && (
+                            <PrimaryButton onClick={() => handleConflictResolution('REPLACE')} className="w-full justify-center">
+                                Replace (Create New Version)
+                            </PrimaryButton>
+                        )}
+                        <SecondaryButton onClick={() => handleConflictResolution('UPLOAD_ANYWAY')} className="w-full justify-center">
+                            Continue (Rename to (1))
+                        </SecondaryButton>
+                        <DestructiveButton onClick={() => handleConflictResolution('SKIP')} className="w-full justify-center">
+                            Skip
+                        </DestructiveButton>
+                    </div>
+                </div>
+            ) : (
+                <>
+                    <div className="flex flex-col flex-1 p-6 gap-6 overflow-hidden">
+                        
+                        {/* Drag and drop zone */}
                 <div
                     className={`${uploadQueue.length === 0 ? 'flex-1 p-8' : 'shrink-0 p-6'} flex flex-col items-center justify-center border-2 border-dashed rounded-xl transition-colors ${
                         isDragging ? 'border-accent bg-accent/5' : 'border-border bg-surface-hover hover:border-accent/50'
@@ -304,36 +331,15 @@ export default function UploadDocumentsModal({ isOpen, onClose, currentFolderId 
                         </div>
                     </div>
                 )}
-            </div>
-
-            <div className="mt-auto shrink-0 flex justify-end gap-3 p-6 pt-0 border-t border-border mt-2">
-                <SecondaryButton type="button" onClick={handleClose} disabled={isUploading}>Close</SecondaryButton>
-                <PrimaryButton onClick={startUploads} disabled={isUploading || uploadQueue.length === 0 || uploadQueue.every(q => ['SUCCESS', 'SKIPPED'].includes(q.status))}>
-                    {isUploading ? 'Uploading...' : 'Start Upload'}
-                </PrimaryButton>
-            </div>
-
-            {/* Conflict Resolution Modal */}
-            {conflictState && (
-                <Modal isOpen={true} onClose={() => {}} title="File Already Exists" className="w-full max-w-md">
-                    <div className="p-4 flex flex-col gap-4">
-                        <p className="text-sm text-main">
-                            A {conflictState.item.isFolder ? 'folder' : 'file'} named <strong>{conflictState.item.name}</strong> already exists in this location.
-                        </p>
-                        <p className="text-xs text-muted">What would you like to do?</p>
-                        <div className="flex flex-col gap-2 pt-2">
-                            <PrimaryButton onClick={() => handleConflictResolution('REPLACE')} className="w-full justify-center">
-                                Replace (Create New Version)
-                            </PrimaryButton>
-                            <SecondaryButton onClick={() => handleConflictResolution('UPLOAD_ANYWAY')} className="w-full justify-center">
-                                Upload Anyway (Rename to (1))
-                            </SecondaryButton>
-                            <DestructiveButton onClick={() => handleConflictResolution('SKIP')} className="w-full justify-center">
-                                Skip
-                            </DestructiveButton>
-                        </div>
                     </div>
-                </Modal>
+                    
+                    <div className="mt-auto shrink-0 flex justify-end gap-3 p-6 pt-0 border-t border-border mt-2">
+                        <SecondaryButton type="button" onClick={handleClose} disabled={isUploading}>Close</SecondaryButton>
+                        <PrimaryButton onClick={startUploads} disabled={isUploading || uploadQueue.length === 0 || uploadQueue.every(q => ['SUCCESS', 'SKIPPED'].includes(q.status))}>
+                            {isUploading ? 'Uploading...' : 'Start Upload'}
+                        </PrimaryButton>
+                    </div>
+                </>
             )}
         </Modal>
     );

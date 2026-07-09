@@ -12,6 +12,7 @@ export * from './document/useVersion';
 export * from './document/useRequest';
 export * from './document/useMessage';
 export * from './document/useShare';
+export * from './document/useAttachment';
 
 export * from './coordinator/useCoordinator';
 

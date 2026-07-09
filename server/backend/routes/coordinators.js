@@ -196,7 +196,16 @@ router.patch('/:id', async (req, res) => {
                         break;
                     }
                     case 'DOCUMENT_ARCHIVE': {
-                        await sysClient.query(`UPDATE documents SET is_archived = $1 WHERE id = $2`, [data.is_archived, data.id]);
+                        await sysClient.query(`
+                            WITH RECURSIVE DocumentTree AS (
+                                SELECT id FROM documents WHERE id = $1
+                                UNION ALL
+                                SELECT d.id FROM documents d
+                                INNER JOIN DocumentTree dt ON d.parent_id = dt.id
+                            )
+                            UPDATE documents SET is_archived = $2
+                            WHERE id IN (SELECT id FROM DocumentTree)
+                        `, [data.id, data.is_archived]);
                         break;
                     }
                     case 'DOCUMENT_ATTACH': {

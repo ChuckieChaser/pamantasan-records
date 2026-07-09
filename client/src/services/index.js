@@ -53,6 +53,11 @@ export const documentRequestMessagesService = {
     getByDocumentRequestId: (rid)  => documentsApi.getMessages(rid),
     create:                 (data) => documentsApi.createMessage(data.document_request_id, data),
 };
+export const documentRequestAttachmentsService = {
+    getAll:                 ()     => documentsApi.getAttachments(),
+    create:                 (data) => documentsApi.createAttachment(data),
+    delete:                 (id)   => documentsApi.deleteAttachment(id),
+};
 export const documentSharesService          = {
     getAll:              ()        => documentsApi.getShares(),
     getByDocumentId:     (docId)   => documentsApi.getSharesByDocId(docId),

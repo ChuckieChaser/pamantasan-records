@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { X, FileText, Send, CheckCircle, XCircle, Paperclip, Monitor, HardDrive, Tag, User as UserIcon, Calendar } from 'lucide-react';
 import { IconButton, PrimaryButton, SecondaryButton, DestructiveButton, InputField, Badge } from '../ui';
 import { TransparentBackdrop, MenuContainer, MenuBody, MenuButton, Modal } from '../ui';
-import { useAuthentication, useDocumentRequestMessage, useUser, useDocumentRequest, useDocument, useCoordinatorRequest } from '../../stores';
+import { useAuthentication, useDocumentRequestMessage, useUser, useDocumentRequest, useDocument, useCoordinatorRequest, useAttachment } from '../../stores';
 import { DOCUMENT_REQUESTS_STATUS, USERS_ROLE } from '../../constants';
 import { documentsApi, coordinatorRequestsService } from '../../services';
 import DocumentPickerModal from './DocumentPickerModal';
@@ -17,6 +17,7 @@ export default function DocumentRequestInspector({ request, onClose }) {
     const { documents, create: createDocument } = useDocument();
     const { documentRequestMessages, getByDocumentRequestId, create } = useDocumentRequestMessage();
     const { update } = useDocumentRequest();
+    const { create: createAttachment } = useAttachment();
 
     const [inputValue, setInputValue] = useState('');
     const [isSending, setIsSending] = useState(false);
@@ -88,7 +89,7 @@ export default function DocumentRequestInspector({ request, onClose }) {
                         }
                     });
                 } else {
-                    await documentsApi.createAttachment({
+                    await createAttachment({
                         document_id: docId,
                         attached_by_id: user.id,
                         document_request_id: request.id,

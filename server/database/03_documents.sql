@@ -186,7 +186,6 @@ CREATE POLICY documents_select_access ON documents FOR SELECT USING (
     (
         is_archived = FALSE AND (
             uploader_id = get_user_current_id() OR
-            EXISTS (SELECT 1 FROM document_versions dv WHERE dv.document_id = documents.id AND dv.rejecter_id = get_user_current_id()) OR
 
             -- Department Pipeline Routing
             EXISTS (

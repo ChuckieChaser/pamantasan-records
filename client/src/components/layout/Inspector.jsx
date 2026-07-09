@@ -6,7 +6,7 @@ import {
     Share2, Archive, Eye, Download, MessageSquare, RotateCcw,
     CheckCircle, XCircle, UploadCloud, EyeOff, RefreshCcw, Tag, Calendar, Search, Activity
 } from 'lucide-react';
-import { useAuthentication, useDocument, useDocumentVersion, useDocumentShare, useUser, useDepartment, useDocumentViewer, useCoordinatorRequest } from '../../stores';
+import { useAuthentication, useDocument, useDocumentVersion, useDocumentShare, useUser, useDepartment, useDocumentViewer, useCoordinatorRequest, useAttachment, useDocumentRequest } from '../../stores';
 import { USERS_ROLE, DOCUMENT_SHARE_STATUS } from '../../constants';
 import { IconButton, PrimaryButton, SecondaryButton, DestructiveButton, getFileIcon, Modal, TextArea, SelectField, InputField, ConfirmActionModal } from '../ui';
 import DefaultAvatar from '../../assets/avatar.png';
@@ -44,6 +44,8 @@ const Inspector = ({ document, auditLog, onClose }) => {
     const { update: updateDocument, delete: deleteDocument } = useDocument();
     const { documentVersions, create: createVersion, revert: revertVersion } = useDocumentVersion();
     const { documentShares, create: createShare, update: updateShare, delete: deleteShare } = useDocumentShare();
+    const { attachments } = useAttachment();
+    const { documentRequests } = useDocumentRequest();
     const { create: createCoordinatorRequest } = useCoordinatorRequest();
     const { users, getAll: getUsers } = useUser();
     const { departments, getAll: getDepartments } = useDepartment();
@@ -138,16 +140,18 @@ const Inspector = ({ document, auditLog, onClose }) => {
     };
 
     const handleEditOpen = () => {
-        setEditText(document.name);
+        setEditName(document.name);
+        setEditComment(document.comment || '');
         setIsEditModalOpen(true);
     };
 
     const handleEditSubmit = async () => {
         if (!document) return;
         try {
-            await updateDocument(document.id, { name: editText });
+            await updateDocument(document.id, { name: editName, comment: editComment || undefined });
             setIsEditModalOpen(false);
-            setEditText('');
+            setEditName('');
+            setEditComment('');
         } catch (error) {
             console.error('Failed to edit document', error);
         }
@@ -348,9 +352,14 @@ const Inspector = ({ document, auditLog, onClose }) => {
                 document ? documentShares.filter(s => s.document_id === document.id) : []
                 , [document, documentShares]);
 
+            const docAttachments = useMemo(() =>
+                document ? attachments.filter(a => a.document_id === document.id) : []
+                , [document, attachments]);
+
             const getComputedStatus = () => {
                 if (!document) return 'UPLOADED';
                 if (document.is_archived) return 'ARCHIVED';
+                if (docAttachments.length > 0) return 'ATTACHMENT';
                 if (user?.department_id) {
                     const share = docShares.find(s => s.department_id === user.department_id);
                     if (share) return share.status;
@@ -403,13 +412,13 @@ const Inspector = ({ document, auditLog, onClose }) => {
                         }
                     }
 
-                    if ((docShares.length === 0 || status === 'ATTACHMENT') && status !== true) {
+                    if (!document.is_archived && (docShares.length === 0 || status === 'ATTACHMENT')) {
                         primaryDestructiveActions.push(
-                            <DestructiveButton key="archive" size="small" icon={Archive} className="flex-1 justify-center" onClick={() => setIsArchiveModalOpen(true)}>Archive</DestructiveButton>
+                            <DestructiveButton key="archive" size="small" icon={Archive} className="flex-1 justify-center" onClick={() => setDestructiveAction('ARCHIVE')}>Archive</DestructiveButton>
                         );
-                    } else if (status === true) {
+                    } else if (document.is_archived) {
                         primaryDestructiveActions.push(
-                            <PrimaryButton key="unarchive" size="small" icon={RotateCcw} className="flex-1 justify-center" onClick={() => setIsUnarchiveModalOpen(true)}>Unarchive</PrimaryButton>,
+                            <PrimaryButton key="unarchive" size="small" icon={RotateCcw} className="flex-1 justify-center" onClick={() => setDestructiveAction('UNARCHIVE')}>Unarchive</PrimaryButton>,
                             <DestructiveButton key="delete" size="small" icon={XCircle} className="flex-1 justify-center" onClick={() => setDestructiveAction('DELETE')}>Delete</DestructiveButton>
                         );
                     }
@@ -608,12 +617,12 @@ const Inspector = ({ document, auditLog, onClose }) => {
                                                     </div>
                                                 )}
 
-                                                {docShares.length > 0 && (
+                                                {(docShares.length > 0 || docAttachments.length > 0) && (
                                                     <>
                                                         <div className="flex flex-col">
                                                             <span className="text-xs text-muted">Shared By</span>
                                                             <span className="truncate font-medium">
-                                                                {Array.from(new Set(docShares.map(ds => ds.sharer_id))).map(id => {
+                                                                {Array.from(new Set([...docShares.map(ds => ds.sharer_id), ...docAttachments.map(da => da.attached_by_id)])).map(id => {
                                                                     const u = users.find(u => u.id === id);
                                                                     return u ? (u.id === user.id ? 'Me' : `${u.first_name} ${u.last_name}`) : 'Unknown';
                                                                 }).join(', ')}
@@ -624,28 +633,28 @@ const Inspector = ({ document, auditLog, onClose }) => {
                                                             <span className="text-xs text-muted">Shared With</span>
                                                             <span className="flex flex-col font-medium">
                                                                 {docShares.map(share => {
-                                                                    if (computedStatus === DOCUMENT_SHARE_STATUS.ATTACHMENT || share.document_request_id) {
-                                                                        const u = users.find(u => u.id === share.recipient_id);
-                                                                        const label = u ? (u.id === user.id ? 'Me' : `${u.first_name} ${u.last_name}`) : 'Ticket Attachment';
-                                                                        return (
-                                                                            <span key={share.id} className="truncate">
-                                                                                {label}
-                                                                            </span>
-                                                                        );
-                                                                    } else {
-                                                                        const dept = departments.find(d => d.id === share.department_id);
-                                                                        const u = users.find(u => u.id === share.recipient_id);
-                                                                        const deptLabel = dept ? dept.name : (share.department_id || 'Unknown');
-                                                                        const userLabel = u ? (u.id === user.id ? 'Me' : `${u.first_name} ${u.last_name}`) : 'Everyone';
+                                                                    const dept = departments.find(d => d.id === share.department_id);
+                                                                    const u = users.find(u => u.id === share.recipient_id);
+                                                                    const deptLabel = dept ? dept.name : (share.department_id || 'Unknown');
+                                                                    const userLabel = u ? (u.id === user.id ? 'Me' : `${u.first_name} ${u.last_name}`) : 'Everyone';
 
-                                                                        return (
-                                                                            <span key={share.id} className="truncate">
-                                                                                {share.department_id ? deptLabel : ''}
-                                                                                {share.department_id && computedStatus === DOCUMENT_SHARE_STATUS.PUBLISHED ? ' => ' : ''}
-                                                                                {computedStatus === DOCUMENT_SHARE_STATUS.PUBLISHED ? userLabel : ''}
-                                                                            </span>
-                                                                        );
-                                                                    }
+                                                                    return (
+                                                                        <span key={share.id} className="truncate">
+                                                                            {share.department_id ? deptLabel : ''}
+                                                                            {share.department_id && computedStatus === DOCUMENT_SHARE_STATUS.PUBLISHED ? ' => ' : ''}
+                                                                            {computedStatus === DOCUMENT_SHARE_STATUS.PUBLISHED ? userLabel : ''}
+                                                                        </span>
+                                                                    );
+                                                                })}
+                                                                {docAttachments.map(att => {
+                                                                    const req = documentRequests.find(r => r.id === att.document_request_id);
+                                                                    const u = users.find(u => u.id === req?.requester_id);
+                                                                    const label = u ? (u.id === user.id ? 'Me' : `${u.first_name} ${u.last_name}`) : 'Ticket Attachment';
+                                                                    return (
+                                                                        <span key={`att-${att.id}`} className="truncate">
+                                                                            {label}
+                                                                        </span>
+                                                                    );
                                                                 })}
                                                             </span>
                                                         </div>
@@ -1012,15 +1021,7 @@ const Inspector = ({ document, auditLog, onClose }) => {
                         isDestructive={false}
                     />
 
-                    <ConfirmActionModal
-                        isOpen={isArchiveModalOpen}
-                        onClose={() => setIsArchiveModalOpen(false)}
-                        title="Confirm Archive"
-                        description={`Are you sure you want to archive ${document?.name}? This will move the document out of the active pipelines.`}
-                        confirmText="Confirm Archive"
-                        onConfirm={handleArchiveSubmit}
-                        isDestructive={true}
-                    />
+
 
                     <ConfirmActionModal
                         isOpen={isApproveModalOpen}

@@ -50,6 +50,8 @@ I set the inbound of the firewall to allow remote connections
 
 D:/records/documents - for uploaded documents (they must be obfuscated via their uuid)
 
+D:/records/avatars - for avatar of the users
+
 D:/records/data - postgres data
 
 D:/records/models - ollama models

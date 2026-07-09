@@ -8,7 +8,8 @@ import { getFileIcon } from '../ui/FileIcon';
 import { FilterMenu } from '../ui/Menus';
 import DocumentCard from './DocumentCard';
 import { DOCUMENT_SHARE_STATUS } from '../../constants';
-import { useDocumentShare, useAuthentication, useUser } from '../../stores';
+import { useDocumentShare, useAuthentication, useUser, useDocument } from '../../stores';
+import { formatBytes } from '../utilities';
 
 // ==============================================================================
 // SECTION 1: UTILITIES
@@ -64,12 +65,29 @@ export default function DocumentBrowser({ title, description, documents, documen
     const { documentShares } = useDocumentShare();
     const { user } = useAuthentication();
     const { users } = useUser();
+    const { documents: allDocuments } = useDocument();
 
     const getDocumentStatus = (doc) => {
         if (doc.is_archived) return 'ARCHIVED';
         const share = documentShares.find(s => s.document_id === doc.id && s.department_id === user?.department_id);
         if (share) return share.status;
         return 'UPLOADED';
+    };
+
+    const getFolderSize = (folderId) => {
+        let size = 0;
+        const children = allDocuments.filter(d => d.parent_id === folderId);
+        for (const child of children) {
+            if (child.is_folder) {
+                size += getFolderSize(child.id);
+            } else {
+                const latestVersion = documentVersions.find(v => v.document_id === child.id);
+                if (latestVersion && latestVersion.size_bytes) {
+                    size += Number(latestVersion.size_bytes);
+                }
+            }
+        }
+        return size;
     };
 
     const toggleStatus = (status) => {
@@ -209,7 +227,7 @@ export default function DocumentBrowser({ title, description, documents, documen
                                     isSelected={activeDocumentId === doc.id}
                                     isShared={isShared}
                                     hasRejected={documentShares.some(s => s.document_id === doc.id && s.status === 'REJECTED')}
-                                    hasApproved={documentShares.some(s => s.document_id === doc.id && s.status === 'APPROVED')}
+                                    hasApproved={documentShares.some(s => s.document_id === doc.id && ['APPROVED', 'PUBLISHED', 'STASHED'].includes(s.status))}
                                     hasComment={!!doc.comment}
                                     authorName={(() => {
                                         const uploader = users.find(u => u.id === doc.uploader_id);
@@ -238,6 +256,9 @@ export default function DocumentBrowser({ title, description, documents, documen
                                 <th className="px-4 py-3">
                                     <div className="flex items-center gap-1">Version</div>
                                 </th>
+                                <th className="px-4 py-3">
+                                    <div className="flex items-center gap-1">Size</div>
+                                </th>
                                 <th
                                     className="cursor-pointer px-4 py-3 transition-colors duration-200 hover:text-accent"
                                     onClick={() => handleSort('DATE')}
@@ -249,19 +270,25 @@ export default function DocumentBrowser({ title, description, documents, documen
                         <tbody className="divide-y divide-border bg-background">
                             {displayDocuments.length === 0 ? (
                                 <tr>
-                                    <td colSpan="3" className="px-4 py-8 text-center text-muted">No documents found.</td>
+                                    <td colSpan="5" className="px-4 py-8 text-center text-muted">No documents found.</td>
                                 </tr>
                             ) : (
                                 displayDocuments.map(doc => {
                                     const isSelected = activeDocumentId === doc.id;
                                     const latestVersion = documentVersions.find(v => v.document_id === doc.id);
+                                    let displaySize = '--';
+                                    if (doc.is_folder) {
+                                        displaySize = formatBytes(getFolderSize(doc.id));
+                                    } else if (latestVersion?.size_bytes) {
+                                        displaySize = formatBytes(Number(latestVersion.size_bytes));
+                                    }
                                     return (
                                         <tr
                                             key={doc.id}
-                                            className={`cursor-pointer transition-colors duration-200 hover:bg-surface-hover ${isSelected ? 'bg-surface-hover' : ''}`}
                                             onClick={() => handleRowClick(doc.id)}
+                                            className={`group cursor-pointer border-b border-border transition-colors duration-200 last:border-0 ${isSelected ? 'bg-surface-hover' : 'hover:bg-surface-hover/50'}`}
                                         >
-                                            <td className="px-4 py-4">
+                                            <td className="px-4 py-3">
                                                 <div className="flex items-center gap-3">
                                                     <div className={`flex items-center justify-center ${isSelected ? 'text-accent' : 'text-muted'}`}>
                                                         {getFileIcon(doc.is_folder, latestVersion?.mime_type, 'size-4')}
@@ -275,7 +302,7 @@ export default function DocumentBrowser({ title, description, documents, documen
                                                             {(() => {
                                                                 const docSpecificShares = documentShares.filter(s => s.document_id === doc.id);
                                                                 if (docSpecificShares.some(s => s.status === 'REJECTED')) return <XCircle className="size-3.5 text-error" />;
-                                                                if (docSpecificShares.some(s => s.status === 'APPROVED')) return <CheckCircle className="size-3.5 text-success" />;
+                                                                if (docSpecificShares.some(s => ['APPROVED', 'PUBLISHED', 'STASHED'].includes(s.status))) return <CheckCircle className="size-3.5 text-success" />;
                                                                 return null;
                                                             })()}
                                                             {doc.comment && <MessageSquare className="size-3.5 text-warning" />}
@@ -283,16 +310,19 @@ export default function DocumentBrowser({ title, description, documents, documen
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="px-4 py-4 text-muted truncate max-w-[120px]">
+                                            <td className="px-4 py-3 text-muted truncate max-w-[120px]">
                                                 {(() => {
                                                     const uploader = users.find(u => u.id === doc.uploader_id);
                                                     return uploader ? (uploader.id === user?.id ? 'Me' : `${uploader.first_name} ${uploader.last_name}`) : 'Unknown';
                                                 })()}
                                             </td>
-                                            <td className="px-4 py-4 text-muted">
+                                            <td className="px-4 py-3 text-muted">
                                                 {doc.is_folder ? '-' : `v${latestVersion?.version || 1}`}
                                             </td>
-                                            <td className="px-4 py-4 font-medium text-muted">
+                                            <td className="px-4 py-3 text-muted">
+                                                {displaySize}
+                                            </td>
+                                            <td className="px-4 py-3 text-muted">
                                                 {new Date(doc.updated_at).toLocaleString()}
                                             </td>
                                         </tr>

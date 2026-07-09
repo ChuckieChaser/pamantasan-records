@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { documentsService } from '../../services';
 import { action } from '../utilities';
-import { useDocumentVersion } from './useDocumentVersion';
+import { useDocumentVersion } from './useVersion';
 import { useDocumentShare } from './useShare';
 
 export const useDocument = create((set, get) => ({

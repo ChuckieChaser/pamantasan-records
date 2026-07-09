@@ -814,13 +814,18 @@ router.post('/:id/revert', async (req, res) => {
             const nextVersion = versionResult.rows[0].next_version;
 
             const result = await c.query(
-                `UPDATE document_versions
-                 SET version = $1, change_summary = $2
-                 WHERE id = $3 RETURNING *`,
+                `INSERT INTO document_versions
+                    (id, document_id, uploader_id, version, path, size_bytes, mime_type, change_summary)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
                 [
+                    crypto.randomUUID(),
+                    req.params.id,
+                    uploader_id,
                     nextVersion,
-                    `Reverted to version ${targetVersion.version}`,
-                    version_id
+                    targetVersion.path,
+                    targetVersion.size_bytes,
+                    targetVersion.mime_type,
+                    `Reverted to version ${targetVersion.version}`
                 ]
             );
             res.status(201).json(result.rows[0]);

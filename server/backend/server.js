@@ -26,6 +26,7 @@ const port = process.env.PORT || 5000;
 // --- Middleware ---
 app.use(cors());
 app.use(express.json());
+app.use('/avatars', express.static(process.env.AVATARS_PATH || 'D:/records/avatars'));
 
 // --- Client-presence tracker ---
 // Any non-localhost request is assumed to be from the client laptop.

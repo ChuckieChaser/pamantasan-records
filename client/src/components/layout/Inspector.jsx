@@ -183,6 +183,7 @@ const Inspector = ({ document, auditLog, onClose }) => {
 
         try {
             await updateDocument(document.id, { name: editName.trim(), comment: editComment || undefined });
+            await useDocument.getState().getAll();
             setIsEditModalOpen(false);
             setEditName('');
             setEditComment('');
@@ -617,7 +618,7 @@ const Inspector = ({ document, auditLog, onClose }) => {
                                         )}
 
                                         {/* File Details */}
-                                        {latestVersion && (
+                                        {(latestVersion || document.is_folder) && (
                                             <div>
                                                 <div className="flex items-center gap-1.5 text-muted">
                                                     <FileText className="size-3.5" />
@@ -626,16 +627,22 @@ const Inspector = ({ document, auditLog, onClose }) => {
                                                 <div className="mt-2 flex flex-col gap-3 rounded bg-surface-hover p-2 text-sm text-main">
                                                     <div className="flex flex-col">
                                                         <span className="text-xs text-muted">Size</span>
-                                                        <span className="font-medium">{formatBytes(latestVersion.size_bytes)}</span>
+                                                        <span className="font-medium">
+                                                            {document.is_folder ? formatBytes(getFolderSize(document.id)) : formatBytes(latestVersion?.size_bytes || 0)}
+                                                        </span>
                                                     </div>
-                                                    <div className="flex flex-col">
-                                                        <span className="text-xs text-muted">Type</span>
-                                                        <span className="break-words font-medium">{latestVersion.mime_type}</span>
-                                                    </div>
-                                                    <div className="flex flex-col">
-                                                        <span className="text-xs text-muted">Storage Path</span>
-                                                        <span className="break-words font-mono text-sm text-main">{latestVersion.path}</span>
-                                                    </div>
+                                                    {!document.is_folder && latestVersion && (
+                                                        <>
+                                                            <div className="flex flex-col">
+                                                                <span className="text-xs text-muted">Type</span>
+                                                                <span className="break-words font-medium">{latestVersion.mime_type}</span>
+                                                            </div>
+                                                            <div className="flex flex-col">
+                                                                <span className="text-xs text-muted">Storage Path</span>
+                                                                <span className="break-words font-mono text-sm text-main">{latestVersion.path}</span>
+                                                            </div>
+                                                        </>
+                                                    )}
                                                 </div>
                                             </div>
                                         )}
@@ -954,10 +961,10 @@ const Inspector = ({ document, auditLog, onClose }) => {
 
                     {/* --- Modals --- */}
 
-                    <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title={`Edit Document`} className={`w-full ${docShares.length > 0 ? 'max-w-4xl' : 'max-w-xl'}`}>
-                        <div className={`grid ${docShares.length > 0 ? 'grid-cols-2' : 'grid-cols-1'} gap-6 p-6`}>
+                    <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title={`Edit Document`} className="w-full max-w-xl">
+                        <div className="grid grid-cols-1 gap-6 p-6">
                             {/* Left Pane: Document Attributes */}
-                            <div className={`flex flex-col gap-6 ${docShares.length > 0 ? 'border-r border-border pr-6' : ''}`}>
+                            <div className="flex flex-col gap-6">
                                 {editError && (
                                     <div className="rounded border border-error/50 bg-error/10 p-3 text-sm text-error">
                                         {editError}
@@ -981,107 +988,11 @@ const Inspector = ({ document, auditLog, onClose }) => {
                                 </div>
                             </div>
 
-                            {/* Right Pane: Share Selection (Conditional based on status) */}
-                            {docShares.length > 0 && (
-                                <div className="flex flex-col gap-6 border-border pl-0">
-                                    {computedStatus === 'UPLOADED' || computedStatus === DOCUMENT_SHARE_STATUS.PENDING_APPROVAL || computedStatus === DOCUMENT_SHARE_STATUS.APPROVED ? (
-                                        <div className="flex flex-col gap-3 h-full">
-                                            <label className="text-sm font-semibold text-main">Manage Shared Departments</label>
-                                            <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface-hover p-3 flex-1 max-h-[400px]">
-                                                <div className="flex gap-2">
-                                                    <InputField
-                                                        className="flex-1"
-                                                        leftIcon={Search}
-                                                        placeholder="Search departments..."
-                                                        value={departmentSearch}
-                                                        onChange={(e) => setDepartmentSearch(e.target.value)}
-                                                    />
-                                                    <SecondaryButton onClick={toggleAllDepartments}>
-                                                        {shareDepartmentIds.length === departments.length ? 'None' : 'All'}
-                                                    </SecondaryButton>
-                                                </div>
-                                                <div className="flex flex-1 flex-col gap-2 overflow-y-auto pr-1">
-                                                    {departments.filter(d => d.name.toLowerCase().includes(departmentSearch.toLowerCase())).map(dept => {
-                                                        const isSelected = shareDepartmentIds.includes(dept.id);
-                                                        return (
-                                                            <button
-                                                                key={dept.id}
-                                                                type="button"
-                                                                onClick={() => toggleDepartment(dept.id)}
-                                                                className={`flex cursor-pointer items-center justify-between rounded-md border p-2.5 text-left transition-colors ${isSelected ? 'border-accent bg-accent/10 text-accent' : 'border-border bg-surface text-main hover:bg-surface-hover'}`}
-                                                            >
-                                                                <span className="text-sm font-medium">{dept.name}</span>
-                                                                {isSelected && <CheckCircle className="size-4" />}
-                                                            </button>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ) : computedStatus === DOCUMENT_SHARE_STATUS.PUBLISHED ? (
-                                        <div className="flex flex-col gap-3 h-full">
-                                            <label className="text-sm font-semibold text-main">Manage Published Users</label>
-                                            <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface-hover p-3 flex-1 max-h-[400px]">
-                                                <div className="flex gap-2">
-                                                    <InputField
-                                                        className="flex-1"
-                                                        leftIcon={Search}
-                                                        placeholder="Search users..."
-                                                        value={userSearch}
-                                                        onChange={(e) => setUserSearch(e.target.value)}
-                                                    />
-                                                    <SecondaryButton onClick={toggleAllUsers}>
-                                                        {publishUserIds.includes('ALL_USERS') ? 'None' : 'All'}
-                                                    </SecondaryButton>
-                                                </div>
-                                                <div className="flex flex-1 flex-col gap-2 overflow-y-auto pr-1">
-                                                    {eligibleUsers.filter(u => `${u.first_name} ${u.last_name}`.toLowerCase().includes(userSearch.toLowerCase())).map(u => {
-                                                        const isSelected = publishUserIds.includes('ALL_USERS') || publishUserIds.includes(u.id);
-                                                        return (
-                                                            <button
-                                                                key={u.id}
-                                                                type="button"
-                                                                onClick={() => toggleUser(u.id)}
-                                                                className={`flex cursor-pointer items-center justify-between rounded-md border p-2.5 transition-colors ${isSelected ? 'border-accent bg-accent/10 text-accent' : 'border-border bg-surface text-main hover:bg-surface-hover'}`}
-                                                            >
-                                                                <div className="flex items-center gap-3">
-                                                                    <img src={u.avatar_path || DefaultAvatar} alt="Avatar" className="h-8 w-8 shrink-0 rounded-full object-cover ring-1 ring-border" />
-                                                                    <div className="flex flex-col text-left">
-                                                                        <span className="text-sm font-medium leading-tight">{u.first_name} {u.last_name}</span>
-                                                                        <span className={`mt-0.5 text-[10px] font-bold uppercase tracking-wider ${isSelected ? 'text-accent/70' : 'text-muted'}`}>
-                                                                            {u.role.replace('_', ' ')}
-                                                                        </span>
-                                                                    </div>
-                                                                </div>
-                                                                {isSelected && <CheckCircle className="size-4 shrink-0" />}
-                                                            </button>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div className="flex flex-1 flex-col items-center justify-center gap-3 p-4 text-center">
-                                            <Share2 className="size-10 text-border" />
-                                            <p className="text-sm text-muted">Share settings are not available for this document status.</p>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                            {docShares.length === 0 && (
-                                <div className="mt-auto flex justify-end gap-3 pt-4">
-                                    <SecondaryButton onClick={() => setIsEditModalOpen(false)}>Cancel</SecondaryButton>
-                                    <PrimaryButton onClick={handleEditSubmit}>Save Changes</PrimaryButton>
-                                </div>
-                            )}
-                        </div>
-                        {docShares.length > 0 && (
-                            <div className="mt-auto flex justify-end gap-3 p-6 pt-0">
+                            <div className="mt-auto flex justify-end gap-3 pt-4">
                                 <SecondaryButton onClick={() => setIsEditModalOpen(false)}>Cancel</SecondaryButton>
                                 <PrimaryButton onClick={handleEditSubmit}>Save Changes</PrimaryButton>
                             </div>
-                        )}
+                        </div>
                     </Modal>
 
                     <ConfirmActionModal

@@ -152,8 +152,9 @@ export default function UserBrowser({ title, description, users, departments, ac
 
             {/* --- Body --- */}
             <Card className="overflow-hidden">
-                <table className="w-full text-left text-sm text-main">
-                    <thead className="border-b border-border bg-surface text-xs font-semibold uppercase text-muted">
+                <div className="max-h-[480px] overflow-y-auto">
+                    <table className="w-full text-left text-sm text-main">
+                        <thead className="sticky top-0 z-10 border-b border-border bg-surface text-xs font-semibold uppercase text-muted">
                         <tr>
                             <th className="cursor-pointer px-4 py-3 transition-colors duration-200 hover:text-accent" onClick={() => handleSort('NAME')}>
                                 <div className="flex items-center gap-1">User {renderSortIcon('NAME', sortCol, sortState)}</div>
@@ -217,7 +218,8 @@ export default function UserBrowser({ title, description, users, departments, ac
                         )}
                     </tbody>
                 </table>
-            </Card>
+            </div>
+        </Card>
 
             <UserModal 
                 isOpen={isAddModalOpen} 

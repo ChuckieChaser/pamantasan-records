@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 
 import { useAuthentication, useDocument, useUserSetting, useAuditLog, useDepartment, useUser, useCoordinatorRequest, useDocumentRequest } from '../stores';
 import { USER_SETTINGS_THEME } from '../constants';
@@ -54,6 +54,19 @@ export default function MainLayout() {
             }
         }
     }, [userSetting?.theme]);
+
+    const location = useLocation();
+
+    // --- Clear selections on page change ---
+    useEffect(() => {
+        useDocument.getState().deselectActiveDocument();
+        useAuditLog.getState().deselectActiveAuditLog();
+        useDepartment.getState().deselectActiveDepartment();
+        useUser.getState().deselectActiveUser();
+        useCoordinatorRequest.getState().deselectActiveCoordinatorRequest();
+        useDocumentRequest.getState().deselectActiveDocumentRequest();
+        setIsInspectorOpen(false);
+    }, [location.pathname]);
 
     // --- Automatically open inspector when any relevant entity is selected ---
     useEffect(() => {

@@ -139,8 +139,9 @@ export default function CoordinatorRequestBrowser({ title, description, requests
 
             {/* --- Body --- */}
             <Card className="overflow-hidden">
-                <table className="w-full text-left text-sm text-main">
-                    <thead className="border-b border-border bg-surface text-xs font-semibold uppercase text-muted">
+                <div className="max-h-[480px] overflow-y-auto">
+                    <table className="w-full text-left text-sm text-main">
+                        <thead className="sticky top-0 z-10 border-b border-border bg-surface text-xs font-semibold uppercase text-muted">
                         <tr>
                             <th className="cursor-pointer px-4 py-3 transition-colors duration-200 hover:text-accent" onClick={() => handleSort('ACTION')}>
                                 <div className="flex items-center gap-1">{sortCol === 'ACTION' && sortState !== 'DEFAULT' ? `Action (${sortState.replace(/_/g, ' ')})` : 'Action Type'} {renderSortIcon('ACTION', sortCol, sortState, 'FILTER')}</div>
@@ -205,7 +206,8 @@ export default function CoordinatorRequestBrowser({ title, description, requests
                         )}
                     </tbody>
                 </table>
-            </Card>
+            </div>
+        </Card>
         </section>
     );
 }

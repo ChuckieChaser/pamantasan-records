@@ -10,7 +10,7 @@ import { Share2, Archive, XCircle, CheckCircle, MessageSquare } from 'lucide-rea
 export default function DocumentCard({ document, latestVersion, isSelected, onClick, onDoubleClick, isShared, hasRejected, hasApproved, hasComment, authorName }) {
     return (
         <Card
-            className={`cursor-pointer transition-colors duration-200 ${isSelected ? 'border-accent bg-surface-hover ring-1 ring-accent' : 'hover:border-accent'}`}
+            className={`group cursor-pointer transition-colors duration-200 ${isSelected ? 'bg-surface-hover' : 'hover:bg-surface-hover/50'}`}
             onClick={onClick}
             onDoubleClick={onDoubleClick}
         >

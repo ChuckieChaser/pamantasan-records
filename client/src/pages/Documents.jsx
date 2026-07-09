@@ -24,7 +24,7 @@ export default function Documents() {
     const currentFolderId = searchParams.get('folder') || null;
 
     const { user } = useAuthentication();
-    const { documents, getAll: getDocuments, selectActiveDocument } = useDocument();
+    const { documents, activeDocument, getAll: getDocuments, selectActiveDocument, deselectActiveDocument } = useDocument();
     const { documentVersions, getAll: getDocumentVersions } = useDocumentVersion();
     const { openViewer } = useDocumentViewer();
 
@@ -56,7 +56,11 @@ export default function Documents() {
 
     // --- Handlers ---
     const handleDocumentClick = (id) => {
-        selectActiveDocument(id);
+        if (activeDocument?.id === id) {
+            deselectActiveDocument();
+        } else {
+            selectActiveDocument(id);
+        }
     };
 
     const handleDocumentDoubleClick = (id) => {

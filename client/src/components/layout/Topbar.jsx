@@ -58,9 +58,10 @@ const Topbar = ({ onToggleInspector, isInspectorOpen }) => {
         const isPlural = notification.interaction_count > 1;
         
         let actorName = 'System';
+        let foundUser = null;
         if (notification.actor_ids && notification.actor_ids.length > 0) {
             const firstActorId = notification.actor_ids[0];
-            const foundUser = users.find(u => u.id === firstActorId);
+            foundUser = users.find(u => u.id === firstActorId);
             if (foundUser) {
                 actorName = `${foundUser.first_name} ${foundUser.last_name}`;
             } else {
@@ -135,22 +136,22 @@ const Topbar = ({ onToggleInspector, isInspectorOpen }) => {
                     case 'DOCUMENT_REQUEST':
                     case 'DOCUMENT_REQUEST_ATTACHMENT':
                     case 'DOCUMENT_REQUEST_MESSAGE':
-                        navigate('/management/requests');
+                        navigate('/management');
                         useDocumentRequest.getState().selectActiveDocumentRequest(notification.entity_id);
                         break;
                     case 'COORDINATOR_REQUEST':
-                        navigate('/management/coordinator');
+                        navigate('/management');
                         useCoordinatorRequest.getState().selectActiveCoordinatorRequest(notification.entity_id);
                         break;
                     case 'USER':
                     case 'USER_CREDENTIAL':
                     case 'USER_SESSION':
                     case 'USER_SETTING':
-                        navigate('/management/users');
+                        navigate('/management');
                         useUser.getState().selectActiveUser(notification.entity_id);
                         break;
                     case 'DEPARTMENT':
-                        navigate('/management/departments');
+                        navigate('/management');
                         useDepartment.getState().selectActiveDepartment(notification.entity_id);
                         break;
                 }

@@ -3,6 +3,28 @@ import { pool, withRLS } from '../db.js';
 import { logAudit } from '../services/audit.js';
 import { createNotification } from '../services/notification.js';
 import bcrypt from 'bcrypt';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+import crypto from 'crypto';
+
+const AVATARS_PATH = process.env.AVATARS_PATH || 'D:/records/avatars';
+if (!fs.existsSync(AVATARS_PATH)) {
+    fs.mkdirSync(AVATARS_PATH, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, AVATARS_PATH),
+    filename: (_req, _file, cb) => {
+        const ext = path.extname(_file.originalname);
+        cb(null, `${crypto.randomUUID()}${ext}`);
+    },
+});
+
+const upload = multer({
+    storage,
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+});
 
 const router = Router();
 
@@ -110,7 +132,7 @@ router.post('/', async (req, res) => {
 });
 
 // PATCH /api/users/:id
-router.patch('/:id', async (req, res) => {
+router.patch('/:id', upload.single('avatar'), async (req, res) => {
     const userId = req.headers['x-user-id'];
     const userRole = req.headers['x-user-role'];
     const isAdminOrSystem = userRole === 'ADMINISTRATOR' || userRole === 'SYSTEM';
@@ -130,6 +152,14 @@ router.patch('/:id', async (req, res) => {
     const updates = Object.entries(req.body)
         .filter(([k]) => allowed.includes(k))
         .map(([k, v], i) => [`${k} = $${i + 2}`, v]);
+        
+    let paramOffset = updates.length + 2;
+
+    if (req.file) {
+        updates.push([`avatar_path = $${paramOffset}`, `/avatars/${req.file.filename}`]);
+        paramOffset++;
+        req.body.avatar_path = `/avatars/${req.file.filename}`;
+    }
 
     if (updates.length === 0 && !req.body.password) return res.status(400).json({ error: 'No valid fields provided' });
 
@@ -140,9 +170,13 @@ router.patch('/:id', async (req, res) => {
             if (updates.length > 0) {
                 try {
                     if (!isAdminOrSystem) await c.query(`RESET ROLE`);
+                    const queryParams = [req.params.id, ...updates.map(u => {
+                        const match = u[0].match(/(\w+) =/);
+                        return match ? req.body[match[1]] : null;
+                    })].filter(p => p !== undefined);
                     const result = await c.query(
                         `UPDATE users SET ${updates.map(u => u[0]).join(', ')} WHERE id = $1 RETURNING *`,
-                        [req.params.id, ...updates.map(u => u[1])]
+                        queryParams
                     );
                     if (result.rows.length === 0) return res.status(404).json({ error: 'User not found' });
                     userRow = result.rows[0];

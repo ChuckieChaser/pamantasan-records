@@ -65,10 +65,10 @@ export default function DocumentBrowser({ title, description, documents, documen
     const [sortCol, setSortCol] = useState('DATE');
     const [sortState, setSortState] = useState('DEFAULT');
     const [view, setView] = useState('TABLE'); // 'TABLE' | 'CARD'
-    
+
     // Click timer ref to distinguish single vs double click
     const clickTimeoutRef = useRef(null);
-    
+
     const { documentShares } = useDocumentShare();
     const { user } = useAuthentication();
     const { users } = useUser();
@@ -112,7 +112,7 @@ export default function DocumentBrowser({ title, description, documents, documen
             clickTimeoutRef.current = setTimeout(() => {
                 if (onDocumentClick) onDocumentClick(id);
                 clickTimeoutRef.current = null;
-            }, 150);
+            }, 250);
         }
     };
 
@@ -178,7 +178,7 @@ export default function DocumentBrowser({ title, description, documents, documen
                 result.sort((a, b) => sortState === 'ASC' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name));
             }
         }
-        
+
         if (!isSorted) {
             result.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
         }

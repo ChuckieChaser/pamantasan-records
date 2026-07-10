@@ -12,7 +12,7 @@ const PDF_TYPES = ['application/pdf'];
 const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml'];
 const TEXT_TYPES = ['text/plain', 'text/csv', 'text/markdown', 'text/html', 'application/json'];
 
-const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:5000' : `http://${window.location.hostname}:5000`;
+const API_BASE = import.meta.env.VITE_API_BASE_URL ? import.meta.env.VITE_API_BASE_URL.replace(/\/api$/, '') : `http://${window.location.hostname}:5000`;
 
 export default function ViewDocumentModal() {
     const { isOpen, document, closeViewer } = useDocumentViewer();
@@ -29,7 +29,7 @@ export default function ViewDocumentModal() {
     const isPDF = PDF_TYPES.includes(mimeType);
     const isImage = IMAGE_TYPES.some(t => mimeType === t);
     const isText = TEXT_TYPES.some(t => mimeType === t);
-    
+
     const viewUrl = useMemo(() => {
         if (!document) return null;
         let url = `${API_BASE}/api/documents/${document.id}/view`;
@@ -39,7 +39,7 @@ export default function ViewDocumentModal() {
                 const user = JSON.parse(raw);
                 url += `?userId=${user.id}&role=${user.role}&deptId=${user.department_id}`;
             }
-        } catch(e) {}
+        } catch (e) { }
         return url;
     }, [document]);
     const handleDownload = async () => {

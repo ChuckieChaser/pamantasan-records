@@ -46,6 +46,22 @@ class LoggerService extends EventEmitter {
         return this.log('ERROR', message, source);
     }
 
+    progress(message, source = 'SYSTEM') {
+        return this.log('PROGRESS', message, source);
+    }
+
+    update(id, level, message) {
+        const index = this.logs.findIndex(l => l.id === id);
+        if (index !== -1) {
+            this.logs[index].level = level.toUpperCase();
+            this.logs[index].message = message;
+            this.logs[index].timestamp = new Date().toISOString(); // refresh timestamp
+
+            this.emit('update_log', this.logs[index]);
+            console.log(`[${this.logs[index].timestamp}] [${this.logs[index].level}] [${this.logs[index].source}] ${this.logs[index].message} (UPDATED)`);
+        }
+    }
+
     getLogs() {
         return this.logs;
     }

@@ -1,14 +1,28 @@
 import { logger } from './logger.js';
+import fs from 'fs';
+import path from 'path';
 
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://127.0.0.1:11434';
 
 class OllamaService {
     constructor() {
         this.activePulls = new Map(); // modelName -> AbortController
+        
+        this.configPath = path.join(process.cwd(), '.ollama_models.json');
+        
         this.activeModels = {
             summarize: process.env.OLLAMA_SUMMARIZE_MODEL || 'llama3',
             embed: process.env.OLLAMA_EMBED_MODEL || 'nomic-embed-text'
         };
+
+        try {
+            if (fs.existsSync(this.configPath)) {
+                const saved = JSON.parse(fs.readFileSync(this.configPath, 'utf8'));
+                this.activeModels = { ...this.activeModels, ...saved };
+            }
+        } catch (e) {
+            logger.warn('Failed to load saved models config', 'OLLAMA');
+        }
     }
 
     getActiveModels() {
@@ -19,6 +33,11 @@ class OllamaService {
         if (type === 'summarize' || type === 'embed') {
             this.activeModels[type] = modelName;
             logger.info(`Active ${type} model set to: ${modelName}`, 'OLLAMA');
+            try {
+                fs.writeFileSync(this.configPath, JSON.stringify(this.activeModels, null, 2));
+            } catch (e) {
+                logger.error('Failed to save models config', 'OLLAMA');
+            }
             return true;
         }
         return false;

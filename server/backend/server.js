@@ -69,15 +69,18 @@ wss.on('connection', (ws) => {
     ws.send(JSON.stringify({ type: 'INIT_LOGS', data: logger.getLogs() }));
 
     const onNewLog      = (entry)   => ws.send(JSON.stringify({ type: 'NEW_LOG',       data: entry }));
+    const onUpdateLog   = (entry)   => ws.send(JSON.stringify({ type: 'UPDATE_LOG',    data: entry }));
     const onModelProgress = (payload) => ws.send(JSON.stringify({ type: 'MODEL_PROGRESS', data: payload }));
     const onClearLogs   = ()        => ws.send(JSON.stringify({ type: 'INIT_LOGS',     data: [] }));
 
     logger.on('new_log',      onNewLog);
+    logger.on('update_log',   onUpdateLog);
     logger.on('model_progress', onModelProgress);
     logger.on('clear_logs',   onClearLogs);
 
     ws.on('close', () => {
         logger.removeListener('new_log',       onNewLog);
+        logger.removeListener('update_log',    onUpdateLog);
         logger.removeListener('model_progress',  onModelProgress);
         logger.removeListener('clear_logs',    onClearLogs);
     });

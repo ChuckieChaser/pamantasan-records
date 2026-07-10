@@ -33,6 +33,8 @@ export default function LogViewer() {
                             const newLogs = [...prev, message.data];
                             return newLogs.slice(-1000); // keep last 1000
                         });
+                    } else if (message.type === 'UPDATE_LOG') {
+                        setLogs(prev => prev.map(l => l.id === message.data.id ? message.data : l));
                     }
                 } catch (err) {
                     console.error('Failed to parse WS message', err);
@@ -92,6 +94,7 @@ export default function LogViewer() {
             case 'SUCCESS': return <CheckCircle className="size-4 text-emerald-500" />;
             case 'WARNING': return <AlertTriangle className="size-4 text-amber-500" />;
             case 'ERROR': return <XCircle className="size-4 text-red-500" />;
+            case 'PROGRESS': return <RefreshCw className="size-4 text-accent animate-spin" />;
             default: return <Terminal className="size-4 text-muted" />;
         }
     };
@@ -102,6 +105,7 @@ export default function LogViewer() {
             case 'SUCCESS': return 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20';
             case 'WARNING': return 'bg-amber-500/10 text-amber-500 border-amber-500/20';
             case 'ERROR': return 'bg-red-500/10 text-red-500 border-red-500/20';
+            case 'PROGRESS': return 'bg-accent/10 text-accent border-accent/20';
             default: return 'bg-surface-hover text-muted border-border';
         }
     };

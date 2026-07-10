@@ -1070,7 +1070,13 @@ async function processDocumentAI(documentId, versionId, physicalPath, mimeType, 
         let changeSummary = null;
 
         // 1. Generate Summary (for all versions)
+        const summaryLog = logger.progress(`Generating AI summary for document ${documentId}...`, 'AI');
         summary = await ollamaService.generate(`Summarize this document concisely in one or two paragraphs:\n\n${text}`);
+        if (summary) {
+            logger.update(summaryLog.id, 'SUCCESS', `AI summary generated for document ${documentId}`);
+        } else {
+            logger.update(summaryLog.id, 'ERROR', `Failed to generate AI summary for document ${documentId}`);
+        }
 
         // 2. Generate Change Summary (if it's an update)
         if (currentVersionNum > 1) {
@@ -1083,14 +1089,26 @@ async function processDocumentAI(documentId, versionId, physicalPath, mimeType, 
                 const prevPath = path.join(DOCUMENTS_PATH, prevVer.rows[0].path);
                 const prevText = await textExtractor.extract(prevPath, prevVer.rows[0].mime_type);
                 if (prevText) {
+                    const diffLog = logger.progress(`Generating AI change summary for document ${documentId}...`, 'AI');
                     changeSummary = await ollamaService.generate(`Compare these two versions of a document and provide a bulleted list of the key changes. Do not include any intro/outro text, just the bullet points.\n\n[PREVIOUS VERSION]\n${prevText}\n\n[NEW VERSION]\n${text}`);
+                    if (changeSummary) {
+                        logger.update(diffLog.id, 'SUCCESS', `AI change summary generated for document ${documentId}`);
+                    } else {
+                        logger.update(diffLog.id, 'ERROR', `Failed to generate AI change summary for document ${documentId}`);
+                    }
                 }
             }
         }
 
         // 3. Generate Embeddings for Semantic Search
         // We embed the summary to save tokens and focus on core concepts, but we could embed the full text.
+        const embedLog = logger.progress(`Generating AI embeddings for document ${documentId}...`, 'AI');
         const embedding = await ollamaService.embed(summary || text);
+        if (embedding) {
+            logger.update(embedLog.id, 'SUCCESS', `AI embeddings generated for document ${documentId}`);
+        } else {
+            logger.update(embedLog.id, 'ERROR', `Failed to generate AI embeddings for document ${documentId}`);
+        }
 
         await client.query('BEGIN');
 

@@ -10,6 +10,7 @@ import { documentsApi } from '../../services';
 
 const PDF_TYPES = ['application/pdf'];
 const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml'];
+const TEXT_TYPES = ['text/plain', 'text/csv', 'text/markdown', 'text/html', 'application/json'];
 
 const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:5000' : `http://${window.location.hostname}:5000`;
 
@@ -27,8 +28,20 @@ export default function ViewDocumentModal() {
     const mimeType = latestVersion?.mime_type || '';
     const isPDF = PDF_TYPES.includes(mimeType);
     const isImage = IMAGE_TYPES.some(t => mimeType === t);
-    const viewUrl = document ? `${API_BASE}/api/documents/${document.id}/view` : null;
-
+    const isText = TEXT_TYPES.some(t => mimeType === t);
+    
+    const viewUrl = useMemo(() => {
+        if (!document) return null;
+        let url = `${API_BASE}/api/documents/${document.id}/view`;
+        try {
+            const raw = localStorage.getItem('pamantasan_user');
+            if (raw) {
+                const user = JSON.parse(raw);
+                url += `?userId=${user.id}&role=${user.role}&deptId=${user.department_id}`;
+            }
+        } catch(e) {}
+        return url;
+    }, [document]);
     const handleDownload = async () => {
         if (!document) return;
         try {
@@ -72,8 +85,8 @@ export default function ViewDocumentModal() {
                 </div>
                 {/* Content */}
                 <div className="flex-1 overflow-hidden bg-surface-hover">
-                    {isPDF && viewUrl ? (
-                        <iframe src={viewUrl} title={document?.name} className="w-full h-full border-0" />
+                    {(isPDF || isText) && viewUrl ? (
+                        <iframe src={viewUrl} title={document?.name} className="w-full h-full border-0 bg-white" />
                     ) : isImage && viewUrl ? (
                         <div className="flex items-center justify-center h-full overflow-auto p-4">
                             <img src={viewUrl} alt={document?.name} className="max-w-full max-h-full object-contain rounded" />

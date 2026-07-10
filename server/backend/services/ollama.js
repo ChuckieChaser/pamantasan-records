@@ -39,7 +39,8 @@ class OllamaService {
             });
 
             if (!response.ok) {
-                throw new Error(`Failed to generate (Status: ${response.status})`);
+                const errorText = await response.text();
+                throw new Error(`Failed to generate (Status: ${response.status}) - ${errorText}`);
             }
 
             const data = await response.json();
@@ -63,7 +64,8 @@ class OllamaService {
             });
 
             if (!response.ok) {
-                throw new Error(`Failed to embed (Status: ${response.status})`);
+                const errorText = await response.text();
+                throw new Error(`Failed to embed (Status: ${response.status}) - ${errorText}`);
             }
 
             const data = await response.json();

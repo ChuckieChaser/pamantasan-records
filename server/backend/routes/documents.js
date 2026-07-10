@@ -9,7 +9,10 @@ import { createNotification } from '../services/notification.js';
 import { textExtractor } from '../services/textExtractor.js';
 import { ollamaService } from '../services/ollama.js';
 import { logger } from '../services/logger.js';
-import archiver from 'archiver';
+import { createRequire } from 'module'
+
+const require = createRequire(import.meta.url);
+const archiver = require('archiver');
 
 const router = Router();
 
@@ -41,9 +44,9 @@ const upload = multer({
 });
 
 const getRLSContext = (req) => ({
-    userId: req.headers['x-user-id'] || '00000000-0000-0000-0000-000000000000',
-    role: req.headers['x-user-role'] || 'ANONYMOUS',
-    departmentId: req.headers['x-user-dept'] || '00000000-0000-0000-0000-000000000000',
+    userId: req.headers['x-user-id'] || req.query.userId || '00000000-0000-0000-0000-000000000000',
+    role: req.headers['x-user-role'] || req.query.role || 'ANONYMOUS',
+    departmentId: req.headers['x-user-dept'] || req.query.deptId || '00000000-0000-0000-0000-000000000000',
 });
 
 // ==============================================================================
@@ -1068,7 +1071,7 @@ async function processDocumentAI(documentId, versionId, physicalPath, mimeType, 
 
         // 1. Generate Summary (for all versions)
         summary = await ollamaService.generate(`Summarize this document concisely in one or two paragraphs:\n\n${text}`);
-        
+
         // 2. Generate Change Summary (if it's an update)
         if (currentVersionNum > 1) {
             // Fetch previous version's text
@@ -1090,7 +1093,7 @@ async function processDocumentAI(documentId, versionId, physicalPath, mimeType, 
         const embedding = await ollamaService.embed(summary || text);
 
         await client.query('BEGIN');
-        
+
         if (summary || embedding) {
             let updateQuery = 'UPDATE documents SET ';
             const updates = [];
@@ -1106,7 +1109,7 @@ async function processDocumentAI(documentId, versionId, physicalPath, mimeType, 
                 updates.push(`embedding = $${paramIdx++}`);
                 values.push(`[${embedding.join(',')}]`);
             }
-            
+
             updateQuery += updates.join(', ') + ' WHERE id = $1';
             await client.query(updateQuery, values);
         }

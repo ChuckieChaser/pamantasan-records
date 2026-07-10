@@ -13,7 +13,10 @@ export const useUser = create((set, get) => ({
     getAll: action(set, async () => {
         const users = await usersService.getAll();
 
-        set({ users: users });
+        const activeUserId = get().activeUser?.id;
+        const newActiveUser = activeUserId ? users.find(u => u.id === activeUserId) || null : null;
+
+        set({ users: users, ...(activeUserId && { activeUser: newActiveUser }) });
         return users;
     }),
     getById: action(set, async (id) => {

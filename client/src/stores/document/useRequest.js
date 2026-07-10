@@ -13,7 +13,10 @@ export const useDocumentRequest = create((set, get) => ({
     getAll: action(set, async () => {
         const documentRequests = await documentRequestsService.getAll();
 
-        set({ documentRequests: documentRequests });
+        const activeId = get().activeDocumentRequest?.id;
+        const newActive = activeId ? documentRequests.find(r => r.id === activeId) || null : null;
+
+        set({ documentRequests: documentRequests, ...(activeId && { activeDocumentRequest: newActive }) });
         return documentRequests;
     }),
     getById: action(set, async (id) => {

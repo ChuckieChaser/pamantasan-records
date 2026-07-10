@@ -1171,6 +1171,7 @@ async function processDocumentAI(documentId, versionId, physicalPath, mimeType, 
             
             await client.query('COMMIT');
             logger.success(`Duplicate AI Processing complete for document ${documentId}`, 'AI');
+            logger.triggerRefresh('DOCUMENT_VERSION');
             return;
         }
 
@@ -1262,6 +1263,7 @@ async function processDocumentAI(documentId, versionId, physicalPath, mimeType, 
 
         await client.query('COMMIT');
         logger.success(`AI Processing complete for document ${documentId}`, 'AI');
+        logger.triggerRefresh('DOCUMENT_VERSION');
 
     } catch (err) {
         await client.query('ROLLBACK');

@@ -13,7 +13,10 @@ export const useAuditLog = create((set, get) => ({
     getAll: action(set, async () => {
         const auditLogs = await auditLogsService.getAll();
 
-        set({ auditLogs: auditLogs });
+        const activeId = get().activeAuditLog?.id;
+        const newActive = activeId ? auditLogs.find(a => a.id === activeId) || null : null;
+
+        set({ auditLogs: auditLogs, ...(activeId && { activeAuditLog: newActive }) });
         return auditLogs;
     }),
     getById: action(set, async (id) => {

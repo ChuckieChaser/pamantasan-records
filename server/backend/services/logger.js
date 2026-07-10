@@ -81,6 +81,10 @@ class LoggerService extends EventEmitter {
         this.logs = [];
         this.emit('clear_logs');
     }
+
+    triggerRefresh(entityType = 'ALL') {
+        this.emit('refresh_data', entityType);
+    }
 }
 
 export const logger = new LoggerService();

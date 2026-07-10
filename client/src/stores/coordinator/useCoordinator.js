@@ -13,7 +13,10 @@ export const useCoordinatorRequest = create((set, get) => ({
     getAll: action(set, async () => {
         const coordinatorRequests = await coordinatorRequestsService.getAll();
 
-        set({ coordinatorRequests: coordinatorRequests });
+        const activeId = get().activeCoordinatorRequest?.id;
+        const newActive = activeId ? coordinatorRequests.find(r => r.id === activeId) || null : null;
+
+        set({ coordinatorRequests: coordinatorRequests, ...(activeId && { activeCoordinatorRequest: newActive }) });
         return coordinatorRequests;
     }),
     getById: action(set, async (id) => {

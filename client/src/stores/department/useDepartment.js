@@ -13,7 +13,10 @@ export const useDepartment = create((set, get) => ({
     getAll: action(set, async () => {
         const departments = await departmentsService.getAll();
 
-        set({ departments: departments });
+        const activeDepartmentId = get().activeDepartment?.id;
+        const newActiveDepartment = activeDepartmentId ? departments.find(d => d.id === activeDepartmentId) || null : null;
+
+        set({ departments: departments, ...(activeDepartmentId && { activeDepartment: newActiveDepartment }) });
         return departments;
     }),
     getById: action(set, async (id) => {

@@ -15,7 +15,10 @@ export const useDocument = create((set, get) => ({
     getAll: action(set, async () => {
         const documents = await documentsService.getAll();
 
-        set({ documents: documents });
+        const activeDocId = get().activeDocument?.id;
+        const newActiveDoc = activeDocId ? documents.find(d => d.id === activeDocId) || null : null;
+
+        set({ documents: documents, ...(activeDocId && { activeDocument: newActiveDoc }) });
         return documents;
     }),
     getById: action(set, async (id) => {

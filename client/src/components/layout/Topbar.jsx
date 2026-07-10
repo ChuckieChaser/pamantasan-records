@@ -1,9 +1,10 @@
-import { useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Search, PanelRight } from 'lucide-react';
+import { Search, PanelRight, FileText, Loader2, Sparkles } from 'lucide-react';
 
-import { useAuthentication, useNotification, useDocument, useDocumentRequest, useCoordinatorRequest, useUser, useDepartment } from '../../stores';
+import { useAuthentication, useNotification, useDocument, useDocumentRequest, useCoordinatorRequest, useUser, useDepartment, useDocumentViewer } from '../../stores';
 import { IconButton, InputField, NotificationMenu, Breadcrumb } from '../ui';
+import api from '../../services/api/axios';
 
 // ==============================================================================
 // SECTION 1: TOPBAR
@@ -19,6 +20,48 @@ const Topbar = ({ onToggleInspector, isInspectorOpen }) => {
     const { documents } = useDocument();
     const { users } = useUser();
     const { departments } = useDepartment();
+    const { openViewer } = useDocumentViewer();
+
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState([]);
+    const [isSearching, setIsSearching] = useState(false);
+    const [showResults, setShowResults] = useState(false);
+    const searchRef = useRef(null);
+
+    // --- Search UI Outside Click ---
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (searchRef.current && !searchRef.current.contains(event.target)) {
+                setShowResults(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    // --- Semantic Search Debounce ---
+    useEffect(() => {
+        const timer = setTimeout(async () => {
+            if (searchQuery.trim().length < 2) {
+                setSearchResults([]);
+                setIsSearching(false);
+                return;
+            }
+            
+            setIsSearching(true);
+            try {
+                const response = await api.get(`/documents/search?q=${encodeURIComponent(searchQuery)}`);
+                setSearchResults(response.data);
+                setShowResults(true);
+            } catch (err) {
+                console.error("Semantic search failed", err);
+            } finally {
+                setIsSearching(false);
+            }
+        }, 800); // 800ms debounce to give them time to finish typing the semantic query
+        
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
 
     // --- Load notifications when the authenticated user changes ---
     useEffect(() => {
@@ -166,8 +209,66 @@ const Topbar = ({ onToggleInspector, isInspectorOpen }) => {
 
             {/* --- Actions --- */}
             <div className="flex items-center gap-4">
-                <div className="w-72 cursor-not-allowed opacity-50" title="Global search — coming soon">
-                    <InputField leftIcon={Search} placeholder="Search... (coming soon)" disabled />
+                <div className="relative w-80" ref={searchRef}>
+                    <InputField
+                        leftIcon={Search}
+                        rightIcon={isSearching ? Loader2 : null}
+                        rightIconClassName={isSearching ? "animate-spin text-primary" : ""}
+                        placeholder="Ask AI to find a file..."
+                        value={searchQuery}
+                        onChange={(e) => {
+                            setSearchQuery(e.target.value);
+                            setShowResults(true);
+                        }}
+                        onFocus={() => {
+                            if (searchQuery.trim().length >= 2) setShowResults(true);
+                        }}
+                    />
+                    
+                    {/* Semantic Search Dropdown */}
+                    {showResults && searchQuery.trim().length >= 2 && (
+                        <div className="absolute top-full left-0 right-0 mt-2 rounded-xl border border-border bg-surface-elevated p-2 shadow-2xl z-50 animate-in fade-in slide-in-from-top-2">
+                            <div className="mb-2 flex items-center gap-2 px-2 text-xs font-medium text-text-muted">
+                                <Sparkles size={14} className="text-primary" />
+                                AI Semantic Search
+                            </div>
+                            
+                            {isSearching ? (
+                                <div className="flex flex-col items-center justify-center p-6 text-sm text-text-muted">
+                                    <Loader2 size={24} className="mb-2 animate-spin text-primary" />
+                                    Scanning concepts...
+                                </div>
+                            ) : searchResults.length > 0 ? (
+                                <div className="flex max-h-80 flex-col gap-1 overflow-y-auto">
+                                    {searchResults.map((doc) => (
+                                        <button
+                                            key={doc.id}
+                                            onClick={() => {
+                                                setShowResults(false);
+                                                setSearchQuery('');
+                                                openViewer(doc);
+                                            }}
+                                            className="flex flex-col items-start gap-1 text-left rounded-lg p-2 transition-colors hover:bg-surface-hover"
+                                        >
+                                            <div className="flex w-full items-center gap-2 font-medium text-text">
+                                                <FileText size={14} className="text-primary shrink-0" />
+                                                <span className="truncate">{doc.name}</span>
+                                            </div>
+                                            {doc.summary && (
+                                                <div className="w-full text-xs text-text-muted line-clamp-2">
+                                                    {doc.summary}
+                                                </div>
+                                            )}
+                                        </button>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="p-4 text-center text-sm text-text-muted">
+                                    No documents match this concept.
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 <NotificationMenu

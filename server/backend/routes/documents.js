@@ -598,6 +598,40 @@ router.delete('/attachments/:id', async (req, res) => {
     }
 });
 
+// GET /api/documents/search
+router.get('/search', async (req, res) => {
+    const { q } = req.query;
+    if (!q) return res.status(400).json({ error: 'Search query (q) is required' });
+
+    const client = await pool.connect();
+    try {
+        const queryEmbedding = await ollamaService.embed(q);
+        if (!queryEmbedding) {
+            return res.status(500).json({ error: 'Failed to generate search embeddings' });
+        }
+
+        const vectorString = `[${queryEmbedding.join(',')}]`;
+
+        await withRLS(client, getRLSContext(req), async (c) => {
+            const result = await c.query(`
+                SELECT id, name, summary, is_folder, is_archived,
+                       (embedding <-> $1) AS distance
+                FROM documents
+                WHERE embedding IS NOT NULL
+                  AND is_folder = false
+                ORDER BY embedding <-> $1 ASC
+                LIMIT 5
+            `, [vectorString]);
+
+            res.json(result.rows);
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
 // GET /api/documents/:id
 router.get('/:id', async (req, res) => {
     const client = await pool.connect();

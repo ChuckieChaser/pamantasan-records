@@ -854,6 +854,8 @@ router.post('/:id/upload', upload.single('file'), async (req, res) => {
                 data: result.rows[0]
             });
 
+            logger.success(`Document file uploaded successfully`, 'SYSTEM');
+
             res.status(201).json(result.rows[0]);
 
             // AI Background Processing
@@ -1070,15 +1072,15 @@ async function processDocumentAI(documentId, versionId, physicalPath, mimeType, 
         let changeSummary = null;
 
         // 1. Generate Summary (for all versions)
-        const summaryLog = logger.progress(`Generating AI summary for document ${documentId}...`, 'AI');
+        const summaryLog = logger.progress(`Summarizing document...`, 'AI');
         summary = await ollamaService.generate(
             `Summarize this document concisely in one or two paragraphs:\n\n${text}`,
             (msg) => logger.updateProgress(summaryLog.id, msg)
         );
         if (summary) {
-            logger.update(summaryLog.id, 'SUCCESS', `AI summary generated for document ${documentId}`);
+            logger.update(summaryLog.id, 'SUCCESS', `Document summarized successfully`);
         } else {
-            logger.update(summaryLog.id, 'ERROR', `Failed to generate AI summary for document ${documentId}`);
+            logger.update(summaryLog.id, 'ERROR', `Failed to summarize document`);
         }
 
         // 2. Generate Change Summary (if it's an update)
@@ -1092,15 +1094,15 @@ async function processDocumentAI(documentId, versionId, physicalPath, mimeType, 
                 const prevPath = path.join(DOCUMENTS_PATH, prevVer.rows[0].path);
                 const prevText = await textExtractor.extract(prevPath, prevVer.rows[0].mime_type);
                 if (prevText) {
-                    const diffLog = logger.progress(`Generating AI change summary for document ${documentId}...`, 'AI');
+                    const diffLog = logger.progress(`Generating change summary...`, 'AI');
                     changeSummary = await ollamaService.generate(
                         `Compare these two versions of a document and provide a bulleted list of the key changes. Do not include any intro/outro text, just the bullet points.\n\n[PREVIOUS VERSION]\n${prevText}\n\n[NEW VERSION]\n${text}`,
                         (msg) => logger.updateProgress(diffLog.id, msg)
                     );
                     if (changeSummary) {
-                        logger.update(diffLog.id, 'SUCCESS', `AI change summary generated for document ${documentId}`);
+                        logger.update(diffLog.id, 'SUCCESS', `Change summary generated successfully`);
                     } else {
-                        logger.update(diffLog.id, 'ERROR', `Failed to generate AI change summary for document ${documentId}`);
+                        logger.update(diffLog.id, 'ERROR', `Failed to generate change summary`);
                     }
                 }
             }
@@ -1108,15 +1110,15 @@ async function processDocumentAI(documentId, versionId, physicalPath, mimeType, 
 
         // 3. Generate Embeddings for Semantic Search
         // We embed the summary to save tokens and focus on core concepts, but we could embed the full text.
-        const embedLog = logger.progress(`Generating AI embeddings for document ${documentId}...`, 'AI');
+        const embedLog = logger.progress(`Embedding document...`, 'AI');
         const embedding = await ollamaService.embed(
             summary || text,
             (msg) => logger.updateProgress(embedLog.id, msg)
         );
         if (embedding) {
-            logger.update(embedLog.id, 'SUCCESS', `AI embeddings generated for document ${documentId}`);
+            logger.update(embedLog.id, 'SUCCESS', `Document embedded successfully`);
         } else {
-            logger.update(embedLog.id, 'ERROR', `Failed to generate AI embeddings for document ${documentId}`);
+            logger.update(embedLog.id, 'ERROR', `Failed to embed document`);
         }
 
         await client.query('BEGIN');

@@ -90,23 +90,12 @@ export default function LogViewer() {
 
     const getIcon = (level) => {
         switch (level) {
-            case 'INFO': return <Info className="size-4 text-blue-500" />;
+            case 'INFO': return <Info className="size-4 text-accent" />;
             case 'SUCCESS': return <CheckCircle className="size-4 text-emerald-500" />;
             case 'WARNING': return <AlertTriangle className="size-4 text-amber-500" />;
             case 'ERROR': return <XCircle className="size-4 text-red-500" />;
             case 'PROGRESS': return <RefreshCw className="size-4 text-accent animate-spin" />;
             default: return <Terminal className="size-4 text-muted" />;
-        }
-    };
-
-    const getBadgeStyle = (level) => {
-        switch (level) {
-            case 'INFO': return 'bg-blue-500/10 text-blue-500 border-blue-500/20';
-            case 'SUCCESS': return 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20';
-            case 'WARNING': return 'bg-amber-500/10 text-amber-500 border-amber-500/20';
-            case 'ERROR': return 'bg-red-500/10 text-red-500 border-red-500/20';
-            case 'PROGRESS': return 'bg-accent/10 text-accent border-accent/20';
-            default: return 'bg-surface-hover text-muted border-border';
         }
     };
 
@@ -153,18 +142,12 @@ export default function LogViewer() {
                     </div>
                 ) : (
                     logs.map((log) => (
-                        <div key={log.id} className="flex items-start gap-3 hover:bg-surface-hover/70 p-2 -mx-2 rounded transition-colors group">
-                            <span className="text-muted shrink-0 tabular-nums text-xs mt-0.5">
-                                {new Date(log.timestamp).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute:'2-digit', second:'2-digit' })}
-                            </span>
-                            <div className="shrink-0">
-                                <span className={`flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase border ${getBadgeStyle(log.level)}`}>
-                                    {getIcon(log.level)}
-                                    {log.level}
-                                </span>
+                        <div key={log.id} className="flex items-start gap-3 hover:bg-surface-hover p-3 rounded-lg transition-all animate-in fade-in slide-in-from-bottom-2 duration-300 group">
+                            <div className="shrink-0 mt-0.5">
+                                {getIcon(log.level)}
                             </div>
-                            <div className="flex flex-col gap-1 min-w-0 flex-1">
-                                <span className={`text-sm break-words ${
+                            <div className="flex flex-col min-w-0 flex-1">
+                                <span className={`text-sm font-medium break-words ${
                                     log.level === 'ERROR' ? 'text-red-400' :
                                     log.level === 'WARNING' ? 'text-amber-400' :
                                     log.level === 'SUCCESS' ? 'text-emerald-400' : 'text-main'
@@ -172,10 +155,24 @@ export default function LogViewer() {
                                     {log.message}
                                 </span>
                                 {log.subMessage && (
-                                    <span className="text-xs text-muted/80">{log.subMessage}</span>
+                                    <span className="text-xs text-muted/70 italic flex items-center mt-0.5">
+                                        {log.subMessage.replace(/\.+$/, '')}
+                                        {log.level === 'PROGRESS' && (
+                                            <span className="flex ml-0.5 tracking-widest font-bold">
+                                                <span className="animate-bounce" style={{ animationDelay: '0ms' }}>.</span>
+                                                <span className="animate-bounce" style={{ animationDelay: '150ms' }}>.</span>
+                                                <span className="animate-bounce" style={{ animationDelay: '300ms' }}>.</span>
+                                            </span>
+                                        )}
+                                    </span>
                                 )}
+                            </div>
+                            <div className="shrink-0 text-right flex flex-col items-end">
+                                <span className="text-muted/50 tabular-nums text-[10px] font-semibold tracking-wider">
+                                    {new Date(log.timestamp).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute:'2-digit', second:'2-digit' })}
+                                </span>
                                 {log.context && (
-                                    <span className="text-[10px] font-mono text-muted/70 uppercase truncate">{log.context}</span>
+                                    <div className="text-[9px] font-bold text-accent/50 uppercase tracking-widest mt-0.5">{log.context}</div>
                                 )}
                             </div>
                         </div>

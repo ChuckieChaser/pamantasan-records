@@ -47,7 +47,7 @@ class OllamaService {
         const model = this.activeModels.summarize;
         logger.info(`Generating completion using model: ${model}`, 'OLLAMA');
         try {
-            if (onProgress) onProgress('connecting to ai...');
+            if (onProgress) onProgress('Connecting to AI model...');
             const response = await fetch(`${OLLAMA_URL}/api/generate`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -58,7 +58,7 @@ class OllamaService {
                 })
             });
 
-            if (onProgress) onProgress('prompting to ai...');
+            if (onProgress) onProgress('Waiting for response...');
 
             if (!response.ok) {
                 const errorText = await response.text();
@@ -76,7 +76,7 @@ class OllamaService {
     async embed(text, onProgress) {
         const model = this.activeModels.embed;
         try {
-            if (onProgress) onProgress('connecting to ai...');
+            if (onProgress) onProgress('Connecting to AI model...');
             const response = await fetch(`${OLLAMA_URL}/api/embeddings`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -86,7 +86,7 @@ class OllamaService {
                 })
             });
 
-            if (onProgress) onProgress('prompting to ai...');
+            if (onProgress) onProgress('Waiting for response...');
 
             if (!response.ok) {
                 const errorText = await response.text();

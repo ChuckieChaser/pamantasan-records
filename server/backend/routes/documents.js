@@ -608,32 +608,50 @@ router.get('/:id/versions', async (req, res) => {
 // GET /api/documents/:id/download
 router.get('/:id/download', async (req, res) => {
     const client = await pool.connect();
+    let fileName = 'file';
+    let finalName = 'file';
+    let physicalPath = null;
+
     try {
         await withRLS(client, getRLSContext(req), async (c) => {
             const docResult = await c.query('SELECT name, is_folder FROM documents WHERE id = $1', [req.params.id]);
-            if (docResult.rows.length === 0) return res.status(404).json({ error: 'Document not found' });
-            if (docResult.rows[0].is_folder) return res.status(400).json({ error: 'Is a folder, use download-zip' });
+            if (docResult.rows.length === 0) {
+                res.status(404).json({ error: 'Document not found' });
+                return;
+            }
+            if (docResult.rows[0].is_folder) {
+                res.status(400).json({ error: 'Is a folder, use download-zip' });
+                return;
+            }
 
             const verResult = await c.query('SELECT path FROM document_versions WHERE document_id = $1 ORDER BY version DESC LIMIT 1', [req.params.id]);
-            if (verResult.rows.length === 0) return res.status(404).json({ error: 'No versions found' });
+            if (verResult.rows.length === 0) {
+                res.status(404).json({ error: 'No versions found' });
+                return;
+            }
 
-            const physicalPath = path.join(DOCUMENTS_PATH, verResult.rows[0].path);
-            if (!fs.existsSync(physicalPath)) return res.status(404).json({ error: 'Physical file not found' });
-
-            const fileName = docResult.rows[0].name;
+            physicalPath = path.join(DOCUMENTS_PATH, verResult.rows[0].path);
+            fileName = docResult.rows[0].name;
             const ext = path.extname(verResult.rows[0].path);
-            const finalName = fileName.includes('.') ? fileName : `${fileName}${ext}`;
-
-            res.attachment(`${fileName}.zip`);
-
-            const archive = archiver('zip', { zlib: { level: 9 } });
-            archive.on('error', (err) => { throw err; });
-            archive.pipe(res);
-
-            archive.file(physicalPath, { name: finalName });
-
-            await archive.finalize();
+            finalName = fileName.includes('.') ? fileName : `${fileName}${ext}`;
         });
+
+        if (res.headersSent) return;
+
+        if (!physicalPath || !fs.existsSync(physicalPath)) {
+            res.status(404).json({ error: 'Physical file not found' });
+            return;
+        }
+
+        res.attachment(`${fileName}.zip`);
+
+        const archive = archiver('zip', { zlib: { level: 9 } });
+        archive.on('error', (err) => {
+            if (!res.headersSent) res.status(500).json({ error: err.message });
+        });
+        archive.pipe(res);
+        archive.file(physicalPath, { name: finalName });
+        await archive.finalize();
     } catch (err) {
         if (!res.headersSent) res.status(500).json({ error: err.message });
     } finally {
@@ -839,28 +857,24 @@ router.post('/:id/revert', async (req, res) => {
 
             const targetVersion = targetRes.rows[0];
 
-            const versionResult = await c.query(
-                'SELECT COALESCE(MAX(version), 0) + 1 AS next_version FROM document_versions WHERE document_id = $1',
-                [req.params.id]
+            // Get newer versions to delete their physical files
+            const newerVersions = await c.query(
+                'SELECT path FROM document_versions WHERE document_id = $1 AND version > $2',
+                [req.params.id, targetVersion.version]
             );
-            const nextVersion = versionResult.rows[0].next_version;
 
-            const result = await c.query(
-                `INSERT INTO document_versions
-                    (id, document_id, uploader_id, version, path, size_bytes, mime_type, change_summary)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-                [
-                    crypto.randomUUID(),
-                    req.params.id,
-                    uploader_id,
-                    nextVersion,
-                    targetVersion.path,
-                    targetVersion.size_bytes,
-                    targetVersion.mime_type,
-                    `Reverted to version ${targetVersion.version}`
-                ]
+            for (const row of newerVersions.rows) {
+                if (row.path) {
+                    const fullPath = path.join(DOCUMENTS_PATH, row.path);
+                    if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
+                }
+            }
+
+            await c.query(
+                'DELETE FROM document_versions WHERE document_id = $1 AND version > $2',
+                [req.params.id, targetVersion.version]
             );
-            res.status(201).json(result.rows[0]);
+            res.status(200).json(targetVersion);
         });
     } catch (err) {
         res.status(500).json({ error: err.message });

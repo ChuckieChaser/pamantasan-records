@@ -39,13 +39,17 @@ export const useDocumentVersion = create((set, get) => ({
     revert: async (docId, versionId, uploaderId) => {
         set({ isLoading: true, error: null });
         try {
-            const newVersion = await documentVersionsService.revert(docId, { version_id: versionId, uploader_id: uploaderId });
-            set({ documentVersions: [...get().documentVersions, newVersion], isLoading: false });
+            const targetVersion = await documentVersionsService.revert(docId, { version_id: versionId, uploader_id: uploaderId });
+            
+            const currentVersions = get().documentVersions;
+            const newVersions = currentVersions.filter(v => v.document_id !== docId || v.version <= targetVersion.version);
+            
+            set({ documentVersions: newVersions, isLoading: false });
             
             // Sync up the document store
             useDocument.getState().getAll();
             
-            return newVersion;
+            return targetVersion;
         } catch (error) {
             set({ error: error.response?.data?.error || error.message, isLoading: false });
             throw error;

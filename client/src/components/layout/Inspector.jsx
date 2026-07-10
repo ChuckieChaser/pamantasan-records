@@ -1026,10 +1026,10 @@ const Inspector = ({ document, auditLog, onClose }) => {
                         isOpen={isRevertModalOpen}
                         onClose={() => setIsRevertModalOpen(false)}
                         title="Confirm Revert"
-                        description={`Are you sure you want to revert ${document?.name} to the selected version? This action will set the selected version as the active one.`}
+                        description={`Are you sure you want to revert ${document?.name} to the selected version? WARNING: This action will permanently delete all versions newer than the selected one to declutter history.`}
                         confirmText="Confirm Revert"
                         onConfirm={handleRevertSubmit}
-                        isDestructive={false}
+                        isDestructive={true}
                     />
 
 

@@ -27,8 +27,6 @@ CREATE TABLE IF NOT EXISTS documents (
     name VARCHAR(255) NOT NULL,
     comment TEXT NULL,
     is_folder BOOLEAN NOT NULL DEFAULT FALSE,
-    summary TEXT NULL,
-    embedding vector(768) NULL,
     is_archived BOOLEAN NOT NULL DEFAULT FALSE,
     created_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -48,6 +46,9 @@ CREATE TABLE IF NOT EXISTS document_versions (
     mime_type VARCHAR(100) NOT NULL,
     change_summary TEXT NULL,
     rejection_reason TEXT NULL,
+    summary TEXT NULL,
+    embedding vector(768) NULL,
+    text_hash VARCHAR(64) NULL,
     created_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT uq_document_versions_document_id_version UNIQUE (document_id, version),
@@ -94,10 +95,10 @@ CREATE TABLE IF NOT EXISTS document_request_attachments (
 
 -- --- Indexes ---
 CREATE INDEX IF NOT EXISTS idx_documents_parent_id ON documents(parent_id);
-CREATE INDEX IF NOT EXISTS idx_documents_embedding ON documents USING hnsw (embedding vector_cosine_ops);
 CREATE INDEX IF NOT EXISTS idx_documents_is_archived ON documents(is_archived);
 
 CREATE INDEX IF NOT EXISTS idx_document_versions_document_id ON document_versions(document_id);
+CREATE INDEX IF NOT EXISTS idx_document_versions_embedding ON document_versions USING hnsw (embedding vector_cosine_ops);
 
 CREATE INDEX IF NOT EXISTS idx_document_requests_requester_id ON document_requests(requester_id);
 CREATE INDEX IF NOT EXISTS idx_document_requests_status ON document_requests(status);

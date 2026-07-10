@@ -120,15 +120,15 @@ export default function DepartmentBrowser({ title, description, departments, act
                                 return (
                                     <tr
                                         key={dept.id}
-                                        className={`cursor-pointer transition-colors duration-200 hover:bg-surface-hover ${isSelected ? 'bg-surface-hover' : ''}`}
+                                        className={`group cursor-pointer border-b border-border transition-colors duration-200 last:border-0 ${isSelected ? 'bg-surface-hover' : 'hover:bg-surface-hover'}`}
                                         onClick={() => onDepartmentClick(dept.id)}
                                     >
                                         <td className="px-4 py-4">
                                             <div className="flex items-center gap-3">
-                                                <div className={`flex items-center justify-center ${isSelected ? 'text-accent' : 'text-muted'}`}>
+                                                <div className={`flex items-center justify-center transition-colors duration-200 ${isSelected ? 'text-accent' : 'text-muted group-hover:text-accent'}`}>
                                                     <Building2 className="size-4" />
                                                 </div>
-                                                <span className={`max-w-xs truncate font-bold md:max-w-md ${isSelected ? 'text-accent' : 'text-main'}`}>
+                                                <span className={`max-w-xs truncate font-bold transition-colors duration-200 md:max-w-md ${isSelected ? 'text-accent' : 'text-main group-hover:text-accent'}`}>
                                                     {dept.name}
                                                 </span>
                                             </div>

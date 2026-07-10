@@ -185,7 +185,7 @@ export default function UserBrowser({ title, description, users, departments, ac
                                 return (
                                     <tr
                                         key={user.id}
-                                        className={`cursor-pointer transition-colors duration-200 hover:bg-surface-hover ${isSelected ? 'bg-surface-hover' : ''}`}
+                                        className={`group cursor-pointer border-b border-border transition-colors duration-200 last:border-0 ${isSelected ? 'bg-surface-hover' : 'hover:bg-surface-hover'}`}
                                         onClick={() => onUserClick(user.id)}
                                     >
                                         <td className="px-4 py-4">
@@ -195,7 +195,7 @@ export default function UserBrowser({ title, description, users, departments, ac
                                                     alt="Avatar" 
                                                     className="h-6 w-6 rounded-full object-cover shrink-0" 
                                                 />
-                                                <span className={`max-w-[12rem] truncate font-bold ${isSelected ? 'text-accent' : 'text-main'}`}>
+                                                <span className={`max-w-[12rem] truncate font-bold transition-colors duration-200 ${isSelected ? 'text-accent' : 'text-main group-hover:text-accent'}`}>
                                                     {user.first_name} {user.last_name}
                                                 </span>
                                             </div>

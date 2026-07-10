@@ -96,6 +96,7 @@ export default function Documents() {
                 title={currentFolderId ? `Folder: ${currentPathSegments[currentPathSegments.length - 1]}` : "All Documents"}
                 documents={currentDocuments}
                 documentVersions={documentVersions}
+                activeDocumentId={activeDocument?.id}
                 onDocumentClick={handleDocumentClick}
                 onDocumentDoubleClick={handleDocumentDoubleClick}
                 canAddDocuments={canAddDocuments}

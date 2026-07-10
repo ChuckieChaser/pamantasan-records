@@ -1,32 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Search, PanelRight, FileText, Loader2, Sparkles } from 'lucide-react';
+import { Search, PanelRight, FileText, Loader2, Sparkles, Archive, Share2, XCircle, CheckCircle, MessageSquare } from 'lucide-react';
 
-import { useAuthentication, useNotification, useDocument, useDocumentRequest, useCoordinatorRequest, useUser, useDepartment, useDocumentViewer } from '../../stores';
+import { useAuthentication, useNotification, useDocument, useDocumentRequest, useCoordinatorRequest, useUser, useDepartment, useDocumentViewer, useDocumentShare } from '../../stores';
 import { IconButton, InputField, NotificationMenu, Breadcrumb } from '../ui';
 import { apiClient } from '../../services/api/axios';
 
 // ==============================================================================
 // SECTION 1: TOPBAR
 // ==============================================================================
-
-const HighlightText = ({ text, highlight }) => {
-    if (!text || !highlight.trim()) return <>{text}</>;
-    const regex = new RegExp(`(${highlight.trim()})`, 'gi');
-    const parts = text.split(regex);
-    
-    return (
-        <>
-            {parts.map((part, i) => 
-                regex.test(part) ? (
-                    <span key={i} className="bg-accent/10 text-accent font-bold rounded-sm px-0.5">{part}</span>
-                ) : (
-                    <span key={i}>{part}</span>
-                )
-            )}
-        </>
-    );
-};
 
 // --- Topbar: layout panel → flush, no border radius, border-b only ---
 const Topbar = ({ onToggleInspector, isInspectorOpen }) => {
@@ -36,6 +18,7 @@ const Topbar = ({ onToggleInspector, isInspectorOpen }) => {
     const { user } = useAuthentication();
     const { notifications, unreadCount, getGroupedByRecipientId, update: updateNotification } = useNotification();
     const { documents } = useDocument();
+    const { documentShares } = useDocumentShare();
     const { users } = useUser();
     const { departments } = useDepartment();
     const { openViewer } = useDocumentViewer();
@@ -65,7 +48,7 @@ const Topbar = ({ onToggleInspector, isInspectorOpen }) => {
                 setIsSearching(false);
                 return;
             }
-            
+
             setIsSearching(true);
             try {
                 const response = await apiClient.get(`/documents/search?q=${encodeURIComponent(searchQuery)}`);
@@ -77,7 +60,7 @@ const Topbar = ({ onToggleInspector, isInspectorOpen }) => {
                 setIsSearching(false);
             }
         }, 300); // 300ms debounce for near-instant hybrid search
-        
+
         return () => clearTimeout(timer);
     }, [searchQuery]);
 
@@ -89,14 +72,14 @@ const Topbar = ({ onToggleInspector, isInspectorOpen }) => {
     // --- Breadcrumb computation ---
     const searchParams = new URLSearchParams(location.search);
     const folderId = searchParams.get('folder');
-    
+
     let pathSegments = [];
     if (location.pathname.startsWith('/documents') || location.pathname.startsWith('/archives')) {
         const basePath = location.pathname.startsWith('/documents') ? '/documents' : '/archives';
         const baseLabel = location.pathname.startsWith('/documents') ? 'documents' : 'archives';
-        
+
         pathSegments.push({ label: baseLabel, onClick: () => navigate(basePath) });
-        
+
         if (folderId && documents.length > 0) {
             const folderChain = [];
             let current = documents.find(d => d.id === folderId);
@@ -117,7 +100,7 @@ const Topbar = ({ onToggleInspector, isInspectorOpen }) => {
     // --- Shape notifications for the menu component ---
     const notificationItems = notifications.map((notification) => {
         const isPlural = notification.interaction_count > 1;
-        
+
         let actorName = 'System';
         let foundUser = null;
         if (notification.actor_ids && notification.actor_ids.length > 0) {
@@ -129,10 +112,10 @@ const Topbar = ({ onToggleInspector, isInspectorOpen }) => {
                 actorName = 'A user';
             }
         }
-        
+
         const actorText = isPlural ? `${actorName} and others` : actorName;
         const actionText = notification.action ? notification.action.replace(/_/g, ' ').toLowerCase() : 'interacted with';
-        
+
         let targetText = notification.entity_type;
         switch (notification.entity_type) {
             case 'DOCUMENT':
@@ -186,8 +169,8 @@ const Topbar = ({ onToggleInspector, isInspectorOpen }) => {
                 if (notification.notification_ids && !notification.is_read) {
                     await updateNotification(notification.notification_ids.join(','), { is_read: true });
                 }
-                
-                switch(notification.entity_type) {
+
+                switch (notification.entity_type) {
                     case 'DOCUMENT':
                     case 'DOCUMENT_VERSION':
                     case 'DOCUMENT_SHARE':
@@ -242,45 +225,61 @@ const Topbar = ({ onToggleInspector, isInspectorOpen }) => {
                             if (searchQuery.trim().length >= 2) setShowResults(true);
                         }}
                     />
-                    
+
                     {/* Semantic Search Dropdown */}
                     {showResults && searchQuery.trim().length >= 2 && (
                         <div className="absolute top-full left-0 right-0 mt-2 rounded-xl border border-border bg-surface p-2 shadow-2xl z-50 animate-in fade-in slide-in-from-top-2">
-                            <div className="mb-2 flex items-center gap-2 px-2 text-xs font-medium text-muted">
-                                <Sparkles size={14} className="text-accent" />
-                                AI Semantic Search
+                            <div className="mb-2 flex items-center gap-2 px-2 text-xs font-bold uppercase text-muted">
+                                <Sparkles className='size-3.5' />
+                                Search Results
                             </div>
-                            
+
                             {isSearching ? (
                                 <div className="flex flex-col items-center justify-center p-6 text-sm text-muted">
                                     <Loader2 size={24} className="mb-2 animate-spin text-accent" />
                                     Scanning concepts...
                                 </div>
                             ) : searchResults.length > 0 ? (
-                                <div className="flex max-h-[350px] flex-col gap-1 overflow-y-auto">
-                                    {searchResults.map((doc) => (
-                                        <button
-                                            key={doc.id}
-                                            onClick={() => {
-                                                setShowResults(false);
-                                                setSearchQuery('');
-                                                openViewer(doc);
-                                            }}
-                                            className="flex cursor-pointer flex-col items-start gap-1 text-left rounded-lg p-2 transition-colors hover:bg-surface-hover"
-                                        >
-                                            <div className="flex w-full items-center gap-2 font-medium text-main">
-                                                <FileText size={14} className="text-accent shrink-0" />
-                                                <span className="truncate">
-                                                    <HighlightText text={doc.name} highlight={searchQuery} />
-                                                </span>
-                                            </div>
-                                            {doc.summary && (
-                                                <div className="w-full text-xs text-muted line-clamp-2">
-                                                    <HighlightText text={doc.summary} highlight={searchQuery} />
+                                <div className="flex max-h-[350px] flex-col divide-y divide-border overflow-y-auto">
+                                    {searchResults.map((doc) => {
+                                        const isShared = documentShares.some(s => s.document_id === doc.id);
+                                        const hasRejected = documentShares.some(s => s.document_id === doc.id && s.status === 'REJECTED');
+                                        const hasApproved = documentShares.some(s => s.document_id === doc.id && ['APPROVED', 'PUBLISHED', 'STASHED'].includes(s.status));
+                                        const hasComment = !!doc.comment;
+
+                                        return (
+                                            <button
+                                                key={doc.id}
+                                                onClick={() => {
+                                                    setShowResults(false);
+                                                    setSearchQuery('');
+                                                    openViewer(doc);
+                                                }}
+                                                className="group flex cursor-pointer items-start gap-3 p-3 text-left transition-all hover:bg-surface-hover first:rounded-t-lg last:rounded-b-lg"
+                                            >
+                                                <div className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-lg bg-surface-hover text-muted transition-colors group-hover:bg-background group-hover:text-accent">
+                                                    <FileText className="size-5" />
                                                 </div>
-                                            )}
-                                        </button>
-                                    ))}
+                                                <div className="flex min-w-0 flex-1 flex-col gap-1">
+                                                    <span className="block break-words font-bold line-clamp-1 text-main transition-colors group-hover:text-accent">
+                                                        {doc.name}
+                                                    </span>
+                                                    {(doc.is_archived || isShared || hasRejected || hasApproved || hasComment) && (
+                                                        <div className="flex shrink-0 gap-1.5 mt-0.5 mb-0.5">
+                                                            {doc.is_archived ? <Archive className="size-3.5 text-muted" /> : (isShared && <Share2 className="size-3.5 text-muted" />)}
+                                                            {hasRejected ? <XCircle className="size-3.5 text-muted" /> : (hasApproved ? <CheckCircle className="size-3.5 text-muted" /> : null)}
+                                                            {hasComment && <MessageSquare className="size-3.5 text-muted" />}
+                                                        </div>
+                                                    )}
+                                                    {doc.summary && (
+                                                        <span className="w-full text-xs text-muted line-clamp-2">
+                                                            {doc.summary}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
                                 </div>
                             ) : (
                                 <div className="p-4 text-center text-sm text-muted">

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Search, ArrowUpDown, ArrowUp, ArrowDown, Filter, LayoutGrid, List, Plus, Share2, Archive, XCircle, CheckCircle, MessageSquare } from 'lucide-react';
 import { Card } from '../ui/Containers';
 import { Badge } from '../ui/Badges';
@@ -64,7 +64,14 @@ export default function DocumentBrowser({ title, description, documents, documen
     const [selectedStatuses, setSelectedStatuses] = useState([]);
     const [sortCol, setSortCol] = useState('DATE');
     const [sortState, setSortState] = useState('DEFAULT');
-    const [view, setView] = useState('TABLE'); // 'TABLE' | 'CARD'
+    const [view, setView] = useState(() => {
+        const savedView = localStorage.getItem('documentBrowserView');
+        return savedView || 'TABLE';
+    });
+
+    useEffect(() => {
+        localStorage.setItem('documentBrowserView', view);
+    }, [view]);
 
     // Click timer ref to distinguish single vs double click
     const clickTimeoutRef = useRef(null);
@@ -293,26 +300,26 @@ export default function DocumentBrowser({ title, description, documents, documen
                                         <tr
                                             key={doc.id}
                                             onClick={() => handleRowClick(doc.id)}
-                                            className={`group cursor-pointer border-b border-border transition-colors duration-200 last:border-0 ${isSelected ? 'bg-surface-hover' : 'hover:bg-surface-hover/50'}`}
+                                            className={`group cursor-pointer border-b border-border transition-colors duration-200 last:border-0 ${isSelected ? 'bg-surface-hover' : 'hover:bg-surface-hover'}`}
                                         >
                                             <td className="px-4 py-3">
                                                 <div className="flex items-center gap-3">
-                                                    <div className={`flex items-center justify-center ${isSelected ? 'text-accent' : 'text-muted'}`}>
+                                                    <div className={`flex items-center justify-center transition-colors duration-200 ${isSelected ? 'text-accent' : 'text-muted group-hover:text-accent'}`}>
                                                         {getFileIcon(doc.is_folder, latestVersion?.mime_type, 'size-4')}
                                                     </div>
                                                     <div className="flex items-center gap-2 max-w-[200px] md:max-w-xs">
-                                                        <span className={`truncate font-bold ${isSelected ? 'text-accent' : 'text-main'}`}>
+                                                        <span className={`truncate font-bold transition-colors duration-200 ${isSelected ? 'text-accent' : 'text-main group-hover:text-accent'}`}>
                                                             {doc.name}
                                                         </span>
                                                         <div className="flex shrink-0 gap-1">
-                                                            {doc.is_archived ? <Archive className="size-3.5 text-muted" /> : (documentShares.some(s => s.document_id === doc.id) && <Share2 className="size-3.5 text-success" />)}
+                                                            {doc.is_archived ? <Archive className="size-3.5 text-muted" /> : (documentShares.some(s => s.document_id === doc.id) && <Share2 className="size-3.5 text-muted" />)}
                                                             {(() => {
                                                                 const docSpecificShares = documentShares.filter(s => s.document_id === doc.id);
-                                                                if (docSpecificShares.some(s => s.status === 'REJECTED')) return <XCircle className="size-3.5 text-error" />;
-                                                                if (docSpecificShares.some(s => ['APPROVED', 'PUBLISHED', 'STASHED'].includes(s.status))) return <CheckCircle className="size-3.5 text-success" />;
+                                                                if (docSpecificShares.some(s => s.status === 'REJECTED')) return <XCircle className="size-3.5 text-muted" />;
+                                                                if (docSpecificShares.some(s => ['APPROVED', 'PUBLISHED', 'STASHED'].includes(s.status))) return <CheckCircle className="size-3.5 text-muted" />;
                                                                 return null;
                                                             })()}
-                                                            {doc.comment && <MessageSquare className="size-3.5 text-warning" />}
+                                                            {doc.comment && <MessageSquare className="size-3.5 text-muted" />}
                                                         </div>
                                                     </div>
                                                 </div>

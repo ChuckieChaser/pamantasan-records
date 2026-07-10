@@ -153,13 +153,13 @@ export default function DocumentRequestBrowser({ title, description, requests, u
                                 return (
                                     <tr
                                         key={req.id}
-                                        className={`cursor-pointer transition-colors duration-200 hover:bg-surface-hover ${isSelected ? 'bg-surface-hover' : ''}`}
+                                        className={`group cursor-pointer border-b border-border transition-colors duration-200 last:border-0 ${isSelected ? 'bg-surface-hover' : 'hover:bg-surface-hover'}`}
                                         onClick={() => onRequestClick(req.id)}
                                     >
-                                        <td className="px-4 py-4 font-bold text-main max-w-xs truncate">
+                                        <td className="px-4 py-4 font-bold max-w-xs truncate">
                                             <div className="flex items-center gap-2">
-                                                <FileText className="size-4 text-muted shrink-0" />
-                                                <span className={`truncate font-bold ${isSelected ? 'text-accent' : 'text-main'}`}>{req.subject}</span>
+                                                <FileText className={`size-4 shrink-0 transition-colors duration-200 ${isSelected ? 'text-accent' : 'text-muted group-hover:text-accent'}`} />
+                                                <span className={`truncate font-bold transition-colors duration-200 ${isSelected ? 'text-accent' : 'text-main group-hover:text-accent'}`}>{req.subject}</span>
                                             </div>
                                         </td>
                                         <td className="px-4 py-4">

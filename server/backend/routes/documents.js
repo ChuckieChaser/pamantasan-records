@@ -82,17 +82,21 @@ router.get('/', async (req, res) => {
     try {
         await withRLS(client, getRLSContext(req), async (c) => {
             const { parent_id, is_archived, is_folder } = req.query;
-            let query = 'SELECT * FROM documents WHERE 1=1';
+            let query = `
+                SELECT d.*, 
+                       (SELECT summary FROM document_versions dv WHERE dv.document_id = d.id ORDER BY version DESC LIMIT 1) as summary
+                FROM documents d WHERE 1=1
+            `;
             const params = [];
 
             if (parent_id !== undefined) {
                 params.push(parent_id === 'null' ? null : parent_id);
-                query += ` AND parent_id ${parent_id === 'null' ? 'IS NULL' : `= $${params.length}`}`;
+                query += ` AND d.parent_id ${parent_id === 'null' ? 'IS NULL' : `= $${params.length}`}`;
             }
-            if (is_archived !== undefined) { params.push(is_archived === 'true'); query += ` AND is_archived = $${params.length}`; }
-            if (is_folder) { params.push(is_folder === 'true'); query += ` AND is_folder = $${params.length}`; }
+            if (is_archived !== undefined) { params.push(is_archived === 'true'); query += ` AND d.is_archived = $${params.length}`; }
+            if (is_folder) { params.push(is_folder === 'true'); query += ` AND d.is_folder = $${params.length}`; }
 
-            query += ' ORDER BY is_folder DESC, name ASC';
+            query += ' ORDER BY d.is_folder DESC, d.name ASC';
 
             const result = await c.query(query, params);
             res.json(result.rows);
@@ -614,15 +618,22 @@ router.get('/search', async (req, res) => {
 
         await withRLS(client, getRLSContext(req), async (c) => {
             const result = await c.query(`
-                SELECT id, name, summary, is_folder, is_archived,
-                       (embedding <-> $1) AS distance,
-                       (name ILIKE $2 OR summary ILIKE $2) AS is_exact_match
-                FROM documents
-                WHERE is_folder = false 
-                  AND (embedding IS NOT NULL OR name ILIKE $2 OR summary ILIKE $2)
+                WITH LatestVersions AS (
+                    SELECT DISTINCT ON (document_id)
+                           document_id, summary, embedding
+                    FROM document_versions
+                    ORDER BY document_id, version DESC
+                )
+                SELECT d.id, d.name, lv.summary, d.is_folder, d.is_archived,
+                       (lv.embedding <-> $1) AS distance,
+                       (d.name ILIKE $2 OR lv.summary ILIKE $2) AS is_exact_match
+                FROM documents d
+                LEFT JOIN LatestVersions lv ON lv.document_id = d.id
+                WHERE d.is_folder = false 
+                  AND (lv.embedding IS NOT NULL OR d.name ILIKE $2 OR lv.summary ILIKE $2)
                 ORDER BY 
-                   CASE WHEN (name ILIKE $2 OR summary ILIKE $2) THEN 0 ELSE 1 END ASC,
-                   embedding <-> $1 ASC
+                   CASE WHEN (d.name ILIKE $2 OR lv.summary ILIKE $2) THEN 0 ELSE 1 END ASC,
+                   lv.embedding <-> $1 ASC
                 LIMIT 20
             `, [vectorString, `%${q}%`]);
 
@@ -1127,9 +1138,42 @@ async function processDocumentAI(documentId, versionId, physicalPath, mimeType, 
     }
 
     const truncatedText = text.length > MAX_AI_TEXT_LENGTH ? text.substring(0, MAX_AI_TEXT_LENGTH) + '...' : text;
+    const textHash = crypto.createHash('sha256').update(text).digest('hex');
 
     const client = await pool.connect();
     try {
+        await client.query('BEGIN');
+
+        // Check for duplicates
+        const duplicateCheck = await client.query(
+            'SELECT document_id, summary, embedding FROM document_versions WHERE text_hash = $1 AND summary IS NOT NULL LIMIT 1',
+            [textHash]
+        );
+
+        if (duplicateCheck.rows.length > 0) {
+            const dup = duplicateCheck.rows[0];
+            logger.info(`Exact text match found (Hash: ${textHash.substring(0,8)}). Skipping AI pipeline.`, 'AI');
+
+            let changeSummary = null;
+            if (currentVersionNum > 1) {
+                if (dup.document_id === documentId) {
+                    changeSummary = "No content changes detected.";
+                } else {
+                    changeSummary = "Content identically matches an existing document in the system.";
+                }
+            }
+
+            // Instantly duplicate summary and embeddings for this version
+            await client.query(
+                'UPDATE document_versions SET summary = $1, embedding = $2, text_hash = $3, change_summary = COALESCE($4, change_summary) WHERE id = $5',
+                [dup.summary, dup.embedding, textHash, changeSummary, versionId]
+            );
+            
+            await client.query('COMMIT');
+            logger.success(`Duplicate AI Processing complete for document ${documentId}`, 'AI');
+            return;
+        }
+
         let summary = null;
         let changeSummary = null;
 
@@ -1189,33 +1233,31 @@ async function processDocumentAI(documentId, versionId, physicalPath, mimeType, 
             logger.update(embedLog.id, 'ERROR', `Failed to embed document`);
         }
 
-        await client.query('BEGIN');
-
-        if (summary || embedding) {
-            let updateQuery = 'UPDATE documents SET ';
+        if (summary || embedding || changeSummary) {
+            let updateQuery = 'UPDATE document_versions SET text_hash = $1';
             const updates = [];
-            const values = [documentId];
-            let paramIdx = 2;
+            const values = [textHash, versionId];
+            let paramIdx = 3;
 
             if (summary) {
                 updates.push(`summary = $${paramIdx++}`);
                 values.push(summary);
             }
             if (embedding) {
-                // formatting array as Postgres vector '[1,2,3]'
                 updates.push(`embedding = $${paramIdx++}`);
                 values.push(`[${embedding.join(',')}]`);
             }
+            if (changeSummary) {
+                updates.push(`change_summary = $${paramIdx++}`);
+                values.push(changeSummary);
+            }
 
-            updateQuery += updates.join(', ') + ' WHERE id = $1';
+            if (updates.length > 0) {
+                updateQuery += ', ' + updates.join(', ');
+            }
+            updateQuery += ' WHERE id = $2';
+            
             await client.query(updateQuery, values);
-        }
-
-        if (changeSummary) {
-            await client.query(
-                'UPDATE document_versions SET change_summary = $1 WHERE id = $2',
-                [changeSummary, versionId]
-            );
         }
 
         await client.query('COMMIT');

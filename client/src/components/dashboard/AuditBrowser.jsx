@@ -190,12 +190,12 @@ export default function AuditBrowser({ title, description, audits, activeAuditLo
                                 return (
                                     <tr 
                                         key={audit.id} 
-                                        className={`cursor-pointer transition-colors duration-200 hover:bg-surface-hover ${isSelected ? 'bg-surface-hover' : ''}`} 
+                                        className={`group cursor-pointer border-b border-border transition-colors duration-200 last:border-0 ${isSelected ? 'bg-surface-hover' : 'hover:bg-surface-hover'}`} 
                                         onClick={() => onAuditClick(audit.id)}
                                     >
                                         <td className="px-4 py-4">
                                         <div className="flex items-center gap-3">
-                                            <div className={`flex items-center justify-center ${isSelected ? 'text-accent' : 'text-muted'}`}>
+                                            <div className={`flex items-center justify-center transition-colors duration-200 ${isSelected ? 'text-accent' : 'text-muted group-hover:text-accent'}`}>
                                                 {(() => {
                                                     switch (audit.entity_type) {
                                                         case 'DOCUMENT':
@@ -219,7 +219,7 @@ export default function AuditBrowser({ title, description, audits, activeAuditLo
                                                     }
                                                 })()}
                                             </div>
-                                            <span className={`font-bold ${isSelected ? 'text-accent' : 'text-main'}`}>
+                                            <span className={`font-bold transition-colors duration-200 ${isSelected ? 'text-accent' : 'text-main group-hover:text-accent'}`}>
                                                 {audit.action.replace(/_/g, ' ')}
                                             </span>
                                         </div>

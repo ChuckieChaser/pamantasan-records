@@ -10,6 +10,24 @@ import { apiClient } from '../../services/api/axios';
 // SECTION 1: TOPBAR
 // ==============================================================================
 
+const HighlightText = ({ text, highlight }) => {
+    if (!text || !highlight.trim()) return <>{text}</>;
+    const regex = new RegExp(`(${highlight.trim()})`, 'gi');
+    const parts = text.split(regex);
+    
+    return (
+        <>
+            {parts.map((part, i) => 
+                regex.test(part) ? (
+                    <span key={i} className="bg-accent/10 text-accent font-bold rounded-sm px-0.5">{part}</span>
+                ) : (
+                    <span key={i}>{part}</span>
+                )
+            )}
+        </>
+    );
+};
+
 // --- Topbar: layout panel → flush, no border radius, border-b only ---
 const Topbar = ({ onToggleInspector, isInspectorOpen }) => {
     const location = useLocation();
@@ -58,7 +76,7 @@ const Topbar = ({ onToggleInspector, isInspectorOpen }) => {
             } finally {
                 setIsSearching(false);
             }
-        }, 800); // 800ms debounce to give them time to finish typing the semantic query
+        }, 300); // 300ms debounce for near-instant hybrid search
         
         return () => clearTimeout(timer);
     }, [searchQuery]);
@@ -227,19 +245,19 @@ const Topbar = ({ onToggleInspector, isInspectorOpen }) => {
                     
                     {/* Semantic Search Dropdown */}
                     {showResults && searchQuery.trim().length >= 2 && (
-                        <div className="absolute top-full left-0 right-0 mt-2 rounded-xl border border-border bg-surface-elevated p-2 shadow-2xl z-50 animate-in fade-in slide-in-from-top-2">
-                            <div className="mb-2 flex items-center gap-2 px-2 text-xs font-medium text-text-muted">
-                                <Sparkles size={14} className="text-primary" />
+                        <div className="absolute top-full left-0 right-0 mt-2 rounded-xl border border-border bg-surface p-2 shadow-2xl z-50 animate-in fade-in slide-in-from-top-2">
+                            <div className="mb-2 flex items-center gap-2 px-2 text-xs font-medium text-muted">
+                                <Sparkles size={14} className="text-accent" />
                                 AI Semantic Search
                             </div>
                             
                             {isSearching ? (
-                                <div className="flex flex-col items-center justify-center p-6 text-sm text-text-muted">
-                                    <Loader2 size={24} className="mb-2 animate-spin text-primary" />
+                                <div className="flex flex-col items-center justify-center p-6 text-sm text-muted">
+                                    <Loader2 size={24} className="mb-2 animate-spin text-accent" />
                                     Scanning concepts...
                                 </div>
                             ) : searchResults.length > 0 ? (
-                                <div className="flex max-h-80 flex-col gap-1 overflow-y-auto">
+                                <div className="flex max-h-[350px] flex-col gap-1 overflow-y-auto">
                                     {searchResults.map((doc) => (
                                         <button
                                             key={doc.id}
@@ -248,22 +266,24 @@ const Topbar = ({ onToggleInspector, isInspectorOpen }) => {
                                                 setSearchQuery('');
                                                 openViewer(doc);
                                             }}
-                                            className="flex flex-col items-start gap-1 text-left rounded-lg p-2 transition-colors hover:bg-surface-hover"
+                                            className="flex cursor-pointer flex-col items-start gap-1 text-left rounded-lg p-2 transition-colors hover:bg-surface-hover"
                                         >
-                                            <div className="flex w-full items-center gap-2 font-medium text-text">
-                                                <FileText size={14} className="text-primary shrink-0" />
-                                                <span className="truncate">{doc.name}</span>
+                                            <div className="flex w-full items-center gap-2 font-medium text-main">
+                                                <FileText size={14} className="text-accent shrink-0" />
+                                                <span className="truncate">
+                                                    <HighlightText text={doc.name} highlight={searchQuery} />
+                                                </span>
                                             </div>
                                             {doc.summary && (
-                                                <div className="w-full text-xs text-text-muted line-clamp-2">
-                                                    {doc.summary}
+                                                <div className="w-full text-xs text-muted line-clamp-2">
+                                                    <HighlightText text={doc.summary} highlight={searchQuery} />
                                                 </div>
                                             )}
                                         </button>
                                     ))}
                                 </div>
                             ) : (
-                                <div className="p-4 text-center text-sm text-text-muted">
+                                <div className="p-4 text-center text-sm text-muted">
                                     No documents match this concept.
                                 </div>
                             )}

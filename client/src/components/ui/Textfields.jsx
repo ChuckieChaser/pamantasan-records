@@ -18,12 +18,12 @@ const BASE_FIELD = 'h-full w-full bg-transparent outline-none placeholder:text-m
 // SECTION 2: COMPONENTS
 // ==============================================================================
 
-export const InputField = ({ leftIcon: LeftIcon, rightIcon: RightIcon, size = 'medium', className = '', ...props }) => {
+export const InputField = ({ leftIcon: LeftIcon, rightIcon: RightIcon, leftIconClassName = '', rightIconClassName = '', size = 'medium', className = '', ...props }) => {
     return (
         <div className={`${BASE_WRAPPER} ${UI_SIZES[size]} ${className}`}>
-            {LeftIcon && <LeftIcon className={`${ICON_SIZES[size]} ${BASE_ICON}`} />}
+            {LeftIcon && <LeftIcon className={`${ICON_SIZES[size]} ${BASE_ICON} ${leftIconClassName}`} />}
             <input type="text" className={BASE_FIELD} {...props} />
-            {RightIcon && <RightIcon className={`${ICON_SIZES[size]} ${BASE_ICON}`} />}
+            {RightIcon && <RightIcon className={`${ICON_SIZES[size]} ${BASE_ICON} ${rightIconClassName}`} />}
         </div>
     );
 };

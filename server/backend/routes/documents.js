@@ -615,13 +615,16 @@ router.get('/search', async (req, res) => {
         await withRLS(client, getRLSContext(req), async (c) => {
             const result = await c.query(`
                 SELECT id, name, summary, is_folder, is_archived,
-                       (embedding <-> $1) AS distance
+                       (embedding <-> $1) AS distance,
+                       (name ILIKE $2 OR summary ILIKE $2) AS is_exact_match
                 FROM documents
-                WHERE embedding IS NOT NULL
-                  AND is_folder = false
-                ORDER BY embedding <-> $1 ASC
-                LIMIT 5
-            `, [vectorString]);
+                WHERE is_folder = false 
+                  AND (embedding IS NOT NULL OR name ILIKE $2 OR summary ILIKE $2)
+                ORDER BY 
+                   CASE WHEN (name ILIKE $2 OR summary ILIKE $2) THEN 0 ELSE 1 END ASC,
+                   embedding <-> $1 ASC
+                LIMIT 20
+            `, [vectorString, `%${q}%`]);
 
             res.json(result.rows);
         });

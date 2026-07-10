@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Search, ArrowUpDown, ArrowUp, ArrowDown, Filter, FileText, FileClock, XCircle, Clock, Activity, User, Building, MessageSquare } from 'lucide-react';
 import { Card } from '../ui/Containers';
 import { Badge } from '../ui/Badges';
+import { getAvatarUrl } from '../../utils/avatar';
 import { InputField } from '../ui/Textfields';
 import { FilterMenu } from '../ui/Menus';
 import { useUser } from '../../stores';
@@ -235,7 +236,7 @@ export default function AuditBrowser({ title, description, audits, activeAuditLo
                                             
                                             return (
                                                 <div className="flex items-center gap-2">
-                                                    <img src={actor.avatar_path || '/assets/default_avatar.jpg'} alt="Avatar" className="h-5 w-5 rounded-full object-cover shrink-0" />
+                                                    <img src={getAvatarUrl(actor.avatar_path) || '/assets/default_avatar.jpg'} alt="Avatar" className="h-5 w-5 rounded-full object-cover shrink-0" />
                                                     <span className="font-medium text-main">{actor.first_name} {actor.last_name}</span>
                                                 </div>
                                             );

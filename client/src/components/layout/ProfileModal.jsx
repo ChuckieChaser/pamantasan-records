@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useAuthentication, useDepartment } from '../../stores';
 import { Modal, Badge } from '../ui';
 import avatar from '../../assets/avatar.png';
+import { getAvatarUrl } from '../../utils/avatar';
 
 // ==============================================================================
 // SECTION 1: MODAL
@@ -26,7 +27,7 @@ export default function ProfileModal({ isOpen, onClose }) {
             <div className="flex flex-col gap-6 p-6">
                 <div className="flex items-center gap-6">
                     <div className="size-24 shrink-0 overflow-hidden rounded-full border border-border">
-                        <img src={user.avatar_path || avatar} alt="Profile" className="h-full w-full object-cover" />
+                        <img src={getAvatarUrl(user.avatar_path) || avatar} alt="Profile" className="h-full w-full object-cover" />
                     </div>
                     <div>
                         <h3 className="text-xl font-bold text-main">

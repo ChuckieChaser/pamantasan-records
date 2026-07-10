@@ -40,27 +40,27 @@ ON CONFLICT (code) DO NOTHING;
 -- 2. USERS (CCS — 5 roles for document pipeline approval flow)
 -- NOTE: Inserting these will automatically trigger the creation of user_credentials and user_settings.
 -- ==============================================================================
-INSERT INTO users (id, university_id, department_id, role, email, first_name, middle_name, last_name, status) VALUES
+INSERT INTO users (id, university_id, department_id, role, email, first_name, middle_name, last_name, status, avatar_path) VALUES
     -- Administrator: oversees everything, can manage users & departments
-    ('f1000001-0000-4000-8000-000000000001', '20-00001', 'd0000001-0000-4000-8000-000000000001', 'ADMINISTRATOR', 'admin.ccs@university.edu.ph', 'Arthur', NULL, 'Pendragon', 'VERIFIED'),
+    ('f1000001-0000-4000-8000-000000000001', '20-00001', 'd0000001-0000-4000-8000-000000000001', 'ADMINISTRATOR', 'admin.ccs@university.edu.ph', 'Arthur', NULL, 'Pendragon', 'VERIFIED', '/avatars/manny.jpg'),
     -- Coordinator: uploads documents, submits requests
-    ('f1000001-0000-4000-8000-000000000002', '20-00002', 'd0000001-0000-4000-8000-000000000001', 'COORDINATOR', 'coord.ccs@university.edu.ph', 'Cora', NULL, 'Smith', 'VERIFIED'),
+    ('f1000001-0000-4000-8000-000000000002', '20-00002', 'd0000001-0000-4000-8000-000000000001', 'COORDINATOR', 'coord.ccs@university.edu.ph', 'Cora', NULL, 'Smith', 'VERIFIED', '/avatars/bugs.jpg'),
     -- Director: final publisher (APPROVED → PUBLISHED)
-    ('f1000001-0000-4000-8000-000000000003', '20-00003', 'd0000001-0000-4000-8000-000000000001', 'DIRECTOR', 'director.ccs@university.edu.ph', 'Diana', NULL, 'Prince', 'VERIFIED'),
+    ('f1000001-0000-4000-8000-000000000003', '20-00003', 'd0000001-0000-4000-8000-000000000001', 'DIRECTOR', 'director.ccs@university.edu.ph', 'Diana', NULL, 'Prince', 'VERIFIED', '/avatars/jerry.jpg'),
     -- Officer: first approver (PENDING_APPROVAL → APPROVED)
-    ('f1000001-0000-4000-8000-000000000004', '20-00004', 'd0000001-0000-4000-8000-000000000001', 'OFFICER', 'officer.ccs@university.edu.ph', 'Oliver', NULL, 'Queen', 'VERIFIED'),
+    ('f1000001-0000-4000-8000-000000000004', '20-00004', 'd0000001-0000-4000-8000-000000000001', 'OFFICER', 'officer.ccs@university.edu.ph', 'Oliver', NULL, 'Queen', 'VERIFIED', '/avatars/johnny.jpg'),
     -- Member (CCS): views published documents and submits document requests
-    ('f1000001-0000-4000-8000-000000000005', '20-00005', 'd0000001-0000-4000-8000-000000000001', 'MEMBER', 'member.ccs@university.edu.ph', 'Marcus', NULL, 'Aurelius', 'VERIFIED')
+    ('f1000001-0000-4000-8000-000000000005', '20-00005', 'd0000001-0000-4000-8000-000000000001', 'MEMBER', 'member.ccs@university.edu.ph', 'Marcus', NULL, 'Aurelius', 'VERIFIED', '/avatars/mort.jpg')
 ON CONFLICT (university_id) DO NOTHING;
 
 -- ==============================================================================
 -- 3. USERS (HR — 2 members for document request testing from outside CCS)
 -- ==============================================================================
-INSERT INTO users (id, university_id, department_id, role, email, first_name, middle_name, last_name, status) VALUES
+INSERT INTO users (id, university_id, department_id, role, email, first_name, middle_name, last_name, status, avatar_path) VALUES
     -- HR Member 1: requests documents from CCS
-    ('f1000001-0000-4000-8000-000000000006', '21-00001', 'd0000001-0000-4000-8000-000000000002', 'MEMBER', 'member1.hr@university.edu.ph', 'Helena', NULL, 'Roosevelt', 'VERIFIED'),
+    ('f1000001-0000-4000-8000-000000000006', '21-00001', 'd0000001-0000-4000-8000-000000000002', 'MEMBER', 'member1.hr@university.edu.ph', 'Helena', NULL, 'Roosevelt', 'VERIFIED', '/avatars/sid.jpg'),
     -- HR Member 2: second requester for multi-thread testing
-    ('f1000001-0000-4000-8000-000000000007', '21-00002', 'd0000001-0000-4000-8000-000000000002', 'MEMBER', 'member2.hr@university.edu.ph', 'Henry', NULL, 'Wallace', 'VERIFIED')
+    ('f1000001-0000-4000-8000-000000000007', '21-00002', 'd0000001-0000-4000-8000-000000000002', 'MEMBER', 'member2.hr@university.edu.ph', 'Henry', NULL, 'Wallace', 'VERIFIED', '/avatars/kowalski.jpg')
 ON CONFLICT (university_id) DO NOTHING;
 
 -- ==============================================================================

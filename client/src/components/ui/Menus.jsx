@@ -10,6 +10,7 @@ import SettingsModal from '../layout/SettingsModal';
 import ProfileModal from '../layout/ProfileModal';
 
 import avatar from '../../assets/avatar.png';
+import { getAvatarUrl } from '../../utils/avatar';
 
 // ==============================================================================
 // SECTION 1: NOTIFICATION MENU
@@ -60,7 +61,7 @@ export const NotificationMenu = ({ hasUnread = false, notifications = [], classN
                                             {/* Left side: Avatar + Information */}
                                             <div className="flex flex-1 items-start gap-3">
                                                 <div className="mt-0.5 size-10 shrink-0 overflow-hidden rounded-full border border-border shadow-sm">
-                                                    <img src={notification.avatar || avatar} alt="Actor" className="h-full w-full object-cover" />
+                                                    <img src={getAvatarUrl(notification.avatar) || avatar} alt="Actor" className="h-full w-full object-cover" />
                                                 </div>
                                                 <div className="flex flex-col gap-1 pr-2">
                                                     {notification.title && <span className="text-sm font-medium leading-snug">{notification.title}</span>}
@@ -143,7 +144,7 @@ export const UserMenu = ({ user, onLogout, className = '' }) => {
     return (
         <div className={`relative ${className}`}>
             <ImageButton
-                src={user?.avatar_path || avatar}
+                src={getAvatarUrl(user?.avatar_path) || avatar}
                 alt={user ? `${user.first_name} profile` : 'Profile'}
                 size="medium"
                 onClick={handleToggle}
@@ -156,7 +157,7 @@ export const UserMenu = ({ user, onLogout, className = '' }) => {
                     <MenuContainer className="left-full bottom-0 ml-2 w-72">
                         <MenuHeader>
                             <div className="flex items-center gap-3">
-                                <ImageButton src={user?.avatar_path || avatar} alt="Profile" size="large" />
+                                <ImageButton src={getAvatarUrl(user?.avatar_path) || avatar} alt="Profile" size="large" />
                                 <div className="flex flex-col">
                                     <span className="font-bold text-main">{user?.first_name} {user?.last_name}</span>
                                     <span className="text-xs text-muted">{user?.email}</span>

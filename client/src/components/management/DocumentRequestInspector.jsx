@@ -3,6 +3,7 @@ import { X, FileText, Send, CheckCircle, XCircle, Paperclip, Monitor, HardDrive,
 import { IconButton, PrimaryButton, SecondaryButton, DestructiveButton, InputField, Badge } from '../ui';
 import { TransparentBackdrop, MenuContainer, MenuBody, MenuButton, Modal } from '../ui';
 import { useAuthentication, useDocumentRequestMessage, useUser, useDocumentRequest, useDocument, useCoordinatorRequest, useAttachment } from '../../stores';
+import { getAvatarUrl } from '../../utils/avatar';
 import { DOCUMENT_REQUESTS_STATUS, USERS_ROLE } from '../../constants';
 import { documentsApi, coordinatorRequestsService } from '../../services';
 import DocumentPickerModal from './DocumentPickerModal';
@@ -160,7 +161,7 @@ export default function DocumentRequestInspector({ request, onClose }) {
                 {/* --- Identity --- */}
                 <div className="flex flex-col items-center gap-3 border-b border-border p-6 text-center shrink-0">
                     <img 
-                        src={requester?.avatar_path || '/assets/default_avatar.jpg'} 
+                        src={getAvatarUrl(requester?.avatar_path) || '/assets/default_avatar.jpg'} 
                         alt="Avatar" 
                         className="h-16 w-16 rounded-full object-cover shadow-sm"
                     />
@@ -264,7 +265,7 @@ export default function DocumentRequestInspector({ request, onClose }) {
                                             <div className={`flex max-w-[85%] flex-col gap-1 ${isMe ? 'items-end' : 'items-start'}`}>
                                                 <div className="flex items-center gap-2 px-1">
                                                     {!isMe && sender && (
-                                                        <img src={sender.avatar_path || '/assets/default_avatar.jpg'} alt="Avatar" className="h-4 w-4 rounded-full object-cover" />
+                                                        <img src={getAvatarUrl(sender.avatar_path) || '/assets/default_avatar.jpg'} alt="Avatar" className="h-4 w-4 rounded-full object-cover" />
                                                     )}
                                                     <span className="text-xs font-medium text-muted">
                                                         {isMe ? 'Me' : sender ? `${sender.first_name} ${sender.last_name}` : 'Unknown'} • {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

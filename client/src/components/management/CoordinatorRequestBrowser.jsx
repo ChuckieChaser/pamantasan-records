@@ -5,6 +5,7 @@ import { InputField } from '../ui/Textfields';
 import { PrimaryButton } from '../ui/Buttons';
 import { FilterMenu } from '../ui/Menus';
 import { Badge } from '../ui/Badges';
+import { getAvatarUrl } from '../../utils/avatar';
 import { COORDINATOR_REQUESTS_STATUS, COORDINATOR_REQUESTS_ACTION } from '../../constants';
 
 // ==============================================================================
@@ -182,7 +183,7 @@ export default function CoordinatorRequestBrowser({ title, description, requests
                                             {requester ? (
                                                 <div className="flex items-center gap-3">
                                                     <img 
-                                                        src={requester.avatar_path || '/assets/default_avatar.jpg'} 
+                                                        src={getAvatarUrl(requester.avatar_path) || '/assets/default_avatar.jpg'} 
                                                         alt="Avatar" 
                                                         className="h-6 w-6 rounded-full object-cover shrink-0" 
                                                     />

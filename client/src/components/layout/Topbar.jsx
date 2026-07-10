@@ -5,6 +5,8 @@ import { Search, PanelRight, FileText, Loader2, Sparkles, Archive, Share2, XCirc
 import { useAuthentication, useNotification, useDocument, useDocumentRequest, useCoordinatorRequest, useUser, useDepartment, useDocumentViewer, useDocumentShare } from '../../stores';
 import { IconButton, InputField, NotificationMenu, Breadcrumb } from '../ui';
 import { apiClient } from '../../services/api/axios';
+import { getAvatarUrl } from '../../utils/avatar';
+import DefaultAvatar from '../../assets/avatar.png';
 
 // ==============================================================================
 // SECTION 1: TOPBAR
@@ -163,7 +165,7 @@ const Topbar = ({ onToggleInspector, isInspectorOpen }) => {
             message: null,
             time: new Date(notification.last_interaction_at).toLocaleString(),
             count: notification.interaction_count,
-            avatar: foundUser ? foundUser.avatar_path : null,
+            avatar: foundUser ? getAvatarUrl(foundUser.avatar_path) : DefaultAvatar,
             is_read: notification.is_read,
             onClick: async () => {
                 if (notification.notification_ids && !notification.is_read) {

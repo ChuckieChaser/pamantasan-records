@@ -73,19 +73,24 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /api/users
-router.post('/', async (req, res) => {
+router.post('/', upload.single('avatar'), async (req, res) => {
     const { university_id, department_id, role, email, first_name, middle_name, last_name, password } = req.body;
     if (!university_id || !department_id || !role || !email || !first_name || !last_name) {
         return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    let avatarPath = null;
+    if (req.file) {
+        avatarPath = `/avatars/${req.file.filename}`;
     }
 
     const client = await pool.connect();
     try {
         await withRLS(client, getRLSContext(req), async (c) => {
             const result = await c.query(
-                `INSERT INTO users (university_id, department_id, role, email, first_name, middle_name, last_name)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-                [university_id, department_id, role, email, first_name, middle_name || null, last_name]
+                `INSERT INTO users (university_id, department_id, role, email, first_name, middle_name, last_name, avatar_path)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+                [university_id, department_id, role, email, first_name, middle_name || null, last_name, avatarPath]
             );
 
             // Note: user_settings and user_credentials are automatically created by the trigger_initialize_user_data trigger on the database level.

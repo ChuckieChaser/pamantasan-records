@@ -4,6 +4,7 @@ import { IconButton, PrimaryButton, DestructiveButton, SecondaryButton, Modal } 
 import UserModal from './UserModal';
 import { useDepartment, useUser, useAuthentication, useCoordinatorRequest } from '../../stores';
 import { USERS_STATUS, USERS_ROLE } from '../../constants';
+import { getAvatarUrl } from '../../utils/avatar';
 
 // ==============================================================================
 // SECTION 1: COMPONENT
@@ -70,7 +71,7 @@ export default function UserInspector({ user, onClose }) {
                 {/* --- Identity --- */}
                 <div className="flex flex-col items-center gap-3 border-b border-border p-6 text-center">
                     <img
-                        src={user.avatar_path || '/assets/default_avatar.jpg'}
+                        src={getAvatarUrl(user.avatar_path) || '/assets/default_avatar.jpg'}
                         alt="Avatar"
                         className="h-16 w-16 rounded-full object-cover shadow-sm"
                     />

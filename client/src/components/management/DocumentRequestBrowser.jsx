@@ -6,6 +6,7 @@ import { PrimaryButton } from '../ui/Buttons';
 import { FilterMenu } from '../ui/Menus';
 import { Badge } from '../ui/Badges';
 import { DOCUMENT_REQUESTS_STATUS } from '../../constants';
+import { getAvatarUrl } from '../../utils/avatar';
 
 // ==============================================================================
 // SECTION 1: UTILITIES
@@ -166,7 +167,7 @@ export default function DocumentRequestBrowser({ title, description, requests, u
                                             {requester ? (
                                                 <div className="flex items-center gap-3">
                                                     <img 
-                                                        src={requester.avatar_path || '/assets/default_avatar.jpg'} 
+                                                        src={getAvatarUrl(requester.avatar_path) || '/assets/default_avatar.jpg'} 
                                                         alt="Avatar" 
                                                         className="h-6 w-6 rounded-full object-cover shrink-0" 
                                                     />

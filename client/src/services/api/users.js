@@ -7,8 +7,8 @@ export const usersApi = {
     getByUniversityId:(uid)          => apiClient.get('/users', { params: { university_id: uid } }).then(r => r.data[0] ?? null),
     getByDepartmentId:(deptId)       => apiClient.get('/users', { params: { department_id: deptId } }).then(r => r.data),
     getByRole:        (role)         => apiClient.get('/users', { params: { role } }).then(r => r.data),
-    create:           (data)         => apiClient.post('/users', data).then(r => r.data),
-    update:           (id, data)     => apiClient.patch(`/users/${id}`, data).then(r => r.data),
+    create:           (data)         => apiClient.post('/users', data, { headers: { 'Content-Type': data instanceof FormData ? 'multipart/form-data' : 'application/json' } }).then(r => r.data),
+    update:           (id, data)     => apiClient.patch(`/users/${id}`, data, { headers: { 'Content-Type': data instanceof FormData ? 'multipart/form-data' : 'application/json' } }).then(r => r.data),
 
     // --- Settings ---
     getSettings:      (id)           => apiClient.get(`/users/${id}/settings`).then(r => r.data),

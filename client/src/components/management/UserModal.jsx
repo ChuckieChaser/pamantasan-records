@@ -15,6 +15,7 @@ export default function UserModal({ isOpen, onClose, user = null }) {
     const { create: createCoordinatorRequest } = useCoordinatorRequest();
 
     const [avatarPath, setAvatarPath] = useState('');
+    const [avatarFile, setAvatarFile] = useState(null);
     const [firstName, setFirstName] = useState('');
     const [middleName, setMiddleName] = useState('');
     const [lastName, setLastName] = useState('');
@@ -73,6 +74,7 @@ export default function UserModal({ isOpen, onClose, user = null }) {
     const handleAvatarChange = (e) => {
         const file = e.target.files[0];
         if (file) {
+            setAvatarFile(file);
             const reader = new FileReader();
             reader.onload = (event) => {
                 setAvatarPath(event.target.result);
@@ -106,7 +108,6 @@ export default function UserModal({ isOpen, onClose, user = null }) {
                         action: 'USER_UPDATE',
                         data: {
                             id: user.id,
-                            avatar_path: avatarPath.trim() || null,
                             first_name: firstName.trim(),
                             middle_name: middleName.trim() || null,
                             last_name: lastName.trim(),
@@ -120,7 +121,6 @@ export default function UserModal({ isOpen, onClose, user = null }) {
                         requester_id: currentUser.id,
                         action: 'USER_CREATE',
                         data: {
-                            avatar_path: avatarPath.trim() || null,
                             first_name: firstName.trim(),
                             middle_name: middleName.trim() || null,
                             last_name: lastName.trim(),
@@ -135,30 +135,30 @@ export default function UserModal({ isOpen, onClose, user = null }) {
                 }
             } else {
                 if (isEditMode) {
-                    await update(user.id, {
-                        avatar_path: avatarPath.trim() || null,
-                        first_name: firstName.trim(),
-                        middle_name: middleName.trim() || null,
-                        last_name: lastName.trim(),
-                        department_id: departmentId,
-                        role: role,
-                        // Note: Admin cannot change email, password, or university_id in standard flows
-                    });
+                    const formData = new FormData();
+                    if (avatarFile) formData.append('avatar', avatarFile);
+                    formData.append('first_name', firstName.trim());
+                    if (middleName.trim()) formData.append('middle_name', middleName.trim());
+                    formData.append('last_name', lastName.trim());
+                    formData.append('department_id', departmentId);
+                    formData.append('role', role);
+
+                    await update(user.id, formData);
                 } else {
                     const finalPassword = password.trim() || universityId.trim();
+                    const formData = new FormData();
+                    if (avatarFile) formData.append('avatar', avatarFile);
+                    formData.append('first_name', firstName.trim());
+                    if (middleName.trim()) formData.append('middle_name', middleName.trim());
+                    formData.append('last_name', lastName.trim());
+                    formData.append('university_id', universityId.trim());
+                    formData.append('department_id', departmentId);
+                    formData.append('role', role);
+                    formData.append('email', email.trim());
+                    formData.append('password', finalPassword);
+                    formData.append('status', USERS_STATUS.PENDING_PASSWORD);
                     
-                    await create({
-                        avatar_path: avatarPath.trim() || null,
-                        first_name: firstName.trim(),
-                        middle_name: middleName.trim() || null,
-                        last_name: lastName.trim(),
-                        university_id: universityId.trim(),
-                        department_id: departmentId,
-                        role: role,
-                        email: email.trim(),
-                        password: finalPassword,
-                        status: USERS_STATUS.PENDING_PASSWORD
-                    });
+                    await create(formData);
                 }
             }
             onClose();
@@ -184,26 +184,28 @@ export default function UserModal({ isOpen, onClose, user = null }) {
                         </div>
                         
                         <div className="grid grid-cols-2 gap-4">
-                            <div className="flex flex-col gap-1.5 col-span-2 items-center mb-4">
-                                <label className="text-sm font-semibold text-main mb-1">Avatar Profile</label>
-                                <div className="relative group cursor-pointer w-24 h-24 rounded-full overflow-hidden border-2 border-border shadow-sm">
-                                    <input 
-                                        type="file" 
-                                        accept="image/*" 
-                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
-                                        onChange={handleAvatarChange}
-                                    />
-                                    <img 
-                                        src={avatarPath || '/assets/default_avatar.jpg'} 
-                                        alt="Avatar" 
-                                        className="w-full h-full object-cover transition-opacity group-hover:opacity-50"
-                                    />
-                                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none bg-black/40">
-                                        <Camera className="size-6 text-white" />
+                            {currentUser?.role === USERS_ROLE.ADMINISTRATOR && (
+                                <div className="flex flex-col gap-1.5 col-span-2 items-center mb-4">
+                                    <label className="text-sm font-semibold text-main mb-1">Avatar Profile</label>
+                                    <div className="relative group cursor-pointer w-24 h-24 rounded-full overflow-hidden border-2 border-border shadow-sm">
+                                        <input 
+                                            type="file" 
+                                            accept="image/*" 
+                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+                                            onChange={handleAvatarChange}
+                                        />
+                                        <img 
+                                            src={avatarPath || '/assets/default_avatar.jpg'} 
+                                            alt="Avatar" 
+                                            className="w-full h-full object-cover transition-opacity group-hover:opacity-50"
+                                        />
+                                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none bg-black/40">
+                                            <Camera className="size-6 text-white" />
+                                        </div>
                                     </div>
+                                    <span className="text-xs text-muted mt-1">Click to upload photo</span>
                                 </div>
-                                <span className="text-xs text-muted mt-1">Click to upload photo</span>
-                            </div>
+                            )}
 
                             <div className="flex flex-col gap-1.5">
                                 <label className="text-sm font-semibold text-main">First Name</label>

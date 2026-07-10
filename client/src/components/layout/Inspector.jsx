@@ -10,6 +10,7 @@ import { useAuthentication, useDocument, useDocumentVersion, useDocumentShare, u
 import { USERS_ROLE, DOCUMENT_SHARE_STATUS } from '../../constants';
 import { IconButton, PrimaryButton, SecondaryButton, DestructiveButton, getFileIcon, Modal, TextArea, SelectField, InputField, ConfirmActionModal } from '../ui';
 import DefaultAvatar from '../../assets/avatar.png';
+import { getAvatarUrl } from '../../utils/avatar';
 
 // ==============================================================================
 // SECTION 1: UTILITIES
@@ -1243,7 +1244,7 @@ const Inspector = ({ document, auditLog, onClose }) => {
                                                         className={`flex cursor-pointer items-center justify-between rounded-md border p-2.5 transition-colors ${isSelected ? 'border-accent bg-accent/10 text-accent' : 'border-border bg-surface text-main hover:bg-surface-hover'}`}
                                                     >
                                                         <div className="flex items-center gap-3">
-                                                            <img src={u.avatar_path || DefaultAvatar} alt="Avatar" className="h-8 w-8 shrink-0 rounded-full object-cover ring-1 ring-border" />
+                                                            <img src={getAvatarUrl(u.avatar_path) || DefaultAvatar} alt="Avatar" className="h-8 w-8 shrink-0 rounded-full object-cover ring-1 ring-border" />
                                                             <div className="flex flex-col text-left">
                                                                 <span className="text-sm font-medium leading-tight">{u.first_name} {u.last_name}</span>
                                                                 <span className={`mt-0.5 text-[10px] font-bold uppercase tracking-wider ${isSelected ? 'text-accent/70' : 'text-muted'}`}>

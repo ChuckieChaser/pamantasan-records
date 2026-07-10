@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Search, ArrowUpDown, ArrowUp, ArrowDown, User, Shield, Activity, Users, FileSignature, CheckCircle, Clock, XCircle, Plus, Filter } from 'lucide-react';
+import { getAvatarUrl } from '../../utils/avatar';
 import { Card } from '../ui/Containers';
 import { InputField } from '../ui/Textfields';
 import { PrimaryButton } from '../ui/Buttons';
@@ -191,7 +192,7 @@ export default function UserBrowser({ title, description, users, departments, ac
                                         <td className="px-4 py-4">
                                             <div className="flex items-center gap-3">
                                                 <img 
-                                                    src={user.avatar_path || '/assets/default_avatar.jpg'} 
+                                                    src={getAvatarUrl(user.avatar_path) || '/assets/default_avatar.jpg'}
                                                     alt="Avatar" 
                                                     className="h-6 w-6 rounded-full object-cover shrink-0" 
                                                 />

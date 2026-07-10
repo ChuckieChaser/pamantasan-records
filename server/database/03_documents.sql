@@ -193,8 +193,8 @@ CREATE POLICY documents_select_access ON documents FOR SELECT USING (
                 WHERE ds.document_id = documents.id
                 AND ds.department_id = get_user_current_department_id()
                 AND (
-                    (ds.status IN ('PENDING_APPROVAL', 'APPROVED', 'PUBLISHED') AND is_officer_role()) OR
-                    (ds.status IN ('APPROVED', 'PUBLISHED') AND is_director_role()) OR
+                    (ds.status IN ('PENDING_APPROVAL', 'APPROVED', 'PUBLISHED', 'STASHED') AND is_officer_role()) OR
+                    (ds.status IN ('APPROVED', 'PUBLISHED', 'STASHED') AND is_director_role()) OR
                     (ds.status = 'PUBLISHED' AND is_member_role() AND (ds.recipient_id IS NULL OR ds.recipient_id = get_user_current_id()))
                 )
             ) OR

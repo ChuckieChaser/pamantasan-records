@@ -33,8 +33,18 @@ apiClient.interceptors.request.use((config) => {
 // --- Response interceptor: surface error messages cleanly ---
 apiClient.interceptors.response.use(
     (response) => response,
-    (error) => {
-        const message = error.response?.data?.error || error.message || 'Unknown error';
+    async (error) => {
+        let message = error.message || 'Unknown error';
+        if (error.response?.data instanceof Blob && error.response.data.type?.includes('json')) {
+            try {
+                const text = await error.response.data.text();
+                const json = JSON.parse(text);
+                message = json.error || json.detail || message;
+                console.error('[API ERROR]', json);
+            } catch (_) { /* ignore parse failure */ }
+        } else {
+            message = error.response?.data?.error || message;
+        }
         return Promise.reject(new Error(message));
     }
 );

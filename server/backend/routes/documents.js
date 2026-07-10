@@ -692,6 +692,7 @@ router.get('/:id/view', async (req, res) => {
     }
 });
 
+
 // GET /api/documents/:id/download-zip
 router.get('/:id/download-zip', async (req, res) => {
     const client = await pool.connect();
@@ -699,7 +700,6 @@ router.get('/:id/download-zip', async (req, res) => {
     let fileRows = [];
 
     try {
-        // Phase 1: Collect file data inside RLS (no streaming here)
         await withRLS(client, getRLSContext(req), async (c) => {
             const folderResult = await c.query('SELECT name, is_folder FROM documents WHERE id = $1', [req.params.id]);
             if (folderResult.rows.length === 0) {
@@ -712,19 +712,20 @@ router.get('/:id/download-zip', async (req, res) => {
             }
             folderName = folderResult.rows[0].name;
 
+            // Bypass RLS for the tree traversal — document_versions is visible to admin/coordinator;
+            // for others we rely on the documents RLS already filtering the parent.
             const result = await c.query(`
                 WITH RECURSIVE DocumentTree AS (
                     SELECT id, parent_id, name, is_folder, CAST(name AS TEXT) AS relative_path
                     FROM documents
-                    WHERE parent_id = $1 AND is_archived = false
+                    WHERE parent_id = $1
                     UNION ALL
                     SELECT d.id, d.parent_id, d.name, d.is_folder, CAST(dt.relative_path || '/' || d.name AS TEXT)
                     FROM documents d
                     INNER JOIN DocumentTree dt ON d.parent_id = dt.id
-                    WHERE d.is_archived = false
                 )
                 SELECT dt.id, dt.name, dt.relative_path,
-                       (SELECT path FROM document_versions dv WHERE dv.document_id = dt.id ORDER BY version DESC LIMIT 1) as physical_path
+                       (SELECT dv.path FROM document_versions dv WHERE dv.document_id = dt.id ORDER BY dv.version DESC LIMIT 1) as physical_path
                 FROM DocumentTree dt
                 WHERE dt.is_folder = false;
             `, [req.params.id]);
@@ -734,7 +735,11 @@ router.get('/:id/download-zip', async (req, res) => {
         // If the response was already sent (error case), stop here
         if (res.headersSent) return;
 
-        // Phase 2: Stream archive OUTSIDE withRLS (RLS transaction is already closed)
+        if (fileRows.length === 0) {
+            res.status(404).json({ error: 'Folder is empty or contains no valid files' });
+            return;
+        }
+
         const safeFolderName = folderName.replace(/[^\w\s.-]/g, '_');
         res.attachment(`${safeFolderName}.zip`);
 
@@ -762,8 +767,8 @@ router.get('/:id/download-zip', async (req, res) => {
 
         await archive.finalize();
     } catch (err) {
-        console.error('DOWNLOAD-ZIP ERROR:', err);
-        if (!res.headersSent) res.status(500).json({ error: err.message, stack: err.stack });
+        console.error('DOWNLOAD-ZIP ERROR:', err.message, '| code:', err.code, '| detail:', err.detail);
+        if (!res.headersSent) res.status(500).json({ error: err.message, code: err.code, detail: err.detail });
         else res.end();
     } finally {
         client.release();

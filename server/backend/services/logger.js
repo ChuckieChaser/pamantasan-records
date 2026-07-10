@@ -10,8 +10,9 @@ class LoggerService extends EventEmitter {
         const entry = {
             id: Date.now().toString() + Math.random().toString(36).substring(7),
             timestamp: new Date().toISOString(),
-            level: level.toUpperCase(), // INFO, SUCCESS, WARNING, ERROR
+            level: level.toUpperCase(), // INFO, SUCCESS, WARNING, ERROR, PROGRESS
             message,
+            subMessage: '',
             source
         };
 
@@ -55,10 +56,20 @@ class LoggerService extends EventEmitter {
         if (index !== -1) {
             this.logs[index].level = level.toUpperCase();
             this.logs[index].message = message;
+            this.logs[index].subMessage = ''; // Clear subMessage on completion
             this.logs[index].timestamp = new Date().toISOString(); // refresh timestamp
 
             this.emit('update_log', this.logs[index]);
             console.log(`[${this.logs[index].timestamp}] [${this.logs[index].level}] [${this.logs[index].source}] ${this.logs[index].message} (UPDATED)`);
+        }
+    }
+
+    updateProgress(id, subMessage) {
+        const index = this.logs.findIndex(l => l.id === id);
+        if (index !== -1) {
+            this.logs[index].subMessage = subMessage;
+            this.emit('update_log', this.logs[index]);
+            // Don't clutter console with subMessage updates
         }
     }
 

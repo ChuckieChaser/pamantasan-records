@@ -171,6 +171,9 @@ export default function LogViewer() {
                                 }`}>
                                     {log.message}
                                 </span>
+                                {log.subMessage && (
+                                    <span className="text-xs text-muted/80">{log.subMessage}</span>
+                                )}
                                 {log.context && (
                                     <span className="text-[10px] font-mono text-muted/70 uppercase truncate">{log.context}</span>
                                 )}

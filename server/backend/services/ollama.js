@@ -43,10 +43,11 @@ class OllamaService {
         return false;
     }
 
-    async generate(prompt) {
+    async generate(prompt, onProgress) {
         const model = this.activeModels.summarize;
         logger.info(`Generating completion using model: ${model}`, 'OLLAMA');
         try {
+            if (onProgress) onProgress('connecting to ai...');
             const response = await fetch(`${OLLAMA_URL}/api/generate`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -56,6 +57,8 @@ class OllamaService {
                     stream: false
                 })
             });
+
+            if (onProgress) onProgress('prompting to ai...');
 
             if (!response.ok) {
                 const errorText = await response.text();
@@ -70,9 +73,10 @@ class OllamaService {
         }
     }
 
-    async embed(text) {
+    async embed(text, onProgress) {
         const model = this.activeModels.embed;
         try {
+            if (onProgress) onProgress('connecting to ai...');
             const response = await fetch(`${OLLAMA_URL}/api/embeddings`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -81,6 +85,8 @@ class OllamaService {
                     prompt: text
                 })
             });
+
+            if (onProgress) onProgress('prompting to ai...');
 
             if (!response.ok) {
                 const errorText = await response.text();

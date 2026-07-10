@@ -1071,7 +1071,10 @@ async function processDocumentAI(documentId, versionId, physicalPath, mimeType, 
 
         // 1. Generate Summary (for all versions)
         const summaryLog = logger.progress(`Generating AI summary for document ${documentId}...`, 'AI');
-        summary = await ollamaService.generate(`Summarize this document concisely in one or two paragraphs:\n\n${text}`);
+        summary = await ollamaService.generate(
+            `Summarize this document concisely in one or two paragraphs:\n\n${text}`,
+            (msg) => logger.updateProgress(summaryLog.id, msg)
+        );
         if (summary) {
             logger.update(summaryLog.id, 'SUCCESS', `AI summary generated for document ${documentId}`);
         } else {
@@ -1090,7 +1093,10 @@ async function processDocumentAI(documentId, versionId, physicalPath, mimeType, 
                 const prevText = await textExtractor.extract(prevPath, prevVer.rows[0].mime_type);
                 if (prevText) {
                     const diffLog = logger.progress(`Generating AI change summary for document ${documentId}...`, 'AI');
-                    changeSummary = await ollamaService.generate(`Compare these two versions of a document and provide a bulleted list of the key changes. Do not include any intro/outro text, just the bullet points.\n\n[PREVIOUS VERSION]\n${prevText}\n\n[NEW VERSION]\n${text}`);
+                    changeSummary = await ollamaService.generate(
+                        `Compare these two versions of a document and provide a bulleted list of the key changes. Do not include any intro/outro text, just the bullet points.\n\n[PREVIOUS VERSION]\n${prevText}\n\n[NEW VERSION]\n${text}`,
+                        (msg) => logger.updateProgress(diffLog.id, msg)
+                    );
                     if (changeSummary) {
                         logger.update(diffLog.id, 'SUCCESS', `AI change summary generated for document ${documentId}`);
                     } else {
@@ -1103,7 +1109,10 @@ async function processDocumentAI(documentId, versionId, physicalPath, mimeType, 
         // 3. Generate Embeddings for Semantic Search
         // We embed the summary to save tokens and focus on core concepts, but we could embed the full text.
         const embedLog = logger.progress(`Generating AI embeddings for document ${documentId}...`, 'AI');
-        const embedding = await ollamaService.embed(summary || text);
+        const embedding = await ollamaService.embed(
+            summary || text,
+            (msg) => logger.updateProgress(embedLog.id, msg)
+        );
         if (embedding) {
             logger.update(embedLog.id, 'SUCCESS', `AI embeddings generated for document ${documentId}`);
         } else {

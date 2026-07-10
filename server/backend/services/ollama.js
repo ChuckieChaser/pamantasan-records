@@ -45,7 +45,6 @@ class OllamaService {
 
     async generate(prompt, onProgress) {
         const model = this.activeModels.summarize;
-        logger.info(`Generating completion using model: ${model}`, 'OLLAMA');
         try {
             if (onProgress) onProgress('Connecting to AI model...');
             const response = await fetch(`${OLLAMA_URL}/api/generate`, {

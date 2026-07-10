@@ -1066,15 +1066,20 @@ async function processDocumentAI(documentId, versionId, physicalPath, mimeType, 
         return;
     }
 
+    const MAX_AI_TEXT_LENGTH = 4000;
+    const truncatedText = text.length > MAX_AI_TEXT_LENGTH ? text.substring(0, MAX_AI_TEXT_LENGTH) + '...' : text;
+
     const client = await pool.connect();
     try {
         let summary = null;
         let changeSummary = null;
 
         // 1. Generate Summary (for all versions)
+        const activeModels = ollamaService.getActiveModels();
+        logger.info(`Generating completion using model: ${activeModels.summarize}`, 'OLLAMA');
         const summaryLog = logger.progress(`Summarizing document...`, 'AI');
         summary = await ollamaService.generate(
-            `Summarize this document concisely in one or two paragraphs:\n\n${text}`,
+            `Summarize this document. Make it 1 to 2 short sentences only:\n\n${truncatedText}`,
             (msg) => logger.updateProgress(summaryLog.id, msg)
         );
         if (summary) {
@@ -1094,9 +1099,10 @@ async function processDocumentAI(documentId, versionId, physicalPath, mimeType, 
                 const prevPath = path.join(DOCUMENTS_PATH, prevVer.rows[0].path);
                 const prevText = await textExtractor.extract(prevPath, prevVer.rows[0].mime_type);
                 if (prevText) {
+                    const truncatedPrevText = prevText.length > MAX_AI_TEXT_LENGTH ? prevText.substring(0, MAX_AI_TEXT_LENGTH) + '...' : prevText;
                     const diffLog = logger.progress(`Generating change summary...`, 'AI');
                     changeSummary = await ollamaService.generate(
-                        `Compare these two versions of a document and provide a bulleted list of the key changes. Do not include any intro/outro text, just the bullet points.\n\n[PREVIOUS VERSION]\n${prevText}\n\n[NEW VERSION]\n${text}`,
+                        `Compare these two versions of a document and provide a bulleted list of the key changes. Do not include any intro/outro text, just the bullet points.\n\n[PREVIOUS VERSION]\n${truncatedPrevText}\n\n[NEW VERSION]\n${truncatedText}`,
                         (msg) => logger.updateProgress(diffLog.id, msg)
                     );
                     if (changeSummary) {
@@ -1110,9 +1116,10 @@ async function processDocumentAI(documentId, versionId, physicalPath, mimeType, 
 
         // 3. Generate Embeddings for Semantic Search
         // We embed the summary to save tokens and focus on core concepts, but we could embed the full text.
+        logger.info(`Embedding using model: ${activeModels.embed}`, 'OLLAMA');
         const embedLog = logger.progress(`Embedding document...`, 'AI');
         const embedding = await ollamaService.embed(
-            summary || text,
+            summary || truncatedText,
             (msg) => logger.updateProgress(embedLog.id, msg)
         );
         if (embedding) {

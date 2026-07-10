@@ -175,7 +175,7 @@ CREATE POLICY document_request_attachments_delete_access ON document_request_att
 CREATE POLICY document_shares_select_access ON document_shares FOR SELECT USING (is_system_role() OR is_administrator_role() OR is_coordinator_role() OR ((is_director_role() OR is_officer_role()) AND department_id = get_user_current_department_id()) OR sharer_id = get_user_current_id() OR recipient_id = get_user_current_id() OR department_id = get_user_current_department_id());
 CREATE POLICY document_shares_insert_access ON document_shares FOR INSERT WITH CHECK (is_system_role() OR is_administrator_role() OR (is_director_role() AND department_id = get_user_current_department_id()));
 CREATE POLICY document_shares_update_access ON document_shares FOR UPDATE USING (is_system_role() OR is_administrator_role() OR ((is_director_role() OR is_officer_role()) AND department_id = get_user_current_department_id())) WITH CHECK (is_system_role() OR is_administrator_role() OR ((is_director_role() OR is_officer_role()) AND department_id = get_user_current_department_id()));
-CREATE POLICY document_shares_delete_access ON document_shares FOR DELETE USING (is_system_role() OR is_administrator_role() OR (is_director_role() AND department_id = get_user_current_department_id()));
+CREATE POLICY document_shares_delete_access ON document_shares FOR DELETE USING (is_system_role() OR is_administrator_role() OR ((is_director_role() OR is_officer_role()) AND department_id = get_user_current_department_id()));
 
 -- Documents (The Mega-Filter)
 -- REFACTORED: Now checking the status inside the document_shares table (ds.status)

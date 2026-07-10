@@ -163,7 +163,7 @@ router.patch('/shares/:id', async (req, res) => {
         await withRLS(client, getRLSContext(req), async (c) => {
             const shareRes = await c.query('SELECT document_id, department_id, recipient_id, sharer_id, id FROM document_shares WHERE id = $1', [req.params.id]);
             if (shareRes.rows.length === 0) return res.status(404).json({ error: 'Share not found' });
-            
+
             const share = shareRes.rows[0];
             const userId = getRLSContext(req).userId;
             const userRole = getRLSContext(req).role;
@@ -643,7 +643,8 @@ router.get('/:id/download', async (req, res) => {
             return;
         }
 
-        res.attachment(`${fileName}.zip`);
+        const safeFileName = fileName.replace(/[^\w\s.-]/g, '_');
+        res.attachment(`${safeFileName}.zip`);
 
         const archive = archiver('zip', { zlib: { level: 9 } });
         archive.on('error', (err) => {
@@ -653,7 +654,9 @@ router.get('/:id/download', async (req, res) => {
         archive.file(physicalPath, { name: finalName });
         await archive.finalize();
     } catch (err) {
-        if (!res.headersSent) res.status(500).json({ error: err.message });
+        console.error('DOWNLOAD ERROR:', err);
+        if (!res.headersSent) res.status(500).json({ error: err.message, stack: err.stack });
+        else res.end();
     } finally {
         client.release();
     }
@@ -732,11 +735,20 @@ router.get('/:id/download-zip', async (req, res) => {
         if (res.headersSent) return;
 
         // Phase 2: Stream archive OUTSIDE withRLS (RLS transaction is already closed)
-        res.attachment(`${folderName}.zip`);
+        const safeFolderName = folderName.replace(/[^\w\s.-]/g, '_');
+        res.attachment(`${safeFolderName}.zip`);
+
         const archive = archiver('zip', { zlib: { level: 9 } });
         archive.on('error', (err) => {
+            console.error('ARCHIVER ERROR (ZIP):', err);
             if (!res.headersSent) res.status(500).json({ error: err.message });
+            else res.end();
         });
+
+        archive.on('warning', (err) => {
+            console.warn('ARCHIVER WARNING (ZIP):', err);
+        });
+
         archive.pipe(res);
 
         for (const file of fileRows) {
@@ -750,9 +762,9 @@ router.get('/:id/download-zip', async (req, res) => {
 
         await archive.finalize();
     } catch (err) {
-        if (!res.headersSent) {
-            res.status(500).json({ error: err.message });
-        }
+        console.error('DOWNLOAD-ZIP ERROR:', err);
+        if (!res.headersSent) res.status(500).json({ error: err.message, stack: err.stack });
+        else res.end();
     } finally {
         client.release();
     }

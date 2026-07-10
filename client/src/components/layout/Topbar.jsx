@@ -4,7 +4,7 @@ import { Search, PanelRight, FileText, Loader2, Sparkles } from 'lucide-react';
 
 import { useAuthentication, useNotification, useDocument, useDocumentRequest, useCoordinatorRequest, useUser, useDepartment, useDocumentViewer } from '../../stores';
 import { IconButton, InputField, NotificationMenu, Breadcrumb } from '../ui';
-import api from '../../services/api/axios';
+import { apiClient } from '../../services/api/axios';
 
 // ==============================================================================
 // SECTION 1: TOPBAR
@@ -50,7 +50,7 @@ const Topbar = ({ onToggleInspector, isInspectorOpen }) => {
             
             setIsSearching(true);
             try {
-                const response = await api.get(`/documents/search?q=${encodeURIComponent(searchQuery)}`);
+                const response = await apiClient.get(`/documents/search?q=${encodeURIComponent(searchQuery)}`);
                 setSearchResults(response.data);
                 setShowResults(true);
             } catch (err) {

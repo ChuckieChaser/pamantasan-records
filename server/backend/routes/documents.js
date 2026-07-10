@@ -11,6 +11,29 @@ import { ollamaService } from '../services/ollama.js';
 import { logger } from '../services/logger.js';
 import { createRequire } from 'module'
 
+const MAX_AI_TEXT_LENGTH = 4000;
+
+const AI_PROMPTS = {
+    summarize: `You are an expert summarizer. Summarize the following document.
+CRITICAL INSTRUCTIONS:
+- Provide ONLY the summary itself.
+- Do NOT include any conversational filler, introductions, or conclusions (e.g., never say "Here is the summary", "This document", etc.).
+- Your entire response MUST be exactly 1 or 2 very short sentences.
+
+DOCUMENT:
+`,
+    compare: `You are an expert document reviewer. Compare these two versions of a document.
+CRITICAL INSTRUCTIONS:
+- Provide ONLY a bulleted list of the key changes.
+- Do NOT include any conversational filler, introductions, or conclusions (e.g., never say "Here are the changes").
+
+[PREVIOUS VERSION]
+{PREV_TEXT}
+
+[NEW VERSION]
+{NEW_TEXT}`
+};
+
 const require = createRequire(import.meta.url);
 const archiver = require('archiver');
 
@@ -1066,7 +1089,6 @@ async function processDocumentAI(documentId, versionId, physicalPath, mimeType, 
         return;
     }
 
-    const MAX_AI_TEXT_LENGTH = 4000;
     const truncatedText = text.length > MAX_AI_TEXT_LENGTH ? text.substring(0, MAX_AI_TEXT_LENGTH) + '...' : text;
 
     const client = await pool.connect();
@@ -1079,7 +1101,7 @@ async function processDocumentAI(documentId, versionId, physicalPath, mimeType, 
         logger.info(`Generating completion using model: ${activeModels.summarize}`, 'OLLAMA');
         const summaryLog = logger.progress(`Summarizing document...`, 'AI');
         summary = await ollamaService.generate(
-            `Summarize this document. Make it 1 to 2 short sentences only:\n\n${truncatedText}`,
+            AI_PROMPTS.summarize + truncatedText,
             (msg) => logger.updateProgress(summaryLog.id, msg)
         );
         if (summary) {
@@ -1102,7 +1124,9 @@ async function processDocumentAI(documentId, versionId, physicalPath, mimeType, 
                     const truncatedPrevText = prevText.length > MAX_AI_TEXT_LENGTH ? prevText.substring(0, MAX_AI_TEXT_LENGTH) + '...' : prevText;
                     const diffLog = logger.progress(`Generating change summary...`, 'AI');
                     changeSummary = await ollamaService.generate(
-                        `Compare these two versions of a document and provide a bulleted list of the key changes. Do not include any intro/outro text, just the bullet points.\n\n[PREVIOUS VERSION]\n${truncatedPrevText}\n\n[NEW VERSION]\n${truncatedText}`,
+                        AI_PROMPTS.compare
+                            .replace('{PREV_TEXT}', truncatedPrevText)
+                            .replace('{NEW_TEXT}', truncatedText),
                         (msg) => logger.updateProgress(diffLog.id, msg)
                     );
                     if (changeSummary) {

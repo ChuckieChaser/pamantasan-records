@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS documents (
     comment TEXT NULL,
     is_folder BOOLEAN NOT NULL DEFAULT FALSE,
     summary TEXT NULL,
-    embedding vector(1536) NULL,
+    embedding vector(768) NULL,
     is_archived BOOLEAN NOT NULL DEFAULT FALSE,
     created_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP

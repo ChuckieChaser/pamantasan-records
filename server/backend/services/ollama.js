@@ -5,6 +5,73 @@ const OLLAMA_URL = process.env.OLLAMA_URL || 'http://127.0.0.1:11434';
 class OllamaService {
     constructor() {
         this.activePulls = new Map(); // modelName -> AbortController
+        this.activeModels = {
+            summarize: process.env.OLLAMA_SUMMARIZE_MODEL || 'llama3',
+            embed: process.env.OLLAMA_EMBED_MODEL || 'nomic-embed-text'
+        };
+    }
+
+    getActiveModels() {
+        return this.activeModels;
+    }
+
+    setActiveModel(type, modelName) {
+        if (type === 'summarize' || type === 'embed') {
+            this.activeModels[type] = modelName;
+            logger.info(`Active ${type} model set to: ${modelName}`, 'OLLAMA');
+            return true;
+        }
+        return false;
+    }
+
+    async generate(prompt) {
+        const model = this.activeModels.summarize;
+        logger.info(`Generating completion using model: ${model}`, 'OLLAMA');
+        try {
+            const response = await fetch(`${OLLAMA_URL}/api/generate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    model: model,
+                    prompt: prompt,
+                    stream: false
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to generate (Status: ${response.status})`);
+            }
+
+            const data = await response.json();
+            return data.response;
+        } catch (error) {
+            logger.error(`Generation error with ${model}: ${error.message}`, 'OLLAMA');
+            return null; // Gracefully fail
+        }
+    }
+
+    async embed(text) {
+        const model = this.activeModels.embed;
+        try {
+            const response = await fetch(`${OLLAMA_URL}/api/embeddings`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    model: model,
+                    prompt: text
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to embed (Status: ${response.status})`);
+            }
+
+            const data = await response.json();
+            return data.embedding;
+        } catch (error) {
+            logger.error(`Embedding error with ${model}: ${error.message}`, 'OLLAMA');
+            return null; // Gracefully fail
+        }
     }
 
     async fetchModels() {

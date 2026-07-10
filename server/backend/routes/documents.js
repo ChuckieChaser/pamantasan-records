@@ -6,9 +6,10 @@ import fs from 'fs';
 import crypto from 'crypto';
 import { logAudit } from '../services/audit.js';
 import { createNotification } from '../services/notification.js';
-import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
-const archiver = require('archiver');
+import { textExtractor } from '../services/textExtractor.js';
+import { ollamaService } from '../services/ollama.js';
+import { logger } from '../services/logger.js';
+import archiver from 'archiver';
 
 const router = Router();
 
@@ -851,6 +852,12 @@ router.post('/:id/upload', upload.single('file'), async (req, res) => {
             });
 
             res.status(201).json(result.rows[0]);
+
+            // AI Background Processing
+            const fullPath = path.join(DOCUMENTS_PATH, req.file.filename);
+            processDocumentAI(req.params.id, result.rows[0].id, fullPath, req.file.mimetype, nextVersion).catch(e => {
+                logger.error(`AI Background processing failed for doc ${req.params.id}: ${e.message}`, 'AI');
+            });
         });
     } catch (err) {
         // Clean up the uploaded file if DB insert fails
@@ -1003,4 +1010,121 @@ router.delete('/:id', async (req, res) => {
     }
 });
 
+// POST /api/documents/semantic-search — Semantic search for documents
+router.post('/semantic-search', async (req, res) => {
+    const { query, threshold = 0.5, limit = 10 } = req.body;
+    if (!query) return res.status(400).json({ error: 'Query is required' });
+
+    const client = await pool.connect();
+    try {
+        // Embed the search query using the active embed model
+        const queryEmbedding = await ollamaService.embed(query);
+        if (!queryEmbedding) {
+            return res.status(502).json({ error: 'Failed to generate embedding for search query' });
+        }
+
+        await withRLS(client, getRLSContext(req), async (c) => {
+            // Using pgvector cosine distance operator <=>
+            // The score is (1 - cosine_distance).
+            // Example: `<=> '[1,2,3]'` returns distance. 1 - distance = similarity
+            const result = await c.query(
+                `SELECT d.*, 
+                        (1 - (d.embedding <=> $1::vector)) as similarity_score
+                 FROM documents d
+                 WHERE d.is_folder = FALSE 
+                   AND d.embedding IS NOT NULL
+                   AND (1 - (d.embedding <=> $1::vector)) >= $2
+                 ORDER BY d.embedding <=> $1::vector
+                 LIMIT $3`,
+                [`[${queryEmbedding.join(',')}]`, threshold, limit]
+            );
+
+            res.json(result.rows);
+        });
+    } catch (err) {
+        logger.error(`Semantic search failed: ${err.message}`, 'SEARCH');
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
 export default router;
+
+// ==============================================================================
+// AI BACKGROUND PROCESSING
+// ==============================================================================
+async function processDocumentAI(documentId, versionId, physicalPath, mimeType, currentVersionNum) {
+    const text = await textExtractor.extract(physicalPath, mimeType);
+    if (!text) {
+        logger.info(`No text extracted for document ${documentId}, skipping AI`, 'AI');
+        return;
+    }
+
+    const client = await pool.connect();
+    try {
+        let summary = null;
+        let changeSummary = null;
+
+        // 1. Generate Summary (for all versions)
+        summary = await ollamaService.generate(`Summarize this document concisely in one or two paragraphs:\n\n${text}`);
+        
+        // 2. Generate Change Summary (if it's an update)
+        if (currentVersionNum > 1) {
+            // Fetch previous version's text
+            const prevVer = await client.query(
+                'SELECT path, mime_type FROM document_versions WHERE document_id = $1 AND version = $2',
+                [documentId, currentVersionNum - 1]
+            );
+            if (prevVer.rows.length > 0) {
+                const prevPath = path.join(DOCUMENTS_PATH, prevVer.rows[0].path);
+                const prevText = await textExtractor.extract(prevPath, prevVer.rows[0].mime_type);
+                if (prevText) {
+                    changeSummary = await ollamaService.generate(`Compare these two versions of a document and provide a bulleted list of the key changes. Do not include any intro/outro text, just the bullet points.\n\n[PREVIOUS VERSION]\n${prevText}\n\n[NEW VERSION]\n${text}`);
+                }
+            }
+        }
+
+        // 3. Generate Embeddings for Semantic Search
+        // We embed the summary to save tokens and focus on core concepts, but we could embed the full text.
+        const embedding = await ollamaService.embed(summary || text);
+
+        await client.query('BEGIN');
+        
+        if (summary || embedding) {
+            let updateQuery = 'UPDATE documents SET ';
+            const updates = [];
+            const values = [documentId];
+            let paramIdx = 2;
+
+            if (summary) {
+                updates.push(`summary = $${paramIdx++}`);
+                values.push(summary);
+            }
+            if (embedding) {
+                // formatting array as Postgres vector '[1,2,3]'
+                updates.push(`embedding = $${paramIdx++}`);
+                values.push(`[${embedding.join(',')}]`);
+            }
+            
+            updateQuery += updates.join(', ') + ' WHERE id = $1';
+            await client.query(updateQuery, values);
+        }
+
+        if (changeSummary) {
+            await client.query(
+                'UPDATE document_versions SET change_summary = $1 WHERE id = $2',
+                [changeSummary, versionId]
+            );
+        }
+
+        await client.query('COMMIT');
+        logger.success(`AI Processing complete for document ${documentId}`, 'AI');
+
+    } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+    } finally {
+        client.release();
+    }
+}

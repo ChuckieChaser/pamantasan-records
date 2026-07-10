@@ -6,7 +6,8 @@ const CATALOG = [
     { name: 'llama3.2-vision', display: 'Llama 3.2 Vision', params: '11B', context: '128K', desc: 'Multimodal model excellent at understanding images.' },
     { name: 'mistral', display: 'Mistral', params: '7B', context: '8K', desc: 'Fast, highly capable model for concise summarization.' },
     { name: 'phi3', display: 'Phi-3 Mini', params: '3.8B', context: '128K', desc: 'Lightweight, tiny model perfect for low resources.' },
-    { name: 'llava', display: 'LLaVA', params: '7B', context: '4K', desc: 'Vision-language model capable of analyzing images.' }
+    { name: 'llava', display: 'LLaVA', params: '7B', context: '4K', desc: 'Vision-language model capable of analyzing images.' },
+    { name: 'nomic-embed-text', display: 'Nomic Embed', params: '137M', context: '8K', desc: 'Highly efficient text embedding model for semantic search.' }
 ];
 
 export default function ModelManager({ onOllamaStatus }) {
@@ -14,25 +15,43 @@ export default function ModelManager({ onOllamaStatus }) {
     const [searchQuery, setSearchQuery] = useState('');
     const [activePulls, setActivePulls] = useState({}); // { [modelName]: { status, total, completed } }
     const [customPull, setCustomPull] = useState('');
-    const [activeModel, setActiveModel] = useState(() => localStorage.getItem('activeModel') || '');
-
-    useEffect(() => {
-        if (activeModel) {
-            localStorage.setItem('activeModel', activeModel);
-        }
-    }, [activeModel]);
+    const [activeModels, setActiveModels] = useState({ summarize: '', embed: '' });
 
     const fetchModels = async () => {
         try {
-            const res = await fetch('/api/models');
-            if (res.ok) {
-                const data = await res.json();
+            const [modelsRes, activeRes] = await Promise.all([
+                fetch('/api/models'),
+                fetch('/api/models/active')
+            ]);
+            
+            if (modelsRes.ok) {
+                const data = await modelsRes.json();
                 setInstalledModels(data.models || []);
                 if (onOllamaStatus) onOllamaStatus('ONLINE');
+            }
+            if (activeRes.ok) {
+                const data = await activeRes.json();
+                setActiveModels(data || { summarize: '', embed: '' });
             }
         } catch (err) {
             console.error('Failed to fetch installed models', err);
             if (onOllamaStatus) onOllamaStatus('OFFLINE');
+        }
+    };
+
+    const handleSetActive = async (type, modelName) => {
+        try {
+            const res = await fetch('/api/models/active', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type, modelName })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setActiveModels(data.activeModels || { summarize: '', embed: '' });
+            }
+        } catch (err) {
+            console.error('Failed to set active model', err);
         }
     };
 
@@ -145,9 +164,6 @@ export default function ModelManager({ onOllamaStatus }) {
                 body: JSON.stringify({ modelName })
             });
             fetchModels();
-            if (activeModel === modelName) {
-                setActiveModel('');
-            }
         } catch (err) {
             console.error('Failed to delete model', err);
         }
@@ -255,22 +271,43 @@ export default function ModelManager({ onOllamaStatus }) {
             </div>
 
             {/* Active Model Banner */}
-            <div className="p-6 border-b border-border bg-gradient-to-br from-surface to-surface-hover shrink-0 flex items-center justify-between shadow-inner relative overflow-hidden">
+            <div className="p-6 border-b border-border bg-gradient-to-br from-surface to-surface-hover shrink-0 flex gap-6 shadow-inner relative overflow-hidden">
                 <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
-                <div className="flex flex-col gap-2 relative z-10">
+                
+                {/* Summarizer */}
+                <div className="flex-1 flex flex-col gap-2 relative z-10">
                     <div className="flex items-center gap-2">
                         <BrainCircuit className="size-4 text-accent animate-pulse" />
-                        <span className="text-xs font-bold uppercase tracking-wider text-accent/80">Active System Model</span>
+                        <span className="text-xs font-bold uppercase tracking-wider text-accent/80">Summarization Engine</span>
                     </div>
-                    {activeModel ? (
-                        <div className="flex items-center gap-3 bg-background/50 py-2 px-4 rounded-lg border border-border backdrop-blur-sm">
+                    {activeModels.summarize ? (
+                        <div className="flex items-center gap-3 bg-background/50 py-2 px-4 rounded-lg border border-border backdrop-blur-sm w-fit">
                             <CheckCircle className="size-5 text-success drop-shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
-                            <span className="text-xl font-bold font-heading text-main tracking-wide">{activeModel}</span>
+                            <span className="text-lg font-bold font-heading text-main tracking-wide">{activeModels.summarize}</span>
                         </div>
                     ) : (
                         <div className="flex items-center gap-2 mt-1 px-4 py-2 bg-error/10 border border-error/20 rounded-lg w-fit backdrop-blur-sm">
                             <AlertTriangle className="size-4 text-error" />
-                            <span className="text-sm font-bold text-error">No model selected for processing requests!</span>
+                            <span className="text-sm font-bold text-error">No model selected!</span>
+                        </div>
+                    )}
+                </div>
+
+                {/* Embedder */}
+                <div className="flex-1 flex flex-col gap-2 relative z-10 border-l border-border pl-6">
+                    <div className="flex items-center gap-2">
+                        <Database className="size-4 text-accent animate-pulse" />
+                        <span className="text-xs font-bold uppercase tracking-wider text-accent/80">Embeddings Engine</span>
+                    </div>
+                    {activeModels.embed ? (
+                        <div className="flex items-center gap-3 bg-background/50 py-2 px-4 rounded-lg border border-border backdrop-blur-sm w-fit">
+                            <CheckCircle className="size-5 text-success drop-shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
+                            <span className="text-lg font-bold font-heading text-main tracking-wide">{activeModels.embed}</span>
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-2 mt-1 px-4 py-2 bg-error/10 border border-error/20 rounded-lg w-fit backdrop-blur-sm">
+                            <AlertTriangle className="size-4 text-error" />
+                            <span className="text-sm font-bold text-error">No model selected!</span>
                         </div>
                     )}
                 </div>
@@ -292,45 +329,67 @@ export default function ModelManager({ onOllamaStatus }) {
 
             {/* Catalog List */}
             <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
-                {filteredCatalog.map(model => (
-                    <div key={model.name} className={`p-4 rounded-lg border ${activeModel === model.name ? 'border-success bg-success/5' : 'border-border bg-background'} transition-colors flex flex-col gap-3`}>
-                        <div className="flex justify-between items-start">
-                            <div className="flex flex-col">
-                                <span className="font-bold text-main">{model.display}</span>
-                                <span className="text-xs text-muted font-mono">{model.name}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                {isInstalled(model.name) && activeModel !== model.name && (
-                                    <button 
-                                        onClick={() => setActiveModel(model.name)}
-                                        className="text-[10px] font-bold uppercase tracking-wide px-2 py-1 bg-surface-hover border border-border rounded hover:bg-success hover:text-surface hover:border-success transition-colors"
+                {filteredCatalog.map(model => {
+                    const isSummarizer = activeModels.summarize === model.name;
+                    const isEmbedder = activeModels.embed === model.name;
+                    const isActiveAny = isSummarizer || isEmbedder;
+
+                    return (
+                        <div key={model.name} className={`p-4 rounded-lg border ${isActiveAny ? 'border-success bg-success/5' : 'border-border bg-background'} transition-colors flex flex-col gap-3`}>
+                            <div className="flex justify-between items-start">
+                                <div className="flex flex-col">
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-bold text-main">{model.display}</span>
+                                        {isSummarizer && <span className="text-[10px] font-bold bg-success text-surface px-1.5 py-0.5 rounded uppercase">Summarizer</span>}
+                                        {isEmbedder && <span className="text-[10px] font-bold bg-success text-surface px-1.5 py-0.5 rounded uppercase">Embedder</span>}
+                                    </div>
+                                    <span className="text-xs text-muted font-mono">{model.name}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    {isInstalled(model.name) && (
+                                        <div className="flex gap-1 mr-2">
+                                            {!isSummarizer && (
+                                                <button 
+                                                    onClick={() => handleSetActive('summarize', model.name)}
+                                                    className="text-[10px] font-bold uppercase tracking-wide px-2 py-1 bg-surface-hover border border-border rounded hover:bg-accent hover:text-surface hover:border-accent transition-colors"
+                                                >
+                                                    Set Summarizer
+                                                </button>
+                                            )}
+                                            {!isEmbedder && (
+                                                <button 
+                                                    onClick={() => handleSetActive('embed', model.name)}
+                                                    className="text-[10px] font-bold uppercase tracking-wide px-2 py-1 bg-surface-hover border border-border rounded hover:bg-accent hover:text-surface hover:border-accent transition-colors"
+                                                >
+                                                    Set Embedder
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
+                                    <a 
+                                        href={`https://ollama.com/library/${model.name.split(':')[0]}`} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="p-2 rounded-full border border-border text-muted hover:text-main hover:bg-surface-hover transition-colors"
+                                        title="View on Ollama Hub"
                                     >
-                                        Set Active
-                                    </button>
-                                )}
-                                <a 
-                                    href={`https://ollama.com/library/${model.name.split(':')[0]}`} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    className="p-2 rounded-full border border-border text-muted hover:text-main hover:bg-surface-hover transition-colors"
-                                    title="View on Ollama Hub"
-                                >
-                                    <ExternalLink className="size-4" />
-                                </a>
-                                {renderDownloadButton(model.name)}
+                                        <ExternalLink className="size-4" />
+                                    </a>
+                                    {renderDownloadButton(model.name)}
+                                </div>
+                            </div>
+                            <p className="text-xs text-muted">{model.desc}</p>
+                            <div className="flex items-center gap-3">
+                                <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 bg-surface-hover border border-border rounded text-muted">
+                                    {model.params} Params
+                                </span>
+                                <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 bg-surface-hover border border-border rounded text-muted">
+                                    {model.context} Context
+                                </span>
                             </div>
                         </div>
-                        <p className="text-xs text-muted">{model.desc}</p>
-                        <div className="flex items-center gap-3">
-                            <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 bg-surface-hover border border-border rounded text-muted">
-                                {model.params} Params
-                            </span>
-                            <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 bg-surface-hover border border-border rounded text-muted">
-                                {model.context} Context
-                            </span>
-                        </div>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
 
             {/* Custom Pull Action */}

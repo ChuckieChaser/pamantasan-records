@@ -14,6 +14,24 @@ router.get('/', async (_req, res) => {
     }
 });
 
+// GET /api/models/active - Get currently active models
+router.get('/active', (_req, res) => {
+    res.json(ollamaService.getActiveModels());
+});
+
+// PUT /api/models/active - Set an active model
+router.put('/active', (req, res) => {
+    const { type, modelName } = req.body;
+    if (!type || !modelName) return res.status(400).json({ error: 'type and modelName required' });
+
+    const success = ollamaService.setActiveModel(type, modelName);
+    if (success) {
+        res.json({ success: true, activeModels: ollamaService.getActiveModels() });
+    } else {
+        res.status(400).json({ error: 'Invalid model type. Must be "summarize" or "embed"' });
+    }
+});
+
 // POST /api/models/pull - Start a background model pull (progress via WebSocket)
 router.post('/pull', async (req, res) => {
     const { modelName } = req.body;

@@ -1186,7 +1186,7 @@ async function processDocumentAI(documentId, versionId, physicalPath, mimeType, 
 
         if (duplicateCheck.rows.length > 0) {
             const dup = duplicateCheck.rows[0];
-            logger.info(`Exact text match found (Hash: ${textHash.substring(0,8)}). Skipping AI pipeline.`, 'AI');
+            logger.info(`Exact text match found (Hash: ${textHash.substring(0, 8)}). Skipping AI pipeline.`, 'AI');
 
             let changeSummary = null;
             if (currentVersionNum > 1) {
@@ -1202,7 +1202,7 @@ async function processDocumentAI(documentId, versionId, physicalPath, mimeType, 
                 'UPDATE document_versions SET summary = $1, embedding = $2, text_hash = $3, change_summary = COALESCE($4, change_summary) WHERE id = $5',
                 [dup.summary, dup.embedding, textHash, changeSummary, versionId]
             );
-            
+
             await client.query('COMMIT');
             logger.success(`Duplicate AI Processing complete for document ${documentId}`, 'AI');
             logger.triggerRefresh('DOCUMENT_VERSION');
@@ -1291,7 +1291,7 @@ async function processDocumentAI(documentId, versionId, physicalPath, mimeType, 
                 updateQuery += ', ' + updates.join(', ');
             }
             updateQuery += ' WHERE id = $2';
-            
+
             await client.query(updateQuery, values);
         }
 

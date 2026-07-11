@@ -443,15 +443,17 @@ router.get('/requests/:id/messages', async (req, res) => {
 
 // POST /api/documents/requests/:id/messages
 router.post('/requests/:id/messages', async (req, res) => {
-    const { user_id, message } = req.body;
-    if (!message) return res.status(400).json({ error: 'message is required' });
+    const { user_id, message, attachment_ids } = req.body;
+    if ((message === undefined || message === null || message.trim() === '') && (!attachment_ids || attachment_ids.length === 0)) {
+        return res.status(400).json({ error: 'message or attachments are required' });
+    }
 
     const client = await pool.connect();
     try {
         await withRLS(client, getRLSContext(req), async (c) => {
             const result = await c.query(
-                'INSERT INTO document_request_messages (document_request_id, user_id, message) VALUES ($1, $2, $3) RETURNING *',
-                [req.params.id, user_id || null, message]
+                'INSERT INTO document_request_messages (document_request_id, user_id, message, attachment_ids) VALUES ($1, $2, $3, $4) RETURNING *',
+                [req.params.id, user_id || null, message || '', JSON.stringify(attachment_ids || [])]
             );
 
             const msgRow = result.rows[0];

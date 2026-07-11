@@ -857,7 +857,7 @@ router.post('/', async (req, res) => {
 
     const client = await pool.connect();
     try {
-        await withRLS(client, getRLSContext(req), async (c) => {
+        const docData = await withRLS(client, getRLSContext(req), async (c) => {
             const result = await c.query(
                 `INSERT INTO documents (parent_id, uploader_id, name, comment, is_folder)
                  VALUES ($1, $2, $3, $4, $5) RETURNING *`,
@@ -872,8 +872,10 @@ router.post('/', async (req, res) => {
                 data: result.rows[0]
             });
 
-            res.status(201).json(result.rows[0]);
+            return result.rows[0];
         });
+
+        res.status(201).json(docData);
     } catch (err) {
         res.status(500).json({ error: err.message });
     } finally {

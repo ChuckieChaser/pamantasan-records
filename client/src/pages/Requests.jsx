@@ -5,10 +5,9 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { Plus } from 'lucide-react';
-import { useAuthentication, useDocumentRequest, useUser, useDocumentRequestMessage, useAttachment, useDocument, useDocumentVersion, useDocumentShare } from '../stores';
+import { useAuthentication, useDocumentRequest, useUser, useDocumentRequestMessage } from '../stores';
 import { USERS_ROLE } from '../constants';
 import DocumentRequestBrowser from '../components/management/DocumentRequestBrowser';
-import DocumentRequestInspector from '../components/management/DocumentRequestInspector';
 import DocumentRequestModal from '../components/management/DocumentRequestModal';
 
 // ==============================================================================
@@ -23,10 +22,12 @@ export default function Requests() {
         getAll: getAllRequests,
         getByRequesterId,
         create: createRequest,
+        activeDocumentRequest,
+        selectActiveDocumentRequest,
+        deselectActiveDocumentRequest
     } = useDocumentRequest();
     const { documentRequestMessages, getByDocumentRequestId } = useDocumentRequestMessage();
 
-    const [activeRequestId, setActiveRequestId] = useState(null);
     const [isCreating, setIsCreating] = useState(false);
 
     const isAdminOrCoord = user?.role === USERS_ROLE.ADMINISTRATOR || user?.role === USERS_ROLE.COORDINATOR;
@@ -44,12 +45,28 @@ export default function Requests() {
 
     // Load messages when a request is selected
     useEffect(() => {
-        if (activeRequestId) {
-            getByDocumentRequestId(activeRequestId);
+        if (activeDocumentRequest) {
+            getByDocumentRequestId(activeDocumentRequest.id);
         }
-    }, [activeRequestId]);
+    }, [activeDocumentRequest]);
 
-    const selectedRequest = myRequests.find(r => r.id === activeRequestId) || null;
+    useEffect(() => {
+        return () => deselectActiveDocumentRequest();
+    }, []);
+
+    const myRequests = useMemo(() => {
+        return documentRequests
+            .filter(r => isAdminOrCoord || r.requester_id === user?.id)
+            .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    }, [documentRequests, user?.id, isAdminOrCoord]);
+
+    const handleDocumentRequestClick = (id) => {
+        if (activeDocumentRequest?.id === id) {
+            deselectActiveDocumentRequest();
+        } else {
+            selectActiveDocumentRequest(id);
+        }
+    };
 
     return (
         <div className="flex flex-col gap-6 h-full">
@@ -69,42 +86,20 @@ export default function Requests() {
                 )}
             </div>
 
-            <div className="flex gap-4 flex-1 min-h-[500px]">
-                <div className="w-96 shrink-0 h-full flex flex-col">
-                    <DocumentRequestBrowser
-                        title="Your Requests"
-                        description="Track and manage your requests."
-                        requests={myRequests}
-                        users={users}
-                        activeRequestId={activeRequestId}
-                        onRequestClick={(id) => setActiveRequestId(id === activeRequestId ? null : id)}
-                    />
-                </div>
-                
-                <div className="flex-1 flex flex-col h-[500px]">
-                    {selectedRequest ? (
-                        <div className="h-full border border-border rounded-xl bg-surface flex flex-col overflow-hidden shadow-sm">
-                            <DocumentRequestInspector 
-                                request={selectedRequest}
-                                onClose={() => setActiveRequestId(null)}
-                            />
-                        </div>
-                    ) : (
-                        <div className="flex flex-col items-center justify-center h-full gap-2 text-center p-8 border border-border rounded-xl bg-surface/50 border-dashed">
-                            <div className="size-16 rounded-full bg-surface-hover flex items-center justify-center mb-2">
-                                <MessageSquare className="size-8 text-muted" />
-                            </div>
-                            <h3 className="text-lg font-bold text-main">No Request Selected</h3>
-                            <p className="text-sm text-muted max-w-sm">Select a request from the sidebar to view its details, or create a new request.</p>
-                        </div>
-                    )}
-                </div>
-            </div>
+            {/* Main layout: Just the Browser */}
+            <DocumentRequestBrowser
+                title="Your Requests"
+                description="Track and manage your requests."
+                requests={myRequests}
+                users={users}
+                activeRequestId={activeDocumentRequest?.id}
+                onRequestClick={handleDocumentRequestClick}
+            />
 
             <DocumentRequestModal 
                 isOpen={isCreating} 
                 onClose={() => setIsCreating(false)} 
-                onCreated={(id) => setActiveRequestId(id)}
+                onCreated={(id) => selectActiveDocumentRequest(id)}
             />
         </div>
     );

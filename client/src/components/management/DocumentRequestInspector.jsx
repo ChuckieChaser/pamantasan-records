@@ -18,7 +18,7 @@ export default function DocumentRequestInspector({ request, onClose }) {
     const { documents, create: createDocument } = useDocument();
     const { documentRequestMessages, getByDocumentRequestId, create } = useDocumentRequestMessage();
     const { update } = useDocumentRequest();
-    const { create: createAttachment } = useAttachment();
+    const { attachments, create: createAttachment } = useAttachment();
     const { create: createVersion } = useDocumentVersion();
     const { openViewer } = useDocumentViewer();
 
@@ -66,6 +66,14 @@ export default function DocumentRequestInspector({ request, onClose }) {
 
             for (const att of stagedAttachments) {
                 let docId = att.documentId;
+
+                // Check if already attached to avoid unique constraint error
+                const isAlreadyAttached = attachments.some(a => a.document_id === docId && a.document_request_id === request.id);
+                if (isAlreadyAttached) {
+                    alert(`The document is already attached to this request.`);
+                    continue;
+                }
+
                 if (att.type === 'local') {
                     const doc = await createDocument({
                         uploader_id: user.id,
@@ -76,29 +84,38 @@ export default function DocumentRequestInspector({ request, onClose }) {
                     
                     // Upload the file as a version to trigger the full pipeline
                     const formData = new FormData();
-                    formData.append('document', att.file);
-                    formData.append('version', '1');
+                    formData.append('file', att.file);
+                    formData.append('uploader_id', user.id);
+                    formData.append('change_summary', 'Uploaded via Document Request');
                     await createVersion(docId, formData);
                 }
                 
                 attachmentIds.push(docId);
                 
-                if (user.role === USERS_ROLE.COORDINATOR) {
-                    await createCoordinatorRequest({
-                        requester_id: user.id,
-                        action: 'DOCUMENT_ATTACH',
-                        data: {
+                try {
+                    if (user.role === USERS_ROLE.COORDINATOR) {
+                        await createCoordinatorRequest({
+                            requester_id: user.id,
+                            action: 'DOCUMENT_ATTACH',
+                            data: {
+                                document_id: docId,
+                                attached_by_id: user.id,
+                                document_request_id: request.id,
+                            }
+                        });
+                    } else {
+                        await createAttachment({
                             document_id: docId,
                             attached_by_id: user.id,
                             document_request_id: request.id,
-                        }
-                    });
-                } else {
-                    await createAttachment({
-                        document_id: docId,
-                        attached_by_id: user.id,
-                        document_request_id: request.id,
-                    });
+                        });
+                    }
+                } catch (err) {
+                    if (err.response?.data?.error?.includes('uq_document_request_attachments') || err.message?.includes('duplicate key')) {
+                        alert(`The document is already attached to this request.`);
+                        continue;
+                    }
+                    throw err;
                 }
             }
 
@@ -420,7 +437,7 @@ export default function DocumentRequestInspector({ request, onClose }) {
                 )}
 
                 {/* --- Actions --- */}
-                {request.status === DOCUMENT_REQUESTS_STATUS.OPEN && (
+                {request.status === DOCUMENT_REQUESTS_STATUS.OPEN && isAdminOrCoord && (
                     <div className="mt-auto border-t border-border bg-surface p-4 shrink-0">
                         <span className="mb-3 block text-xs font-bold uppercase tracking-wide text-muted">Actions</span>
                         <div className="flex gap-2">

@@ -76,14 +76,6 @@ export default function Requests() {
                     <h1 className="text-3xl font-bold text-main">Requests</h1>
                     <p className="mt-1 text-sm text-muted">Submit and track your document requests.</p>
                 </div>
-                {!isAdminOrCoord && (
-                    <button
-                        onClick={() => setIsCreating(true)}
-                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent text-white text-sm font-semibold hover:opacity-90 transition-opacity"
-                    >
-                        <Plus className="size-4" /> New Request
-                    </button>
-                )}
             </div>
 
             {/* Main layout: Just the Browser */}
@@ -94,6 +86,7 @@ export default function Requests() {
                 users={users}
                 activeRequestId={activeDocumentRequest?.id}
                 onRequestClick={handleDocumentRequestClick}
+                onCreateRequest={!isAdminOrCoord ? () => setIsCreating(true) : undefined}
             />
 
             <DocumentRequestModal 

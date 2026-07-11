@@ -299,11 +299,11 @@ export default function DocumentRequestInspector({ request, onClose }) {
                                     <span className="text-sm text-muted">No messages yet. Start the conversation.</span>
                                 </div>
                             ) : (
-                                messages.map((msg) => {
+                                messages.map((msg, index) => {
                                     const isMe = msg.user_id === user?.id;
                                     const sender = users.find(u => u.id === msg.user_id);
                                     return (
-                                        <div key={msg.id} className={`flex w-full ${isMe ? 'justify-end' : 'justify-start'}`}>
+                                        <div key={`${msg.id}-${index}`} className={`flex w-full ${isMe ? 'justify-end' : 'justify-start'}`}>
                                             <div className={`flex max-w-[85%] flex-col gap-1 ${isMe ? 'items-end' : 'items-start'}`}>
                                                 <div className="flex items-center gap-2 px-1">
                                                     {!isMe && sender && (
@@ -314,16 +314,26 @@ export default function DocumentRequestInspector({ request, onClose }) {
                                                     </span>
                                                 </div>
                                                 <div className={`rounded-xl px-4 py-2 text-sm ${isMe ? 'rounded-tr-sm bg-accent text-surface' : 'rounded-tl-sm bg-surface-hover border border-border text-main'}`}>
-                                                    {msg.attachment_ids && msg.attachment_ids.map(attId => {
+                                                    {msg.attachment_ids && msg.attachment_ids.map((attId, idx) => {
                                                         const doc = documents.find(d => d.id === attId);
                                                         
-                                                        // Standard users won't get the document from DB if it's archived. 
-                                                        // Hide it entirely for them. Admins/Coords will still see it.
-                                                        if (!doc && !isAdminOrCoord) return null;
+                                                        if (!doc && !isAdminOrCoord) {
+                                                            return (
+                                                                <div key={`${attId}-${idx}`} className={`flex flex-col gap-1 w-full mb-2 p-2 rounded-md border ${isMe ? 'bg-black/10 border-black/10 text-surface' : 'bg-surface border-border text-muted'}`}>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <XCircle className="size-4 shrink-0 text-red-500" />
+                                                                        <span className="truncate font-medium text-xs text-red-500">
+                                                                            Attachment Unavailable
+                                                                        </span>
+                                                                    </div>
+                                                                    <span className="text-[10px] opacity-80 leading-tight">This file was archived or deleted by the uploader. Please contact them for details.</span>
+                                                                </div>
+                                                            );
+                                                        }
 
                                                         return (
                                                             <button 
-                                                                key={attId} 
+                                                                key={`${attId}-${idx}`} 
                                                                 onClick={() => {
                                                                     if (doc) openViewer(doc);
                                                                 }}

@@ -116,12 +116,13 @@ export default function Dashboard() {
 
     const sharedDocsList = useMemo(() => {
         if (currentFolderId) return filterByFolder(visibleDocuments).sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
-        const sharedDocs = documentShares
-            .map(ds => visibleDocuments.find(d => d.id === ds.document_id))
-            .filter(Boolean);
+        const sharedDocs = [
+            ...documentShares.map(ds => visibleDocuments.find(d => d.id === ds.document_id)),
+            ...attachments.map(att => visibleDocuments.find(d => d.id === att.document_id))
+        ].filter(Boolean);
         const uniqueDocs = Array.from(new Set(sharedDocs.map(d => d.id))).map(id => sharedDocs.find(d => d.id === id));
         return filterByFolder(uniqueDocs).sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
-    }, [documentShares, visibleDocuments, currentFolderId]);
+    }, [documentShares, attachments, visibleDocuments, currentFolderId]);
 
     const publishedDocs = useMemo(() => {
         if (currentFolderId) return filterByFolder(visibleDocuments).sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));

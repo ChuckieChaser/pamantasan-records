@@ -478,7 +478,7 @@ const Inspector = ({ document, auditLog, onClose }) => {
                         );
                     }
 
-                    if (status !== true && status !== 'ATTACHMENT' && !document.is_archived && status !== 'ARCHIVED') {
+                    if (status !== true && !document.is_archived && status !== 'ARCHIVED') {
                         if (docShares.length === 0) {
                             primaryDestructiveActions.push(
                                 <PrimaryButton key="share" size="small" icon={Share2} className="flex-1 justify-center" onClick={handleShareOpen}>Share</PrimaryButton>

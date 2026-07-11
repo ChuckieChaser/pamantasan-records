@@ -36,7 +36,7 @@ const STATUS_STATES = ['DEFAULT', ...Object.values(DOCUMENT_REQUESTS_STATUS)];
 // SECTION 2: COMPONENT
 // ==============================================================================
 
-export default function DocumentRequestBrowser({ title, description, requests, users, activeRequestId, onRequestClick }) {
+export default function DocumentRequestBrowser({ title, description, requests, users, activeRequestId, onRequestClick, onCreateRequest }) {
     const [filter, setFilter] = useState('');
     const [selectedStatuses, setSelectedStatuses] = useState([]);
     const [sortCol, setSortCol] = useState('DATE');
@@ -119,6 +119,9 @@ export default function DocumentRequestBrowser({ title, description, requests, u
                         />
                     </div>
                     <FilterMenu groups={filterGroups} />
+                    {onCreateRequest && (
+                        <PrimaryButton icon={Plus} onClick={onCreateRequest}>New Request</PrimaryButton>
+                    )}
                 </div>
             </div>
 

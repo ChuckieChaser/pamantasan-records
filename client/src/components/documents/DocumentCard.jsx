@@ -1,13 +1,13 @@
 import { Card, CardBody } from '../ui/Containers';
 import { getFileIcon } from '../ui/FileIcon';
-import { Share2, Archive, XCircle, CheckCircle, MessageSquare } from 'lucide-react';
+import { Share2, Archive, XCircle, CheckCircle, MessageSquare, Paperclip } from 'lucide-react';
 
 // ==============================================================================
 // SECTION 1: COMPONENT
 // ==============================================================================
 
 // --- DocumentCard: single card in the grid card view for any document browser ---
-export default function DocumentCard({ document, latestVersion, isSelected, onClick, onDoubleClick, isShared, hasRejected, hasApproved, hasComment, authorName }) {
+export default function DocumentCard({ document, latestVersion, isSelected, onClick, onDoubleClick, isShared, isAttached, hasRejected, hasApproved, hasComment, authorName }) {
     return (
         <Card
             className={`group cursor-pointer transition-colors duration-200 border ${isSelected ? 'border-accent bg-surface-hover' : 'border-transparent hover:bg-surface-hover'}`}
@@ -25,7 +25,12 @@ export default function DocumentCard({ document, latestVersion, isSelected, onCl
                                 {document.name}
                             </span>
                             <div className="flex shrink-0 gap-1 mt-1">
-                                {document.is_archived ? <Archive className="size-3.5 text-muted" /> : (isShared && <Share2 className="size-3.5 text-muted" />)}
+                                {document.is_archived ? <Archive className="size-3.5 text-muted" /> : (
+                                    <>
+                                        {isShared && <Share2 className="size-3.5 text-muted" />}
+                                        {isAttached && <Paperclip className="size-3.5 text-muted" />}
+                                    </>
+                                )}
                                 {hasRejected ? <XCircle className="size-3.5 text-muted" /> : (hasApproved ? <CheckCircle className="size-3.5 text-muted" /> : null)}
                                 {hasComment && <MessageSquare className="size-3.5 text-muted" />}
                             </div>

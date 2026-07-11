@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Search, ArrowUpDown, ArrowUp, ArrowDown, Filter, LayoutGrid, List, Plus, Share2, Archive, XCircle, CheckCircle, MessageSquare } from 'lucide-react';
+import { Search, ArrowUpDown, ArrowUp, ArrowDown, Filter, LayoutGrid, List, Plus, Share2, Archive, XCircle, CheckCircle, MessageSquare, Paperclip } from 'lucide-react';
 import { Card } from '../ui/Containers';
 import { Badge } from '../ui/Badges';
 import { InputField } from '../ui/Textfields';
@@ -8,7 +8,7 @@ import { getFileIcon } from '../ui/FileIcon';
 import { FilterMenu } from '../ui/Menus';
 import DocumentCard from './DocumentCard';
 import { DOCUMENT_SHARE_STATUS } from '../../constants';
-import { useDocumentShare, useAuthentication, useUser, useDocument } from '../../stores';
+import { useDocumentShare, useAuthentication, useUser, useDocument, useAttachment } from '../../stores';
 // ==============================================================================
 // SECTION 1: UTILITIES
 // ==============================================================================
@@ -77,6 +77,7 @@ export default function DocumentBrowser({ title, description, documents, documen
     const clickTimeoutRef = useRef(null);
 
     const { documentShares } = useDocumentShare();
+    const { attachments } = useAttachment();
     const { user } = useAuthentication();
     const { users } = useUser();
     const { documents: allDocuments } = useDocument();
@@ -233,6 +234,7 @@ export default function DocumentBrowser({ title, description, documents, documen
                         {displayDocuments.map(doc => {
                             const latestVersion = documentVersions.find(v => v.document_id === doc.id);
                             const isShared = documentShares.some(s => s.document_id === doc.id);
+                            const isAttached = attachments.some(a => a.document_id === doc.id);
                             return (
                                 <DocumentCard
                                     key={doc.id}
@@ -240,6 +242,7 @@ export default function DocumentBrowser({ title, description, documents, documen
                                     latestVersion={latestVersion}
                                     isSelected={activeDocumentId === doc.id}
                                     isShared={isShared}
+                                    isAttached={isAttached}
                                     hasRejected={documentShares.some(s => s.document_id === doc.id && s.status === 'REJECTED')}
                                     hasApproved={documentShares.some(s => s.document_id === doc.id && ['APPROVED', 'PUBLISHED', 'STASHED'].includes(s.status))}
                                     hasComment={!!doc.comment}
@@ -312,7 +315,12 @@ export default function DocumentBrowser({ title, description, documents, documen
                                                             {doc.name}
                                                         </span>
                                                         <div className="flex shrink-0 gap-1">
-                                                            {doc.is_archived ? <Archive className="size-3.5 text-muted" /> : (documentShares.some(s => s.document_id === doc.id) && <Share2 className="size-3.5 text-muted" />)}
+                                                            {doc.is_archived ? <Archive className="size-3.5 text-muted" /> : (
+                                                                <>
+                                                                    {documentShares.some(s => s.document_id === doc.id) && <Share2 className="size-3.5 text-muted" />}
+                                                                    {attachments.some(a => a.document_id === doc.id) && <Paperclip className="size-3.5 text-muted" />}
+                                                                </>
+                                                            )}
                                                             {(() => {
                                                                 const docSpecificShares = documentShares.filter(s => s.document_id === doc.id);
                                                                 if (docSpecificShares.some(s => s.status === 'REJECTED')) return <XCircle className="size-3.5 text-muted" />;

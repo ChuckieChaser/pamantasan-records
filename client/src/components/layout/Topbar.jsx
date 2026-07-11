@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Search, PanelRight, FileText, Loader2, Sparkles, Archive, Share2, XCircle, CheckCircle, MessageSquare } from 'lucide-react';
+import { Search, PanelRight, FileText, Loader2, Sparkles, Archive, Share2, XCircle, CheckCircle, MessageSquare, Paperclip } from 'lucide-react';
 
-import { useAuthentication, useNotification, useDocument, useDocumentRequest, useCoordinatorRequest, useUser, useDepartment, useDocumentViewer, useDocumentShare } from '../../stores';
+import { useAuthentication, useNotification, useDocument, useDocumentRequest, useCoordinatorRequest, useUser, useDepartment, useDocumentViewer, useDocumentShare, useAttachment } from '../../stores';
 import { IconButton, InputField, NotificationMenu, Breadcrumb } from '../ui';
 import { apiClient } from '../../services/api/axios';
 import { getAvatarUrl } from '../../utils/avatar';
@@ -21,6 +21,7 @@ const Topbar = ({ onToggleInspector, isInspectorOpen }) => {
     const { notifications, unreadCount, getGroupedByRecipientId, update: updateNotification } = useNotification();
     const { documents } = useDocument();
     const { documentShares } = useDocumentShare();
+    const { attachments } = useAttachment();
     const { users } = useUser();
     const { departments } = useDepartment();
     const { openViewer } = useDocumentViewer();
@@ -245,6 +246,7 @@ const Topbar = ({ onToggleInspector, isInspectorOpen }) => {
                                 <div className="flex max-h-[350px] flex-col divide-y divide-border overflow-y-auto">
                                     {searchResults.map((doc) => {
                                         const isShared = documentShares.some(s => s.document_id === doc.id);
+                                        const isAttached = attachments.some(a => a.document_id === doc.id);
                                         const hasRejected = documentShares.some(s => s.document_id === doc.id && s.status === 'REJECTED');
                                         const hasApproved = documentShares.some(s => s.document_id === doc.id && ['APPROVED', 'PUBLISHED', 'STASHED'].includes(s.status));
                                         const hasComment = !!doc.comment;
@@ -266,9 +268,14 @@ const Topbar = ({ onToggleInspector, isInspectorOpen }) => {
                                                     <span className="block break-words font-bold line-clamp-1 text-main transition-colors group-hover:text-accent">
                                                         {doc.name}
                                                     </span>
-                                                    {(doc.is_archived || isShared || hasRejected || hasApproved || hasComment) && (
+                                                    {(doc.is_archived || isShared || isAttached || hasRejected || hasApproved || hasComment) && (
                                                         <div className="flex shrink-0 gap-1.5 mt-0.5 mb-0.5">
-                                                            {doc.is_archived ? <Archive className="size-3.5 text-muted" /> : (isShared && <Share2 className="size-3.5 text-muted" />)}
+                                                            {doc.is_archived ? <Archive className="size-3.5 text-muted" /> : (
+                                                                <>
+                                                                    {isShared && <Share2 className="size-3.5 text-muted" />}
+                                                                    {isAttached && <Paperclip className="size-3.5 text-muted" />}
+                                                                </>
+                                                            )}
                                                             {hasRejected ? <XCircle className="size-3.5 text-muted" /> : (hasApproved ? <CheckCircle className="size-3.5 text-muted" /> : null)}
                                                             {hasComment && <MessageSquare className="size-3.5 text-muted" />}
                                                         </div>

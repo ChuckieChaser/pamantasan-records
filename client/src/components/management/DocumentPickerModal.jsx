@@ -17,7 +17,7 @@ export default function DocumentPickerModal({ isOpen, onClose, onSelect }) {
     }, [isOpen, getAll]);
 
     const displayDocuments = useMemo(() => {
-        let result = documents || [];
+        let result = (documents || []).filter(d => !d.is_folder && !d.is_archived);
         if (filter) {
             result = result.filter(d => d.name.toLowerCase().includes(filter.toLowerCase()));
         }
@@ -35,7 +35,7 @@ export default function DocumentPickerModal({ isOpen, onClose, onSelect }) {
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Select Document" className="w-full max-w-lg">
             <form onSubmit={handleSubmit} className="flex flex-col gap-4 p-4">
-                <p className="text-sm text-muted">Select a document or folder from the system to attach.</p>
+                <p className="text-sm text-muted">Select a document from the system to attach.</p>
                 
                 <InputField
                     leftIcon={Search}

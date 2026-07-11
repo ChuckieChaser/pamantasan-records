@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { X, FileText, Send, CheckCircle, XCircle, Paperclip, Monitor, HardDrive, Tag, User as UserIcon, Calendar } from 'lucide-react';
 import { IconButton, PrimaryButton, SecondaryButton, DestructiveButton, InputField, Badge } from '../ui';
 import { TransparentBackdrop, MenuContainer, MenuBody, MenuButton, Modal } from '../ui';
-import { useAuthentication, useDocumentRequestMessage, useUser, useDocumentRequest, useDocument, useCoordinatorRequest, useAttachment } from '../../stores';
+import { useAuthentication, useDocumentRequestMessage, useUser, useDocumentRequest, useDocument, useCoordinatorRequest, useAttachment, useDocumentVersion, useDocumentViewer } from '../../stores';
 import { getAvatarUrl } from '../../utils/avatar';
 import { DOCUMENT_REQUESTS_STATUS, USERS_ROLE } from '../../constants';
 import { documentsApi, coordinatorRequestsService } from '../../services';
@@ -19,6 +19,8 @@ export default function DocumentRequestInspector({ request, onClose }) {
     const { documentRequestMessages, getByDocumentRequestId, create } = useDocumentRequestMessage();
     const { update } = useDocumentRequest();
     const { create: createAttachment } = useAttachment();
+    const { create: createVersion } = useDocumentVersion();
+    const { openViewer } = useDocumentViewer();
 
     const [inputValue, setInputValue] = useState('');
     const [isSending, setIsSending] = useState(false);
@@ -28,6 +30,7 @@ export default function DocumentRequestInspector({ request, onClose }) {
     const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
     const [isPickerModalOpen, setIsPickerModalOpen] = useState(false);
     const [stagedAttachments, setStagedAttachments] = useState([]);
+    const [isDragging, setIsDragging] = useState(false);
 
     const scrollRef = useRef(null);
     const fileInputRef = useRef(null);
@@ -54,8 +57,8 @@ export default function DocumentRequestInspector({ request, onClose }) {
 
     // --- Handlers ---
     const handleSend = async (e) => {
-        e.preventDefault();
-        if (!inputValue.trim() || !user || !request) return;
+        if (e) e.preventDefault();
+        if ((!inputValue.trim() && stagedAttachments.length === 0) || !user || !request) return;
 
         try {
             setIsSending(true);
@@ -71,10 +74,11 @@ export default function DocumentRequestInspector({ request, onClose }) {
                     });
                     docId = doc.id;
                     
-                    // Upload the file to the document
+                    // Upload the file as a version to trigger the full pipeline
                     const formData = new FormData();
                     formData.append('document', att.file);
-                    await documentsApi.upload(docId, formData);
+                    formData.append('version', '1');
+                    await createVersion(docId, formData);
                 }
                 
                 attachmentIds.push(docId);
@@ -143,6 +147,27 @@ export default function DocumentRequestInspector({ request, onClose }) {
         setStagedAttachments(prev => [...prev, { type: 'system', documentId }]);
         setIsPickerModalOpen(false);
     };
+
+    const handleDragOver = (e) => {
+        e.preventDefault();
+        setIsDragging(true);
+    };
+
+    const handleDragLeave = (e) => {
+        e.preventDefault();
+        setIsDragging(false);
+    };
+
+    const handleDrop = (e) => {
+        e.preventDefault();
+        setIsDragging(false);
+        const files = Array.from(e.dataTransfer.files);
+        if (files.length > 0 && isAdminOrCoord) {
+            setStagedAttachments(prev => [...prev, ...files.map(file => ({ type: 'local', file }))]);
+        }
+    };
+
+    const isAdminOrCoord = user?.role === USERS_ROLE.ADMINISTRATOR || user?.role === USERS_ROLE.COORDINATOR;
 
     if (!request) return null;
 
@@ -274,13 +299,16 @@ export default function DocumentRequestInspector({ request, onClose }) {
                                                 <div className={`rounded-xl px-4 py-2 text-sm ${isMe ? 'rounded-tr-sm bg-accent text-surface' : 'rounded-tl-sm bg-surface-hover border border-border text-main'}`}>
                                                     {msg.attachment_ids && msg.attachment_ids.map(attId => {
                                                         const doc = documents.find(d => d.id === attId);
+                                                        
+                                                        // Standard users won't get the document from DB if it's archived. 
+                                                        // Hide it entirely for them. Admins/Coords will still see it.
+                                                        if (!doc && !isAdminOrCoord) return null;
+
                                                         return (
                                                             <button 
                                                                 key={attId} 
                                                                 onClick={() => {
-                                                                    // Open document in a new tab or trigger a view modal.
-                                                                    // For now, logging to console as requested placeholder.
-                                                                    console.log('View document:', attId);
+                                                                    if (doc) openViewer(doc);
                                                                 }}
                                                                 className={`flex w-full items-center gap-2 mb-2 p-2 rounded-md border hover:opacity-80 transition-opacity cursor-pointer ${isMe ? 'bg-black/10 border-black/10 text-surface' : 'bg-surface border-border text-main'}`}
                                                             >
@@ -302,60 +330,71 @@ export default function DocumentRequestInspector({ request, onClose }) {
 
                         {/* --- Chat Input --- */}
                         {request.status === DOCUMENT_REQUESTS_STATUS.OPEN ? (
-                            <div className="mt-auto border-t border-border bg-surface p-4">
-                                {stagedAttachments.length > 0 && (
-                                    <div className="flex flex-col gap-2 mb-3">
-                                        {stagedAttachments.map((att, idx) => (
-                                            <div key={idx} className="flex items-center justify-between bg-surface-hover border border-border p-2 rounded-md">
-                                                <div className="flex items-center gap-2 overflow-hidden">
-                                                    <FileText className="size-4 text-accent shrink-0" />
-                                                    <span className="text-sm text-main truncate font-medium">
-                                                        {att.type === 'local' 
-                                                            ? att.file.name 
-                                                            : documents.find(d => d.id === att.documentId)?.name || 'System Document'}
-                                                    </span>
+                            <div 
+                                className={`mt-auto border-t border-border bg-surface p-4 transition-colors ${isDragging ? 'bg-accent/10 border-accent' : ''}`}
+                                onDragOver={handleDragOver}
+                                onDragLeave={handleDragLeave}
+                                onDrop={handleDrop}
+                            >
+                                <form onSubmit={handleSend} className="flex flex-col gap-2 relative">
+                                    <div className="flex w-full items-end gap-2">
+                                        <div className="relative">
+                                            {isAdminOrCoord && (
+                                                <>
+                                                    <IconButton
+                                                        icon={Paperclip}
+                                                        onClick={() => setIsAttachmentMenuOpen(!isAttachmentMenuOpen)}
+                                                        active={isAttachmentMenuOpen}
+                                                    />
+                                                    {isAttachmentMenuOpen && (
+                                                        <>
+                                                            <TransparentBackdrop onClick={() => setIsAttachmentMenuOpen(false)} />
+                                                            <MenuContainer className="bottom-full left-0 mb-2 w-56">
+                                                                <MenuBody>
+                                                                    <MenuButton
+                                                                        icon={Monitor}
+                                                                        label="Upload from local device"
+                                                                        onClick={() => { fileInputRef.current?.click(); setIsAttachmentMenuOpen(false); }}
+                                                                    />
+                                                                    <MenuButton
+                                                                        icon={HardDrive}
+                                                                        label="Upload from system"
+                                                                        onClick={() => { setIsPickerModalOpen(true); setIsAttachmentMenuOpen(false); }}
+                                                                    />
+                                                                </MenuBody>
+                                                            </MenuContainer>
+                                                        </>
+                                                    )}
+                                                </>
+                                            )}
+                                        </div>
+                                        <div className="flex-1 flex flex-col rounded-md border border-border bg-surface focus-within:border-accent focus-within:ring-1 focus-within:ring-accent transition-all duration-200">
+                                            {stagedAttachments.length > 0 && (
+                                                <div className="flex flex-wrap gap-2 p-2 pb-0">
+                                                    {stagedAttachments.map((att, idx) => (
+                                                        <div key={idx} className="flex items-center gap-2 bg-surface-hover border border-border px-2 py-1.5 rounded-md max-w-[200px]">
+                                                            <FileText className="size-3.5 text-accent shrink-0" />
+                                                            <span className="text-xs text-main truncate font-medium flex-1">
+                                                                {att.type === 'local' 
+                                                                    ? att.file.name 
+                                                                    : documents.find(d => d.id === att.documentId)?.name || 'System Document'}
+                                                            </span>
+                                                            <IconButton icon={X} size="small" onClick={() => {
+                                                                setStagedAttachments(prev => prev.filter((_, i) => i !== idx));
+                                                            }} className="size-4 shrink-0 text-muted hover:text-destructive" />
+                                                        </div>
+                                                    ))}
                                                 </div>
-                                                <IconButton icon={X} size="small" onClick={() => {
-                                                    setStagedAttachments(prev => prev.filter((_, i) => i !== idx));
-                                                }} />
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                                <form onSubmit={handleSend} className="flex items-center gap-2">
-                                    <div className="relative">
-                                        <IconButton
-                                            icon={Paperclip}
-                                            onClick={() => setIsAttachmentMenuOpen(!isAttachmentMenuOpen)}
-                                            active={isAttachmentMenuOpen}
-                                        />
-                                        {isAttachmentMenuOpen && (
-                                            <>
-                                                <TransparentBackdrop onClick={() => setIsAttachmentMenuOpen(false)} />
-                                                <MenuContainer className="bottom-full left-0 mb-2 w-56">
-                                                    <MenuBody>
-                                                        <MenuButton
-                                                            icon={Monitor}
-                                                            label="Upload from local device"
-                                                            onClick={() => { fileInputRef.current?.click(); setIsAttachmentMenuOpen(false); }}
-                                                        />
-                                                        <MenuButton
-                                                            icon={HardDrive}
-                                                            label="Upload from system"
-                                                            onClick={() => { setIsPickerModalOpen(true); setIsAttachmentMenuOpen(false); }}
-                                                        />
-                                                    </MenuBody>
-                                                </MenuContainer>
-                                            </>
-                                        )}
-                                    </div>
-                                    <div className="flex-1">
-                                        <InputField
-                                            placeholder="Type your message..."
-                                            value={inputValue}
-                                            onChange={(e) => setInputValue(e.target.value)}
-                                            disabled={isSending}
-                                        />
+                                            )}
+                                            <input
+                                                type="text"
+                                                className="w-full bg-transparent p-3 text-sm text-main outline-none placeholder:text-muted"
+                                                placeholder="Type your message... (or drag files here)"
+                                                value={inputValue}
+                                                onChange={(e) => setInputValue(e.target.value)}
+                                                disabled={isSending}
+                                            />
+                                        </div>
                                         <input 
                                             type="file"
                                             className="hidden"
@@ -363,12 +402,13 @@ export default function DocumentRequestInspector({ request, onClose }) {
                                             onChange={handleLocalUpload}
                                             multiple
                                         />
+                                        <PrimaryButton
+                                            type="submit"
+                                            icon={Send}
+                                            disabled={(!inputValue.trim() && stagedAttachments.length === 0) || isSending}
+                                            className="shrink-0 mb-0.5"
+                                        />
                                     </div>
-                                    <PrimaryButton
-                                        type="submit"
-                                        icon={Send}
-                                        disabled={!inputValue.trim() || isSending}
-                                    />
                                 </form>
                             </div>
                         ) : (

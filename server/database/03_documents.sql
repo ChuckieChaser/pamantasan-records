@@ -155,7 +155,8 @@ ALTER TABLE document_request_attachments FORCE ROW LEVEL SECURITY;
 
 -- Versions
 CREATE POLICY document_versions_select_access ON document_versions FOR SELECT USING (is_system_role() OR is_administrator_role() OR is_coordinator_role() OR EXISTS (SELECT 1 FROM documents d WHERE d.id = document_versions.document_id));
-CREATE POLICY document_versions_insert_access ON document_versions FOR INSERT WITH CHECK (is_system_role() OR is_administrator_role() OR is_coordinator_role());
+CREATE POLICY document_versions_insert_access ON document_versions FOR INSERT WITH CHECK (is_system_role() OR is_administrator_role() OR is_coordinator_role() OR EXISTS (SELECT 1 FROM documents d WHERE d.id = document_versions.document_id AND d.uploader_id = get_user_current_id()));
+CREATE POLICY document_versions_delete_access ON document_versions FOR DELETE USING (is_system_role() OR is_administrator_role() OR is_coordinator_role() OR EXISTS (SELECT 1 FROM documents d WHERE d.id = document_versions.document_id AND d.uploader_id = get_user_current_id()));
 
 -- Requests
 CREATE POLICY document_requests_select_access ON document_requests FOR SELECT USING (is_system_role() OR is_administrator_role() OR is_coordinator_role() OR requester_id = get_user_current_id());

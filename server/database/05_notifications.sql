@@ -14,7 +14,7 @@ CREATE DOMAIN system_notifications_action AS VARCHAR
         'CREATED', 'UPDATED', 'DELETED',
         'PENDING_APPROVAL', 'APPROVED', 'UNAPPROVED', 'REJECTED', 'STASHED',
         'UPLOADED', 'SHARED', 'UNSHARED', 'PUBLISHED', 'UNPUBLISHED',
-        'ARCHIVED', 'UNARCHIVED', 'RESOLVED', 'COMMENTED', 'ATTACHED', 'SUSPENDED', 'UNSUSPENDED'
+        'ARCHIVED', 'UNARCHIVED', 'RESOLVED', 'COMMENTED', 'ATTACHED', 'SUSPENDED', 'UNSUSPENDED', 'REVERTED'
     ));
 
 -- ==============================================================================

@@ -115,7 +115,11 @@ export default function MainLayout() {
         };
         ws.onclose = () => console.log('[MainLayout] Disconnected from live event stream');
         
-        return () => ws.close();
+        return () => {
+            if (ws.readyState === 1) {
+                ws.close();
+            }
+        };
     }, [user]);
 
     // --- Handlers ---

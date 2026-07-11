@@ -19,7 +19,7 @@ CREATE DOMAIN system_audit_logs_action AS VARCHAR
         'PENDING_APPROVAL', 'APPROVED', 'UNAPPROVED', 'REJECTED', 'STASHED',
         'UPLOADED', 'SHARED', 'UNSHARED', 'PUBLISHED', 'UNPUBLISHED',
         'ARCHIVED', 'UNARCHIVED', 'RESOLVED', 'COMMENTED', 'ATTACHED',
-        'SUSPENDED', 'UNSUSPENDED'
+        'SUSPENDED', 'UNSUSPENDED', 'REVERTED'
     ));
 
 -- ==============================================================================

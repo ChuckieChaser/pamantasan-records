@@ -24,8 +24,8 @@ DOCUMENT:
 `,
     compare: `You are an expert document reviewer. Compare these two versions of a document.
 CRITICAL INSTRUCTIONS:
-- Provide ONLY a bulleted list of the key changes.
-- Do NOT include any conversational filler, introductions, or conclusions (e.g., never say "Here are the changes").
+- Provide ONLY a single, very concise sentence summarizing the key change.
+- Do NOT include any conversational filler, bullet points, introductions, or conclusions.
 
 [PREVIOUS VERSION]
 {PREV_TEXT}
@@ -957,16 +957,22 @@ router.post('/:id/revert', async (req, res) => {
 
             const targetVersion = targetRes.rows[0];
 
-            // Get newer versions to delete their physical files
+            // Get newer versions to move their physical files to .trash
             const newerVersions = await c.query(
                 'SELECT path FROM document_versions WHERE document_id = $1 AND version > $2',
                 [req.params.id, targetVersion.version]
             );
 
+            const trashDir = path.join(DOCUMENTS_PATH, '../.trash/versions');
+            if (!fs.existsSync(trashDir)) fs.mkdirSync(trashDir, { recursive: true });
+
             for (const row of newerVersions.rows) {
                 if (row.path) {
                     const fullPath = path.join(DOCUMENTS_PATH, row.path);
-                    if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
+                    if (fs.existsSync(fullPath)) {
+                        const trashPath = path.join(trashDir, `${Date.now()}_${path.basename(fullPath)}`);
+                        fs.renameSync(fullPath, trashPath);
+                    }
                 }
             }
 
@@ -974,6 +980,28 @@ router.post('/:id/revert', async (req, res) => {
                 'DELETE FROM document_versions WHERE document_id = $1 AND version > $2',
                 [req.params.id, targetVersion.version]
             );
+
+            // Audit and Notify the Revert Action
+            const userRole = getRLSContext(req).role;
+            await logAudit(c, {
+                actor_id: getRLSContext(req).userId,
+                entity_type: 'DOCUMENT_VERSION',
+                entity_id: req.params.id, // Log against the document ID
+                action: 'REVERTED',
+                data: { reverted_to_version: targetVersion.version }
+            });
+
+            if (uploader_id !== getRLSContext(req).userId) {
+                await createNotification(c, userRole, {
+                    recipient_id: uploader_id,
+                    actor_id: getRLSContext(req).userId,
+                    entity_type: 'DOCUMENT',
+                    entity_id: req.params.id,
+                    action: 'REVERTED'
+                });
+            }
+
+            logger.triggerRefresh('DOCUMENT_VERSION');
             res.status(200).json(targetVersion);
         });
     } catch (err) {
@@ -1065,12 +1093,18 @@ router.delete('/:id', async (req, res) => {
                     [docIds]
                 );
 
-                // Delete the physical files
+                const trashDir = path.join(DOCUMENTS_PATH, '../.trash/documents');
+                if (!fs.existsSync(trashDir)) fs.mkdirSync(trashDir, { recursive: true });
+
+                // Delete the physical files by moving them to .trash
                 for (const row of verResult.rows) {
                     if (row.path) {
                         const fullPath = path.join(DOCUMENTS_PATH, row.path);
                         if (fs.existsSync(fullPath)) {
-                            fs.unlinkSync(fullPath);
+                            // If it's a file inside a docId folder, we can move the whole docId folder or just the file.
+                            // To be safe and simple, we'll move the file to .trash/documents/{docId}_{timestamp}_{filename}
+                            const trashPath = path.join(trashDir, `${Date.now()}_${path.basename(fullPath)}`);
+                            fs.renameSync(fullPath, trashPath);
                         }
                     }
                 }

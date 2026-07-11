@@ -5,7 +5,6 @@ import { useAuthentication } from '../../stores';
 import { USERS_ROLE } from '../../constants';
 import { ImageButton, NavigationButton, UserMenu } from '../ui';
 
-import logo from '../../assets/logo.jpg';
 
 // ==============================================================================
 // SECTION 1: NAVIGATION CONFIG
@@ -49,7 +48,7 @@ const Sidebar = ({ user }) => {
         <aside className="flex h-full shrink-0 flex-col items-center justify-between border-r border-border bg-surface p-4">
             {/* --- Logo --- */}
             <div className="flex flex-col items-center">
-                <ImageButton src={logo} alt="University Logo" size="large" />
+                <ImageButton src="/assets/logo.jpg" alt="University Logo" size="large" />
             </div>
 
             {/* --- Navigation --- */}

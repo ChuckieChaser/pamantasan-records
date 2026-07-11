@@ -963,7 +963,7 @@ router.post('/:id/revert', async (req, res) => {
                 [req.params.id, targetVersion.version]
             );
 
-            const trashDir = path.join(DOCUMENTS_PATH, '../.trash/versions');
+            const trashDir = path.join(DOCUMENTS_PATH, '../.bin/versions');
             if (!fs.existsSync(trashDir)) fs.mkdirSync(trashDir, { recursive: true });
 
             for (const row of newerVersions.rows) {
@@ -1093,16 +1093,16 @@ router.delete('/:id', async (req, res) => {
                     [docIds]
                 );
 
-                const trashDir = path.join(DOCUMENTS_PATH, '../.trash/documents');
+                const trashDir = path.join(DOCUMENTS_PATH, '../.bin/documents');
                 if (!fs.existsSync(trashDir)) fs.mkdirSync(trashDir, { recursive: true });
 
-                // Delete the physical files by moving them to .trash
+                // Delete the physical files by moving them to .bin
                 for (const row of verResult.rows) {
                     if (row.path) {
                         const fullPath = path.join(DOCUMENTS_PATH, row.path);
                         if (fs.existsSync(fullPath)) {
                             // If it's a file inside a docId folder, we can move the whole docId folder or just the file.
-                            // To be safe and simple, we'll move the file to .trash/documents/{docId}_{timestamp}_{filename}
+                            // To be safe and simple, we'll move the file to .bin/documents/{docId}_{timestamp}_{filename}
                             const trashPath = path.join(trashDir, `${Date.now()}_${path.basename(fullPath)}`);
                             fs.renameSync(fullPath, trashPath);
                         }

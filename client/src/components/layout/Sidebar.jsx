@@ -48,7 +48,7 @@ const Sidebar = ({ user }) => {
         <aside className="flex h-full shrink-0 flex-col items-center justify-between border-r border-border bg-surface p-4">
             {/* --- Logo --- */}
             <div className="flex flex-col items-center">
-                <ImageButton src="/assets/logo.jpg" alt="University Logo" size="large" />
+                <ImageButton src="/logo.png" alt="University Logo" size="large" onClick={() => navigate('/dashboard')} />
             </div>
 
             {/* --- Navigation --- */}
